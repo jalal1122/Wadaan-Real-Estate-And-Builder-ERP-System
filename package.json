@@ -1,0 +1,19 @@
+{
+  "name": "source-code",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:backend": "cd backend && nodemon src/server.ts",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:ui": "cd frontend && npm run build",
+    "build:api": "cd backend && npx tsc",
+    "build:windows": "npm run build:ui && npm run build:api && cd electron && npm run dist"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
