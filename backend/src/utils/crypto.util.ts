@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
 export class CryptoUtility {
+  static async hashPin(pin: string): Promise<string> {
+    return bcrypt.hash(pin, 12);
+  }
+
   static async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, 12);
   }
@@ -21,7 +25,7 @@ export class CryptoUtility {
 
   static generateJWT(userId: string): string {
     return jwt.sign({ userId }, process.env.JWT_SECRET || 'fallback_secret_do_not_use_in_prod', {
-      expiresIn: '12h'
+      expiresIn: '15m'
     });
   }
 }
