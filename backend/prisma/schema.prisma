@@ -43,7 +43,7 @@ model User {
   id                   String    @id @default(uuid())
   email                String    @unique
   fullName             String
-  passwordHash         String
+  pinHash              String
   masterRecoveryKey    String?
   failedAttempts       Int       @default(0)
   lockoutTier          Int       @default(0)
