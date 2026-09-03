@@ -65,4 +65,4 @@ Session Management: Upon successful login, Express generates a JSON Web Token (J
 Route Protection: Every request to localhost:4000/api/* passes through an Express middleware that verifies the JWT signature. If the token is missing or expired (after 15 minutes), the API returns a 401 Unauthorized, and the Next.js frontend redirects back to Screen 0.
 
 
-Database Access: The frontend never possesses database credentials. The cloud PostgreSQL URL is securely injected only into the compiled Express backend via environment variables hidden inside the Electron package.
+Database Access & Connection Pooling: The frontend never possesses database credentials. The cloud PostgreSQL URL is securely injected only into the compiled Express backend via environment variables hidden inside the Electron package. All query executions are strictly channeled through the centralized Prisma Client singleton at backend/src/config/db.ts to guarantee connection pool discipline and consistent TypeScript type inference across services.

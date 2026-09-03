@@ -210,3 +210,18 @@ Key Relational Guardrails (How Postgres Protects You):
 onDelete: Restrict: Notice how Vendors, Customers, and Accounts have this flag? This means if a Vendor has even one ExpenseBill attached to them, PostgreSQL will physically block you from deleting that Vendor. This prevents orphan data and guarantees your financial reports can never break.
 onDelete: Cascade: If you delete an ExpenseBill (which requires administrative reversal), Postgres automatically deletes the BillLineItems inside it so you don't have floating ghost items taking up space.
 @db.Decimal(15, 2): Standard web apps use Floats for numbers, which causes rounding errors (e.g., 10.000000001). Using Postgres Decimal ensures accounting precision down to the exact paisa up to 15 digits (Trillions of rupees).
+
+6. Developer Guide: Schema Migration & TypeScript Cache Refresh Workflow
+Whenever modifying or extending models in backend/prisma/schema.prisma:
+1. Push to Cloud Database:
+   npx prisma db push (synchronizes tables, columns, and constraints directly with Supabase PostgreSQL).
+2. Generate TypeScript Client:
+   npx prisma generate (compiles and outputs the TypeScript definitions into backend/node_modules/@prisma/client).
+3. Refresh IDE Language Server Cache:
+   Because IDE language servers (VS Code / Antigravity TSServer) load generated node_modules types into an in-memory Abstract Syntax Tree (AST), modifying schema columns (e.g. from passwordHash to pinHash) can cause lingering squiggly red lines in open editors until the in-memory cache is flushed.
+   To flush immediately:
+   - Press Ctrl + Shift + P
+   - Select TypeScript: Restart TS Server
+   - The editor will reload fresh .d.ts types from disk immediately.
+4. Centralized Client Singleton:
+   Always import the Prisma database client and types from backend/src/config/db.ts (import { prisma, User } from '../config/db'). Never instantiate new PrismaClient() directly in controllers or services to avoid exhausting connection pools.
