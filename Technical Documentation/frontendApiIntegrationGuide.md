@@ -90,7 +90,8 @@ Every endpoint in Wadaan ERP follows an immutable JSON envelope:
 | `UNAUTHORIZED` | `401` | Redirect user immediately to `/login` (Screen 0). |
 | `TOKEN_EXPIRED` | `401` | Clear client user state and show toast: "Session expired. Please log in again." |
 | `ACCOUNT_LOCKED` | `429` | Disable the Login button and render countdown timer from `message`. |
-| `INVALID_CREDENTIALS` | `401` | Highlight password input in red and display error message. |
+| `INVALID_PIN` | `401` | Highlight 4-digit PIN input in red and display error message. |
+| `INVALID_PIN_FORMAT` | `400` | Alert user that PIN must be exactly 4 digits. |
 | `NETWORK_OFFLINE` | `503` | Lock destructive mutation buttons and show yellow "Offline Mode" top bar. |
 | `DUPLICATE_RECORD` | `409` | Notify user that document (e.g., Invoice Number or Account Code) already exists. |
 | `VALIDATION_ERROR` | `400` | Display field-specific validation warnings. |
@@ -134,8 +135,7 @@ export const queryClient = new QueryClient({
 import { apiClient } from '@/lib/api';
 
 export interface LoginCredentials {
-  email: string;
-  password: string;
+  pin: string; // Exactly 4 numeric digits (e.g. "1234")
 }
 
 export const loginUser = async (credentials: LoginCredentials) => {
@@ -147,8 +147,8 @@ export const loginUser = async (credentials: LoginCredentials) => {
 **UI Usage Pattern:**
 ```typescript
 try {
-  await loginUser({ email, password });
-  router.push('/dashboard'); // Cookie set automatically by browser/Electron
+  await loginUser({ pin });
+  router.push('/dashboard'); // 15-minute HttpOnly cookie set automatically by browser/Electron
 } catch (err: any) {
   if (err.code === 'ACCOUNT_LOCKED') {
     // Message contains countdown: "Account locked. Try again in 30 seconds."
@@ -180,7 +180,7 @@ export const checkCurrentUser = async () => {
 };
 ```
 
-### 4.4 Password Recovery & Master Key Bypass
+### 4.4 Password / PIN Recovery & Master Key Bypass
 
 ```typescript
 // Step 1: Request reset link (Always succeeds with 200 to prevent email enumeration)
@@ -188,11 +188,11 @@ export const requestPasswordReset = async (email: string) => {
   return apiClient.post('/auth/forgot-password', { email });
 };
 
-// Step 2: Submit new password (Accepts Email OTP Token OR Master Recovery Key)
-export const submitPasswordReset = async (payload: {
+// Step 2: Submit new 4-digit PIN (Accepts Email OTP Token OR Master Recovery Key)
+export const submitPinReset = async (payload: {
   email: string;
   resetToken: string; // Either email OTP or offline Master Recovery Key
-  newPassword: string;
+  newPin: string;     // Exactly 4 numeric digits
 }) => {
   return apiClient.post('/auth/reset-password', payload);
 };
@@ -230,11 +230,11 @@ useEffect(() => {
 
 | Method | Full Route Path | Access Level | Description |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/setup` | Public (One-Time) | Seed initial Master Admin & receive Recovery Key. |
-| `POST` | `/api/v1/auth/login` | Public (Rate-Limited) | Authenticate user & receive HttpOnly JWT cookie. |
+| `POST` | `/api/v1/auth/setup` | Public (One-Time) | Seed initial Master Admin with 4-digit PIN & receive Recovery Key. |
+| `POST` | `/api/v1/auth/login` | Public (Rate-Limited) | Authenticate via 4-digit PIN & receive 15-minute HttpOnly JWT cookie. |
 | `POST` | `/api/v1/auth/logout` | Protected (`authGuard`) | Clear session cookie & terminate session. |
 | `GET` | `/api/v1/auth/me` | Protected (`authGuard`) | Validate active JWT session on app boot. |
-| `POST` | `/api/v1/auth/forgot-password` | Public | Dispatch password reset email (always 200). |
-| `POST` | `/api/v1/auth/reset-password` | Public | Reset password via email token or Master Recovery Key. |
+| `POST` | `/api/v1/auth/forgot-password` | Public | Dispatch PIN reset email (always 200). |
+| `POST` | `/api/v1/auth/reset-password` | Public | Reset 4-digit PIN via email token or Master Recovery Key. |
 | `GET` | `/api/v1/system/status` | Public | Check if system is initialized (StarterModal gate). |
 | `POST` | `/api/v1/system/initialize` | Public (Locked after 1) | Execute atomic opening balance go-live wizard. |

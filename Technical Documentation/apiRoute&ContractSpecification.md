@@ -10,7 +10,7 @@ Purpose: Initializes the system and creates the single Admin Account.
 Access: Open (Permanently locks after 1 successful creation).
 
 
-Payload: { email, password, fullName }
+Payload: { email, pin, fullName }
 
 
 POST /api/v1/auth/login
@@ -23,7 +23,7 @@ Purpose: Authenticates the user and initiates the secure HttpOnly cookie session
 Access: Open (Guarded by progressive backoff).
 
 
-Payload: { email, password }
+Payload: { pin }
 
 
 POST /api/v1/auth/logout
@@ -69,7 +69,7 @@ Purpose: Verifies the OTP/Token or Master Recovery Key to set a new password.
 Access: Open.
 
 
-Payload: { email, resetToken, newPassword } (resetToken can be the Email OTP or the offline Master Recovery Key).
+Payload: { email, resetToken, newPin } (resetToken can be the Email OTP or the offline Master Recovery Key).
 
 
 2. Controllers (auth.controller.ts)
@@ -87,10 +87,11 @@ login(req, res)
 
 
 
-Extracts credentials. Calls AuthService.verifyCredentials().
+Extracts 4-digit PIN. Calls AuthService.verifyCredentials(pin).
 
 
-If successful, sets the Express response cookie: res.cookie('token', jwt, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 12 * 60 * 60 * 1000 }).
+
+If successful, sets the Express response cookie: res.cookie('token', jwt, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 15 * 60 * 1000 }).
 
 
 logout(req, res)
@@ -117,24 +118,28 @@ resetPassword(req, res)
 
 
 
-Calls AuthService.validateResetToken().
+Calls AuthService.validateResetTokenAndSetPin().
 
 
-Hashes the newPassword, updates DB, resets failedAttempts and lockoutTier to 0.
+
+Hashes the new 4-digit PIN, updates DB (pinHash), resets failedAttempts and lockoutTier to 0.
 
 
 3. Services & Core Logic (auth.service.ts)
-verifyCredentials(email, rawPassword): The Progressive Lockout Engine
+verifyCredentials(rawPin): The Progressive Lockout Engine
 
 
 
-Fetches user. If not found, throws 401.
+Fetches master admin. If not found, throws 404.
+
+
+Validates that rawPin is exactly 4 digits.
 
 
 Checks lockoutExpiresAt. If current time is before expiration, immediately throws ERR_ACCOUNT_LOCKED along with the remaining seconds.
 
 
-Calls CryptoUtility.compare(rawPassword, hash).
+Calls CryptoUtility.compare(rawPin, user.pinHash).
 
 
 If True: Resets failedAttempts = 0, lockoutTier = 0, lockoutExpiresAt = null. Returns user.

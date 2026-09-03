@@ -56,13 +56,13 @@ Cache Invalidation (The Sync Trigger): When a transaction is successfully posted
 4. Security & Authentication Boundary
 Even though the application runs locally, it maintains strict security perimeters to protect the cloud database.
 
-Authentication (Screen 0): The Express backend validates the user credentials using bcrypt.
+Authentication (Screen 0): The Express backend validates the user's 4-digit PIN using bcrypt.
 
 
 Session Management: Upon successful login, Express generates a JSON Web Token (JWT) and sets it as an HttpOnly cookie on localhost.
 
 
-Route Protection: Every request to localhost:4000/api/* passes through an Express middleware that verifies the JWT signature. If the token is missing or expired (after 12 hours), the API returns a 401 Unauthorized, and the Next.js frontend redirects back to Screen 0.
+Route Protection: Every request to localhost:4000/api/* passes through an Express middleware that verifies the JWT signature. If the token is missing or expired (after 15 minutes), the API returns a 401 Unauthorized, and the Next.js frontend redirects back to Screen 0.
 
 
 Database Access: The frontend never possesses database credentials. The cloud PostgreSQL URL is securely injected only into the compiled Express backend via environment variables hidden inside the Electron package.

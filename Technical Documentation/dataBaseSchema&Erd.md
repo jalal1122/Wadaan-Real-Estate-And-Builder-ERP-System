@@ -41,7 +41,7 @@ model User {
   id                   String    @id @default(uuid())
   email                String    @unique
   fullName             String
-  passwordHash         String
+  pinHash              String    // Bcrypt hash of 4-digit numeric PIN
   masterRecoveryKey    String?   // SHA-256 hash of the 16-char hex recovery key
   failedAttempts       Int       @default(0)
   lockoutTier          Int       @default(0)   // Escalates: 30s, 60s, 120s, 240s...
