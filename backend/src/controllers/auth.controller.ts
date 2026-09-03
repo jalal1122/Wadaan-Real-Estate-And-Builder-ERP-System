@@ -5,19 +5,19 @@ import { MailUtility } from '../utils/mail.util';
 import { AppError } from '../middleware/errorHandler';
 
 /**
- * One-time setup endpoint for creating the initial Master Administrator.
+ * One-time setup endpoint for creating the initial Master Administrator with a 4-digit PIN.
  */
 export const setupAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password, fullName } = req.body;
+    const { email, pin, fullName } = req.body;
 
-    if (!email || !password || !fullName) {
-      throw new AppError('Email, password, and fullName are required.', 400, 'VALIDATION_ERROR');
+    if (!email || !pin || !fullName) {
+      throw new AppError('Email, 4-digit PIN, and fullName are required.', 400, 'VALIDATION_ERROR');
     }
 
     const { user, masterRecoveryKey } = await AuthService.registerAdmin({
       email,
-      password,
+      pin,
       fullName
     });
 
@@ -37,24 +37,24 @@ export const setupAdmin = async (req: Request, res: Response, next: NextFunction
 };
 
 /**
- * Login endpoint with 12-hour HttpOnly cookie session.
+ * PIN-Only Login endpoint with 15-minute HttpOnly cookie session.
  */
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body;
+    const { pin } = req.body;
 
-    if (!email || !password) {
-      throw new AppError('Email and password are required.', 400, 'VALIDATION_ERROR');
+    if (!pin) {
+      throw new AppError('4-digit PIN is required.', 400, 'VALIDATION_ERROR');
     }
 
-    const user = await AuthService.verifyCredentials(email, password);
+    const user = await AuthService.verifyCredentials(pin);
     const token = CryptoUtility.generateJWT(user.id);
 
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 12 * 60 * 60 * 1000 // 12 hours
+      maxAge: 15 * 60 * 1000 // 15 minutes
     });
 
     res.status(200).json({
@@ -94,7 +94,7 @@ export const getMe = (req: Request, res: Response) => {
 };
 
 /**
- * Triggers password reset email (protected against email enumeration attacks).
+ * Triggers PIN reset email (protected against email enumeration attacks).
  */
 export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -113,7 +113,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
     // Always return 200 to prevent email enumeration
     res.status(200).json({
       success: true,
-      message: 'If this email address is registered, a password reset link has been dispatched.'
+      message: 'If this email address is registered, a PIN reset link has been dispatched.'
     });
   } catch (error) {
     next(error);
@@ -121,25 +121,26 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
 };
 
 /**
- * Resets password using either Email OTP token or Master Recovery Key.
+ * Resets 4-digit PIN using either Email OTP token or Master Recovery Key.
  */
 export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, resetToken, newPassword } = req.body;
+    const { email, resetToken, newPin, newPassword } = req.body;
+    const targetPin = newPin || newPassword;
 
-    if (!email || !resetToken || !newPassword) {
+    if (!email || !resetToken || !targetPin) {
       throw new AppError(
-        'Email, resetToken (or recovery key), and newPassword are required.',
+        'Email, resetToken (or recovery key), and new 4-digit PIN are required.',
         400,
         'VALIDATION_ERROR'
       );
     }
 
-    await AuthService.validateResetTokenAndSetPassword(email, resetToken, newPassword);
+    await AuthService.validateResetTokenAndSetPin(email, resetToken, targetPin);
 
     res.status(200).json({
       success: true,
-      message: 'Password reset successfully. You may now log in with your new credentials.'
+      message: 'PIN reset successfully. You may now log in with your new 4-digit PIN.'
     });
   } catch (error) {
     next(error);
