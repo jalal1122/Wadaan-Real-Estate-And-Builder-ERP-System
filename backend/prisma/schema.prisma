@@ -40,12 +40,17 @@ enum DealType {
 }
 
 model User {
-  id             String    @id @default(uuid())
-  email          String    @unique
-  passwordHash   String
-  failedAttempts Int       @default(0)
-  isLocked       Boolean   @default(false)
-  lastLogin      DateTime?
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  fullName             String
+  passwordHash         String
+  masterRecoveryKey    String?
+  failedAttempts       Int       @default(0)
+  lockoutTier          Int       @default(0)
+  lockoutExpiresAt     DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  lastLogin            DateTime?
 }
 
 model Account {
@@ -189,4 +194,10 @@ model Receipt {
   receiptDate     DateTime        @default(now())
 
   customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+}
+
+model SystemSetting {
+  id            Int       @id @default(1)
+  isInitialized Boolean   @default(false)
+  goLiveDate    DateTime?
 }
