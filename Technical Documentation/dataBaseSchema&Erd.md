@@ -1,4 +1,6 @@
-Since we are using PostgreSQL with a Node.js/Express backend, the best way to define this is using the Prisma Schema Language. It maps perfectly to SQL tables, enforces strict relationships (Foreign Keys), and acts as the literal blueprint for your database generation.
+Since we are using PostgreSQL (hosted on Supabase) with a Node.js/Express backend, the best way to define this is using the Prisma Schema Language. It maps perfectly to SQL tables, enforces strict relationships (Foreign Keys), and acts as the literal blueprint for your database generation.
+Prisma uses a dual-connection setup: a pooled URL (`DATABASE_URL` on port 6543 via Supavisor) for application queries, and a direct URL (`DIRECT_URL` on port 5432) for DDL migrations and schema synchronization.
+
 Here is the exact schema, broken down by module, using UUID for secure IDs and Decimal for all financial math to prevent rounding errors.
 1. Global Enums (The Strict Vocabulary)
 These restrict what can be saved in the database, preventing spelling errors from breaking your accounting.
@@ -36,12 +38,17 @@ enum DealType {
 2. Security & Core Accounting (Screens 0, 1, 2)
 This forms the vault. The Account table holds the buckets, and the Journal tables record the atomic double-entry math.
 model User {
-  id             String    @id @default(uuid())
-  email          String    @unique
-  passwordHash   String
-  failedAttempts Int       @default(0)
-  isLocked       Boolean   @default(false)
-  lastLogin      DateTime?
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  fullName             String
+  passwordHash         String
+  masterRecoveryKey    String?   // SHA-256 hash of the 16-char hex recovery key
+  failedAttempts       Int       @default(0)
+  lockoutTier          Int       @default(0)   // Escalates: 30s, 60s, 120s, 240s...
+  lockoutExpiresAt     DateTime? // Replaces isLocked boolean for timestamp-based lockout
+  resetPasswordToken   String?   // SHA-256 hash of temporary 1-hour reset token
+  resetPasswordExpires DateTime?
+  lastLogin            DateTime?
 }
 
 model Account {
@@ -189,6 +196,14 @@ model Receipt {
   receiptDate     DateTime        @default(now())
 
   customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+}
+
+5. System Metadata (Module 0.5: Go-Live Initializer)
+This singleton table gates the one-time onboarding wizard and ensures opening balances cannot be overwritten.
+model SystemSetting {
+  id            Int       @id @default(1) // Fixed primary key: guarantees singleton record
+  isInitialized Boolean   @default(false)
+  goLiveDate    DateTime?
 }
 
 Key Relational Guardrails (How Postgres Protects You):

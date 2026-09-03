@@ -30,16 +30,18 @@ Total Deal Value
 Total Already Received (in past)
 Remaining Balance to Collect
 What the system does behind the scenes: Creates the Customer and Deal, logs past receipts as CLEARED, and leaves the remaining milestones active for recovery.
-Technical Implementation: The SystemSetting Flag
-To make this seamless in PostgreSQL and Prisma, add a simple metadata table to track initialization:
+Technical Implementation: The SystemSetting Singleton Flag
+To make this seamless in PostgreSQL and Prisma, a singleton metadata table tracks initialization status:
 model SystemSetting {
-  id              String   @id @default(uuid())
-  isInitialized   Boolean  @default(false)
-  goLiveDate      DateTime @default(now())
+  id            Int       @id @default(1) // Fixed primary key: guarantees singleton record
+  isInitialized Boolean   @default(false)
+  goLiveDate    DateTime?
 }
 
-Frontend Check: When the Next.js app mounts inside Electron, it checks GET /api/system/status.
+The Singleton Invariant: Because id defaults to 1, any duplicate initialization attempt is rejected at the database level by PostgreSQL unique constraints, guaranteeing that the ERP cannot be initialized twice.
+
+Frontend Check: When the Next.js app mounts inside Electron, it calls GET /api/v1/system/status.
 If isInitialized === false: It blocks dashboard routes and renders the StarterModal.
-On Submit: The modal sends the entire onboarding payload to a single endpoint (POST /api/system/initialize).
-The Atomicity Guarantee: The Express backend runs the entire setup inside a single Prisma Interactive Transaction (prisma.$transaction). If any number is mistyped, it rolls back cleanly. If successful, it sets isInitialized = true, and unlocks the full ERP.
+On Submit: The modal sends the entire onboarding payload to a single endpoint (POST /api/v1/system/initialize).
+The Atomicity Guarantee: The Express backend runs the entire setup inside a single Prisma Interactive Transaction (prisma.$transaction). If any number is mistyped or double-entry balancing fails, it rolls back cleanly. If successful, it sets isInitialized = true, records goLiveDate = NOW(), and unlocks the full ERP.
 
