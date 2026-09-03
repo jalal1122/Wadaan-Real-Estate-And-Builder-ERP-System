@@ -11,7 +11,7 @@ export class AuthService {
    */
   static async verifyCredentials(email: string, passwordRaw: string) {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+    if (!user) throw new AppError('Invalid Email', 401, 'INVALID_EMAIL');
 
     // Check Lockout
     if (user.lockoutExpiresAt && user.lockoutExpiresAt > new Date()) {
@@ -109,7 +109,7 @@ export class AuthService {
   static async validateResetTokenAndSetPassword(email: string, resetTokenOrKey: string, newPasswordRaw: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new AppError('Invalid reset request', 400, 'INVALID_RESET_TOKEN');
+      throw new AppError('No account found with this email.', 400, 'ACCOUNT_NOT_FOUND');
     }
 
     const incomingHash = crypto.createHash('sha256').update(resetTokenOrKey.trim()).digest('hex');
@@ -123,7 +123,7 @@ export class AuthService {
       user.resetPasswordToken.toLowerCase() === incomingHash.toLowerCase();
 
     if (!matchesRecoveryKey && !matchesResetToken) {
-      throw new AppError('Invalid reset token or recovery key', 400, 'INVALID_RESET_TOKEN');
+      throw new AppError('Invalid reset token or recovery key', 400, 'INVALID_RESET_TOKEN_OR_RECOVERY_KEY');
     }
 
     // If matching reset token (not recovery key), check expiry
