@@ -1,15 +1,13 @@
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import { prisma, User } from '../config/db';
 import { CryptoUtility } from '../utils/crypto.util';
 import { AppError } from '../middleware/errorHandler';
-
-const prisma = new PrismaClient();
 
 export class AuthService {
   /**
    * Verifies the 4-digit PIN against the Master Administrator with progressive lockout.
    */
-  static async verifyCredentials(pinRaw: string) {
+  static async verifyCredentials(pinRaw: string): Promise<User> {
     if (!/^\d{4}$/.test(pinRaw)) {
       throw new AppError('PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
     }
@@ -51,19 +49,23 @@ export class AuthService {
     }
 
     // Success - Reset Lockout Counters and record login
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { failedAttempts: 0, lockoutTier: 0, lockoutExpiresAt: null, lastLogin: new Date() }
     });
 
-    return user;
+    return updatedUser;
   }
 
   /**
    * Registers the single master administrator account with a 4-digit PIN.
    * Generates and returns a Master Recovery Key.
    */
-  static async registerAdmin(data: { email: string; pin: string; fullName: string }) {
+  static async registerAdmin(data: {
+    email: string;
+    pin: string;
+    fullName: string;
+  }): Promise<{ user: User; masterRecoveryKey: string }> {
     if (!/^\d{4}$/.test(data.pin)) {
       throw new AppError('PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
     }
@@ -117,7 +119,11 @@ export class AuthService {
   /**
    * Validates a reset token OR Master Recovery Key and sets a new 4-digit PIN.
    */
-  static async validateResetTokenAndSetPin(email: string, resetTokenOrKey: string, newPinRaw: string) {
+  static async validateResetTokenAndSetPin(
+    email: string,
+    resetTokenOrKey: string,
+    newPinRaw: string
+  ): Promise<boolean> {
     if (!/^\d{4}$/.test(newPinRaw)) {
       throw new AppError('New PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
     }
@@ -168,7 +174,11 @@ export class AuthService {
   /**
    * Backward-compatible alias for validateResetTokenAndSetPin
    */
-  static async validateResetTokenAndSetPassword(email: string, resetTokenOrKey: string, newPinRaw: string) {
+  static async validateResetTokenAndSetPassword(
+    email: string,
+    resetTokenOrKey: string,
+    newPinRaw: string
+  ): Promise<boolean> {
     return this.validateResetTokenAndSetPin(email, resetTokenOrKey, newPinRaw);
   }
 }
