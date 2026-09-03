@@ -7,11 +7,18 @@ const prisma = new PrismaClient();
 
 export class AuthService {
   /**
-   * Verifies user credentials with the progressive lockout engine.
+   * Verifies the 4-digit PIN against the Master Administrator with progressive lockout.
    */
-  static async verifyCredentials(email: string, passwordRaw: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new AppError('Invalid Email', 401, 'INVALID_EMAIL');
+  static async verifyCredentials(pinRaw: string) {
+    if (!/^\d{4}$/.test(pinRaw)) {
+      throw new AppError('PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
+    }
+
+    // Single master administrator tenant lookup
+    const user = await prisma.user.findFirst();
+    if (!user) {
+      throw new AppError('System is not initialized. Please run setup first.', 404, 'ADMIN_NOT_FOUND');
+    }
 
     // Check Lockout
     if (user.lockoutExpiresAt && user.lockoutExpiresAt > new Date()) {
@@ -19,10 +26,10 @@ export class AuthService {
       throw new AppError(`Account locked. Try again in ${remainingSeconds} seconds.`, 429, 'ACCOUNT_LOCKED');
     }
 
-    const isValid = await CryptoUtility.compare(passwordRaw, user.passwordHash);
+    const isValid = await CryptoUtility.compare(pinRaw, user.pinHash);
 
     if (!isValid) {
-      // Brute Force Math
+      // Progressive Lockout Math (crucial for 4-digit PIN security: 10,000 combinations)
       let newAttempts = user.failedAttempts + 1;
       let newTier = user.lockoutTier;
       let newLockoutDate: Date | null = null;
@@ -40,7 +47,7 @@ export class AuthService {
         data: { failedAttempts: newAttempts, lockoutTier: newTier, lockoutExpiresAt: newLockoutDate }
       });
 
-      throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+      throw new AppError('Invalid PIN.', 401, 'INVALID_PIN');
     }
 
     // Success - Reset Lockout Counters and record login
@@ -53,16 +60,20 @@ export class AuthService {
   }
 
   /**
-   * Registers the single master administrator account if none exists.
+   * Registers the single master administrator account with a 4-digit PIN.
    * Generates and returns a Master Recovery Key.
    */
-  static async registerAdmin(data: { email: string; password: string; fullName: string }) {
+  static async registerAdmin(data: { email: string; pin: string; fullName: string }) {
+    if (!/^\d{4}$/.test(data.pin)) {
+      throw new AppError('PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
+    }
+
     const existingCount = await prisma.user.count();
     if (existingCount > 0) {
       throw new AppError('An administrator account already exists. System is locked.', 403, 'ADMIN_ALREADY_EXISTS');
     }
 
-    const passwordHash = await CryptoUtility.hashPassword(data.password);
+    const pinHash = await CryptoUtility.hashPin(data.pin);
     const rawRecoveryKey = CryptoUtility.generateRecoveryKey();
     const hashedRecoveryKey = CryptoUtility.hashRecoveryKey(rawRecoveryKey);
 
@@ -70,7 +81,7 @@ export class AuthService {
       data: {
         email: data.email,
         fullName: data.fullName,
-        passwordHash,
+        pinHash,
         masterRecoveryKey: hashedRecoveryKey,
         failedAttempts: 0,
         lockoutTier: 0
@@ -104,9 +115,13 @@ export class AuthService {
   }
 
   /**
-   * Validates a password reset token OR Master Recovery Key and updates the password.
+   * Validates a reset token OR Master Recovery Key and sets a new 4-digit PIN.
    */
-  static async validateResetTokenAndSetPassword(email: string, resetTokenOrKey: string, newPasswordRaw: string) {
+  static async validateResetTokenAndSetPin(email: string, resetTokenOrKey: string, newPinRaw: string) {
+    if (!/^\d{4}$/.test(newPinRaw)) {
+      throw new AppError('New PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new AppError('No account found with this email.', 400, 'ACCOUNT_NOT_FOUND');
@@ -123,7 +138,7 @@ export class AuthService {
       user.resetPasswordToken.toLowerCase() === incomingHash.toLowerCase();
 
     if (!matchesRecoveryKey && !matchesResetToken) {
-      throw new AppError('Invalid reset token or recovery key', 400, 'INVALID_RESET_TOKEN_OR_RECOVERY_KEY');
+      throw new AppError('Invalid reset token or recovery key.', 400, 'INVALID_RESET_TOKEN_OR_RECOVERY_KEY');
     }
 
     // If matching reset token (not recovery key), check expiry
@@ -133,12 +148,12 @@ export class AuthService {
       }
     }
 
-    const newPasswordHash = await CryptoUtility.hashPassword(newPasswordRaw);
+    const newPinHash = await CryptoUtility.hashPin(newPinRaw);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordHash: newPasswordHash,
+        pinHash: newPinHash,
         resetPasswordToken: null,
         resetPasswordExpires: null,
         failedAttempts: 0,
@@ -148,5 +163,12 @@ export class AuthService {
     });
 
     return true;
+  }
+
+  /**
+   * Backward-compatible alias for validateResetTokenAndSetPin
+   */
+  static async validateResetTokenAndSetPassword(email: string, resetTokenOrKey: string, newPinRaw: string) {
+    return this.validateResetTokenAndSetPin(email, resetTokenOrKey, newPinRaw);
   }
 }
