@@ -95,6 +95,8 @@ Every endpoint in Wadaan ERP follows an immutable JSON envelope:
 | `NETWORK_OFFLINE` | `503` | Lock destructive mutation buttons and show yellow "Offline Mode" top bar. |
 | `DUPLICATE_RECORD` | `409` | Notify user that document (e.g., Invoice Number or Account Code) already exists. |
 | `VALIDATION_ERROR` | `400` | Display field-specific validation warnings. |
+| `ALREADY_INITIALIZED` | `409` | System already live; dismiss StarterModal and proceed to login. |
+| `UNBALANCED_JOURNAL` | `400` | Double-entry error; alert user to review opening balances. |
 
 ---
 
@@ -202,13 +204,22 @@ export const submitPinReset = async (payload: {
 
 ## 5. Module 0.5: System Initializer (Go-Live Wizard Integration)
 
-When Next.js mounts inside Electron, it must immediately check if the ERP has been initialized:
+The Starter Modal (Module 0.5) is the one-time wizard that translates real-world cut-off data (Cash & Banks, Active Projects, Unpaid Vendor Bills, and Customer Deals) into the ERP's master opening double-entry journal.
+
+### 5.1 System Status Gate (`App Boot / Root Layout`)
+
+When Next.js mounts inside Electron, it must immediately call `GET /api/v1/system/status` to determine whether the app is ready for login/dashboard or locked for initialization:
 
 ```typescript
 // Route: GET /api/v1/system/status
-export const checkSystemStatus = async () => {
+export interface SystemStatus {
+  isInitialized: boolean;
+  goLiveDate: string | null;
+}
+
+export const checkSystemStatus = async (): Promise<SystemStatus> => {
   const response = await apiClient.get('/system/status');
-  return response.data.data; // { isInitialized: boolean, goLiveDate: string | null }
+  return response.data.data;
 };
 ```
 
@@ -217,12 +228,132 @@ export const checkSystemStatus = async () => {
 useEffect(() => {
   checkSystemStatus().then((status) => {
     if (!status.isInitialized) {
-      // Force render StarterModal on top of everything
+      // Force render StarterModal on top of all application views
       setShowStarterModal(true);
     }
   });
 }, []);
 ```
+
+---
+
+### 5.2 Go-Live Data Contracts & Payload
+
+```typescript
+export interface AdminSetupInput {
+  email: string;
+  pin: string; // Exactly 4 numeric digits
+  fullName: string;
+}
+
+export interface CashAndBankInput {
+  name: string;   // e.g., "Office Safe", "Meezan Bank"
+  code: string;   // e.g., "1010", "1020" (unique)
+  balance: number; // Non-negative
+}
+
+export interface ActiveProjectInput {
+  name: string;        // e.g., "Wadaan Heights"
+  prefix: string;      // e.g., "WH" (uppercase, unique)
+  masterBOQ?: number;  // Planned budget / BOQ
+  boq?: number;        // Alias for masterBOQ
+  spentToDate: number; // Cumulative expenses cut-off (hits WIP account 1200)
+}
+
+export interface UnpaidPayableInput {
+  vendorName: string; // e.g., "Ali Hardware"
+  phone?: string;
+  amountDue: number;  // Unpaid bill balance (hits AP account 2000)
+  projectId?: string; // Optional link to active project
+}
+
+export interface ActiveDealInput {
+  customerName: string; // Customer full name
+  phone: string;
+  projectName?: string; // Links deal to active project
+  dealType?: 'WADAAN_SALE' | 'CONSTRUCTION' | 'BROKERAGE';
+  totalDealValue: number;
+  amountReceivedPast: number; // Must be <= totalDealValue (records cleared receipt)
+}
+
+export interface GoLivePayload {
+  admin?: AdminSetupInput;
+  cashAndBanks: CashAndBankInput[];
+  activeProjects: ActiveProjectInput[];
+  unpaidPayables: UnpaidPayableInput[];
+  activeDeals: ActiveDealInput[];
+}
+
+export interface GoLiveResponse {
+  success: boolean;
+  message: string;
+  masterRecoveryKey: string | null;
+  goLiveDate: string;
+}
+```
+
+---
+
+### 5.3 Go-Live Initialization Mutation
+
+```typescript
+// Route: POST /api/v1/system/initialize
+export const initializeSystem = async (payload: GoLivePayload): Promise<GoLiveResponse> => {
+  const response = await apiClient.post('/system/initialize', payload);
+  return response.data;
+};
+```
+
+---
+
+### 5.4 Starter Modal Wizard Flow & Recovery Key Handling
+
+```typescript
+const handleLaunchERP = async (wizardData: GoLivePayload) => {
+  setIsSubmitting(true);
+  try {
+    const result = await initializeSystem(wizardData);
+
+    if (result.masterRecoveryKey) {
+      // MANDATORY STEP: Present Master Recovery Key to user before unlocking app
+      setMasterRecoveryKey(result.masterRecoveryKey);
+      setShowRecoveryKeyModal(true);
+    } else {
+      // Admin was pre-created; proceed directly to login
+      setShowStarterModal(false);
+      router.push('/login');
+    }
+  } catch (err: any) {
+    if (err.code === 'ALREADY_INITIALIZED') {
+      alert('System is already live. Redirecting to login...');
+      setShowStarterModal(false);
+      router.push('/login');
+    } else if (err.code === 'VALIDATION_ERROR') {
+      setValidationError(err.message);
+    } else if (err.code === 'UNBALANCED_JOURNAL') {
+      setAccountingError('Financial balancing failed. Total Debits do not match Credits.');
+    } else {
+      setGeneralError(err.message || 'Failed to initialize system.');
+    }
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
+
+---
+
+### 5.5 Module 0.5 Error Handling Blueprint
+
+| Error Code | HTTP Status | Cause | UI Resolution |
+|---|---|---|---|
+| `ALREADY_INITIALIZED` | `409` | System was already initialized by another session or previous call. | Immediately dismiss modal, clear local wizard state, and navigate to `/login`. |
+| `VALIDATION_ERROR` | `400` | Negative balances, empty required fields, duplicate bank codes, or duplicate project prefixes. | Highlight invalid step/field in the Starter Modal wizard and display backend error message. |
+| `UNBALANCED_JOURNAL` | `400` | Double-entry debits do not equal credits. | Show financial warning banner: verify opening asset and payable numbers. |
+| `ADMIN_ALREADY_EXISTS` | `403` | Admin account exists in DB, but `admin` object was provided in payload. | Omit `admin` block or proceed with existing admin credentials. |
+| `ADMIN_REQUIRED` | `400` | No existing admin and no `admin` provided in payload. | Direct user to fill in Step 0 (Admin credentials). |
+| `NETWORK_OFFLINE` | `503` | Cloud Supabase database unreachable during Go-Live transaction. | Disable "Launch ERP" button, show connection retry prompt; transaction rolls back cleanly. |
+
 
 ---
 
