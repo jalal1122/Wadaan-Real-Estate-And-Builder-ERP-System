@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import Decimal from 'decimal.js';
+import { AccountCategory } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler';
 import { MathUtility } from './math.util';
 
@@ -157,3 +158,60 @@ export class DoubleEntryValidator {
     }
   }
 }
+
+export const CreateAccountSchema = z.object({
+  accountCode: z.string().min(1, 'Account code is required'),
+  accountName: z.string().min(1, 'Account name is required'),
+  category: z.nativeEnum(AccountCategory, {
+    message: 'Category must be one of ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE'
+  })
+});
+
+export type CreateAccountInput = z.infer<typeof CreateAccountSchema>;
+
+export const CreateJournalLineSchema = z
+  .object({
+    accountId: z.string().uuid('Invalid account ID format'),
+    debitAmount: z
+      .union([
+        z.number().min(0, 'Debit amount must be greater than or equal to 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'Debit amount must be a non-negative number')
+      ])
+      .default(0),
+    creditAmount: z
+      .union([
+        z.number().min(0, 'Credit amount must be greater than or equal to 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'Credit amount must be a non-negative number')
+      ])
+      .default(0)
+  })
+  .refine(
+    (line) => {
+      const debit = new Decimal(line.debitAmount || 0);
+      const credit = new Decimal(line.creditAmount || 0);
+      // Rule: A single line cannot have both a debit and a credit
+      return !(debit.gt(0) && credit.gt(0));
+    },
+    {
+      message: 'A single journal line cannot contain both debit and credit amounts',
+      path: ['debitAmount']
+    }
+  );
+
+export type CreateJournalLineInput = z.infer<typeof CreateJournalLineSchema>;
+
+export const CreateJournalSchema = z.object({
+  entryDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: 'entryDate must be a valid date'
+    })
+    .optional()
+    .default(() => new Date().toISOString()),
+  description: z.string().min(1, 'Description is required'),
+  lines: z
+    .array(CreateJournalLineSchema)
+    .min(2, 'A journal entry must contain at least 2 lines (debit and credit)')
+});
+
+export type CreateJournalInput = z.infer<typeof CreateJournalSchema>;
