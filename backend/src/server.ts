@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { globalErrorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
+import systemRoutes from './routes/system.routes';
 
 // Load environment variables
 dotenv.config();
@@ -16,6 +17,7 @@ app.use(cookieParser());
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/system', systemRoutes);
 
 // Global Error Handler
 app.use(globalErrorHandler);
