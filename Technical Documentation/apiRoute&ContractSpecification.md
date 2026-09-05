@@ -473,69 +473,168 @@ Scenario: A vendor bill isn't exactly Rs. 650,000; it's Rs. 650,000.50.
 Guardrail: If handled with raw JavaScript, this could cause a .9999999 error in the Journal. The executeGoLive service uses decimal.js for all equity calculations, ensuring the Opening Journal balances to the exact decimal point required by PostgreSQL Decimal(15,2).
 
 
-Module 1: Core Accounting & Ledgers (The Vault)
+Module 1: Core Accounting & Ledgers (The Vault) [IMPLEMENTED]
 1. API Routes (The Endpoints Blueprint)
+
 GET /api/v1/accounts
-
-
-
 Purpose: Fetches all accounts (Screen 1) with their live calculated balances.
-
-
-Access: Protected.
-
-
-Query Params: ?fy=true (If true, calculates Revenue/Expense balances strictly from July 1st of the current active fiscal year).
-
+Access: Protected (`authGuard`).
+Query Params: `?fy=true` (If true, calculates Revenue/Expense balances strictly from July 1st of the current active fiscal year).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "accounts": [
+      {
+        "id": "uuid",
+        "accountCode": "1001",
+        "accountName": "Meezan Bank",
+        "category": "ASSET",
+        "isSystemLocked": false,
+        "totalDebit": "2500000.00",
+        "totalCredit": "0.00",
+        "balance": "2500000.00"
+      }
+    ],
+    "grouped": {
+      "ASSET": [ ... ],
+      "LIABILITY": [ ... ],
+      "EQUITY": [ ... ],
+      "REVENUE": [ ... ],
+      "EXPENSE": [ ... ]
+    },
+    "summary": {
+      "totalAssets": "6500000.00",
+      "totalLiabilities": "500000.00",
+      "totalEquity": "6000000.00",
+      "totalRevenue": "0.00",
+      "totalExpenses": "0.00"
+    }
+  }
+}
+```
 
 POST /api/v1/accounts
-
-
-
 Purpose: Create a new custom account (e.g., adding "Faysal Bank" or "Marketing Expense").
-
-
-Access: Protected.
-
-
-Payload: { accountCode: "1030", accountName: "Faysal Bank", category: "ASSET" }
-
+Access: Protected (`authGuard`).
+Payload:
+```json
+{
+  "accountCode": "1030",
+  "accountName": "Faysal Bank",
+  "category": "ASSET"
+}
+```
+Response (201 Created):
+```json
+{
+  "success": true,
+  "message": "Account 'Faysal Bank' (1030) created successfully.",
+  "data": {
+    "id": "uuid",
+    "accountCode": "1030",
+    "accountName": "Faysal Bank",
+    "category": "ASSET",
+    "isSystemLocked": false
+  }
+}
+```
 
 POST /api/v1/journals
-
-
-
 Purpose: Post a manual double-entry (Screen 2).
-
-
-Access: Protected.
-
-
-Payload: { entryDate: "2026-09-02T00:00:00Z", description: "Office Tea & Snacks", lines: [{ accountId, debitAmount, creditAmount }] }
-
+Access: Protected (`authGuard`).
+Payload:
+```json
+{
+  "entryDate": "2026-09-02T00:00:00.000Z",
+  "description": "Office Tea & Snacks",
+  "lines": [
+    {
+      "accountId": "uuid-expense-account",
+      "debitAmount": 5000,
+      "creditAmount": 0
+    },
+    {
+      "accountId": "uuid-cash-account",
+      "debitAmount": 0,
+      "creditAmount": 5000
+    }
+  ]
+}
+```
+Response (201 Created):
+```json
+{
+  "success": true,
+  "message": "Journal entry 'JV-0002' posted successfully.",
+  "data": {
+    "id": "uuid",
+    "entryNumber": "JV-0002",
+    "entryDate": "2026-09-02T00:00:00.000Z",
+    "description": "Office Tea & Snacks",
+    "lines": [ ... ]
+  }
+}
+```
 
 POST /api/v1/journals/:id/reverse
-
-
-
 Purpose: You cannot DELETE a financial record. This route zeroes out a mistake by posting a mirrored reverse entry.
-
-
-Access: Protected (Admin only).
-
+Access: Protected (`authGuard`).
+Response (201 Created):
+```json
+{
+  "success": true,
+  "message": "Journal entry reversed successfully. Reversal voucher 'JV-0003' posted.",
+  "data": {
+    "id": "uuid",
+    "entryNumber": "JV-0003",
+    "entryDate": "2026-09-05T19:00:00.000Z",
+    "description": "[REVERSAL] Office Tea & Snacks",
+    "lines": [ ... ]
+  }
+}
+```
 
 GET /api/v1/journals/ledger/:accountId
-
-
-
 Purpose: Generates the chronological statement (Screen 3) for any bucket.
-
-
-Access: Protected.
-
-
-Query Params: ?startDate=2026-07-01&endDate=2026-09-02
-
+Access: Protected (`authGuard`).
+Query Params: `?startDate=2026-07-01&endDate=2026-09-02`
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "account": {
+      "id": "uuid",
+      "accountCode": "1001",
+      "accountName": "Meezan Bank",
+      "category": "ASSET",
+      "isSystemLocked": false
+    },
+    "filter": {
+      "startDate": "2026-07-01T00:00:00.000Z",
+      "endDate": "2026-09-02T23:59:59.999Z"
+    },
+    "openingBalance": "0.00",
+    "closingBalance": "2500000.00",
+    "totalDebits": "2500000.00",
+    "totalCredits": "0.00",
+    "transactions": [
+      {
+        "id": "line-uuid",
+        "journalId": "journal-uuid",
+        "entryNumber": "JV-OPENING-001",
+        "entryDate": "2026-09-05T18:00:00.000Z",
+        "description": "System Go-Live Opening Balances",
+        "debitAmount": "2500000.00",
+        "creditAmount": "0.00",
+        "runningBalance": "2500000.00"
+      }
+    ]
+  }
+}
+```
 
 2. Controllers (account.controller.ts & journal.controller.ts)
 accountController.getAccounts(req, res)
