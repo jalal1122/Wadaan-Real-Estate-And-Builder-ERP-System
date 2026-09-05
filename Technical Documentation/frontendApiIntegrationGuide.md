@@ -354,10 +354,283 @@ const handleLaunchERP = async (wizardData: GoLivePayload) => {
 | `ADMIN_REQUIRED` | `400` | No existing admin and no `admin` provided in payload. | Direct user to fill in Step 0 (Admin credentials). |
 | `NETWORK_OFFLINE` | `503` | Cloud Supabase database unreachable during Go-Live transaction. | Disable "Launch ERP" button, show connection retry prompt; transaction rolls back cleanly. |
 
+---
+
+## 6. Module 1: Core Accounting & Ledgers Integration
+
+Module 1 governs **Screen 1 (Chart of Accounts)**, **Screen 2 (General Journal)**, and **Screen 3 (Ledger Statement)**. All requests require active session authentication via `authGuard`.
+
+### 6.1 Screen 1: Chart of Accounts (`/api/v1/accounts`)
+
+#### Data Models & Interfaces
+```typescript
+export type AccountCategory = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+
+export interface AccountWithBalance {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  category: AccountCategory;
+  isSystemLocked: boolean;
+  totalDebit: string;
+  totalCredit: string;
+  balance: string;
+}
+
+export interface GroupedAccounts {
+  ASSET: AccountWithBalance[];
+  LIABILITY: AccountWithBalance[];
+  EQUITY: AccountWithBalance[];
+  REVENUE: AccountWithBalance[];
+  EXPENSE: AccountWithBalance[];
+}
+
+export interface AccountsSummary {
+  totalAssets: string;
+  totalLiabilities: string;
+  totalEquity: string;
+  totalRevenue: string;
+  totalExpenses: string;
+}
+
+export interface AccountsResponse {
+  accounts: AccountWithBalance[];
+  grouped: GroupedAccounts;
+  summary: AccountsSummary;
+}
+```
+
+#### API Calls (`frontend/src/features/accounting/api/accountsApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+
+/**
+ * Fetch Chart of Accounts with live calculated balances.
+ * @param fy If true, calculates Revenue & Expense strictly from July 1st of current fiscal year.
+ */
+export const fetchAccounts = async (fy: boolean = false): Promise<AccountsResponse> => {
+  const response = await apiClient.get('/accounts', {
+    params: { fy: fy ? 'true' : undefined }
+  });
+  return response.data.data;
+};
+
+/**
+ * Create a new custom Account bucket.
+ */
+export const createAccount = async (payload: {
+  accountCode: string;
+  accountName: string;
+  category: AccountCategory;
+}) => {
+  const response = await apiClient.post('/accounts', payload);
+  return response.data.data;
+};
+```
+
+#### React Query Hook Example (`Screen 1`)
+```typescript
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAccounts, createAccount } from './accountsApi';
+
+export const useChartOfAccounts = (fy: boolean = false) => {
+  return useQuery({
+    queryKey: ['accounts', { fy }],
+    queryFn: () => fetchAccounts(fy),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+};
+
+export const useCreateAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createAccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    }
+  });
+};
+```
 
 ---
 
-## 6. Endpoints Reference Summary
+### 6.2 Screen 2: General Journal Entries (`/api/v1/journals`)
+
+#### Data Models & Interfaces
+```typescript
+export interface JournalLineInput {
+  accountId: string;
+  debitAmount: number;
+  creditAmount: number;
+}
+
+export interface CreateJournalPayload {
+  entryDate?: string; // ISO 8601 string, e.g. "2026-09-02T00:00:00.000Z"
+  description: string;
+  lines: JournalLineInput[];
+}
+
+export interface JournalEntryRecord {
+  id: string;
+  entryNumber: string; // e.g. "JV-0002"
+  entryDate: string;
+  description: string;
+  lines: {
+    id: string;
+    accountId: string;
+    debitAmount: string;
+    creditAmount: string;
+    account: {
+      id: string;
+      accountCode: string;
+      accountName: string;
+      category: AccountCategory;
+    };
+  }[];
+}
+```
+
+#### API Calls (`frontend/src/features/accounting/api/journalApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+
+/**
+ * Post a manual double-entry journal voucher.
+ * Validates zero-sum balance and blocks targeting system-locked accounts.
+ */
+export const postJournalEntry = async (payload: CreateJournalPayload): Promise<JournalEntryRecord> => {
+  const response = await apiClient.post('/journals', payload);
+  return response.data.data;
+};
+
+/**
+ * Reverse an existing journal entry. Posts a mirrored compensating entry.
+ */
+export const reverseJournalEntry = async (journalId: string): Promise<JournalEntryRecord> => {
+  const response = await apiClient.post(`/journals/${journalId}/reverse`);
+  return response.data.data;
+};
+```
+
+#### React Query Mutation Hook Example (`Screen 2`)
+```typescript
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { postJournalEntry, reverseJournalEntry } from './journalApi';
+
+export const usePostJournal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: postJournalEntry,
+    onSuccess: () => {
+      // Invalidate both accounts and any open ledger views
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger'] });
+    }
+  });
+};
+
+export const useReverseJournal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: reverseJournalEntry,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger'] });
+    }
+  });
+};
+```
+
+---
+
+### 6.3 Screen 3: Chronological Ledger Statement (`/api/v1/journals/ledger/:accountId`)
+
+#### Data Models & Interfaces
+```typescript
+export interface LedgerTransactionRow {
+  id: string;
+  journalId: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  debitAmount: string;
+  creditAmount: string;
+  runningBalance: string;
+}
+
+export interface LedgerStatementResponse {
+  account: {
+    id: string;
+    accountCode: string;
+    accountName: string;
+    category: AccountCategory;
+    isSystemLocked: boolean;
+  };
+  filter: {
+    startDate: string;
+    endDate: string;
+  };
+  openingBalance: string;
+  closingBalance: string;
+  totalDebits: string;
+  totalCredits: string;
+  transactions: LedgerTransactionRow[];
+}
+```
+
+#### API Calls (`frontend/src/features/accounting/api/ledgerApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+
+/**
+ * Fetch chronological ledger statement for an account.
+ */
+export const fetchLedgerStatement = async (
+  accountId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<LedgerStatementResponse> => {
+  const response = await apiClient.get(`/journals/ledger/${accountId}`, {
+    params: {
+      startDate: startDate || undefined,
+      endDate: endDate || undefined
+    }
+  });
+  return response.data.data;
+};
+```
+
+#### React Query Hook Example (`Screen 3`)
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { fetchLedgerStatement } from './ledgerApi';
+
+export const useLedgerStatement = (accountId: string, startDate?: string, endDate?: string) => {
+  return useQuery({
+    queryKey: ['ledger', accountId, { startDate, endDate }],
+    queryFn: () => fetchLedgerStatement(accountId, startDate, endDate),
+    enabled: !!accountId
+  });
+};
+```
+
+---
+
+### 6.4 Module 1 Error Handling Blueprint
+
+| Error Code | HTTP Status | Cause | UI Resolution |
+|---|---|---|---|
+| `ERR_SYSTEM_ACCOUNT_LOCKED` | `403` | User tried to manually target AP, WIP, Escrow, etc. on Screen 2. | Render alert: "This account is system-locked. Use the dedicated Bills or Receipts workflow." |
+| `UNBALANCED_JOURNAL` | `400` | Total debits do not equal total credits. | Highlight difference in red and keep "Post Journal" button disabled until diff is 0.00. |
+| `INVALID_JOURNAL_LINES` | `400` | Entry contains fewer than 2 lines. | Prompt user to add at least one debit and one credit line. |
+| `DUPLICATE_RECORD` | `409` | Account code already exists when creating an account on Screen 1. | Highlight Account Code input: "Account code already in use." |
+| `ACCOUNT_NOT_FOUND` | `404` | Targeted account ID does not exist in the database. | Refresh Chart of Accounts list; verify account selection. |
+| `NOT_FOUND` | `404` | Journal entry targeted for reversal does not exist. | Inform user that journal entry cannot be found. |
+| `VALIDATION_ERROR` | `400` | Zod schema validation failure (e.g. line has both debit and credit > 0). | Display validation error message next to the corresponding line item. |
+
+---
+
+## 7. Endpoints Reference Summary
 
 | Method | Full Route Path | Access Level | Description |
 |---|---|---|---|
@@ -369,3 +642,8 @@ const handleLaunchERP = async (wizardData: GoLivePayload) => {
 | `POST` | `/api/v1/auth/reset-password` | Public | Reset 4-digit PIN via email token or Master Recovery Key. |
 | `GET` | `/api/v1/system/status` | Public | Check if system is initialized (StarterModal gate). |
 | `POST` | `/api/v1/system/initialize` | Public (Locked after 1) | Execute atomic opening balance go-live wizard. |
+| `GET` | `/api/v1/accounts` | Protected (`authGuard`) | Fetch Chart of Accounts with live calculated balances (?fy=true). |
+| `POST` | `/api/v1/accounts` | Protected (`authGuard`) | Create custom Chart of Accounts bucket. |
+| `POST` | `/api/v1/journals` | Protected (`authGuard`) | Post manual double-entry journal voucher (Screen 2). |
+| `POST` | `/api/v1/journals/:id/reverse` | Protected (`authGuard`) | Post compensating mirror reversal journal voucher. |
+| `GET` | `/api/v1/journals/ledger/:accountId` | Protected (`authGuard`) | Fetch chronological ledger statement with running balance (Screen 3). |
