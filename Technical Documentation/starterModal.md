@@ -43,5 +43,6 @@ The Singleton Invariant: Because id defaults to 1, any duplicate initialization 
 Frontend Check: When the Next.js app mounts inside Electron, it calls GET /api/v1/system/status.
 If isInitialized === false: It blocks dashboard routes and renders the StarterModal.
 On Submit: The modal sends the entire onboarding payload to a single endpoint (POST /api/v1/system/initialize).
-The Atomicity Guarantee: The Express backend runs the entire setup inside a single Prisma Interactive Transaction (prisma.$transaction). If any number is mistyped or double-entry balancing fails, it rolls back cleanly. If successful, it sets isInitialized = true, records goLiveDate = NOW(), and unlocks the full ERP.
+The Atomicity Guarantee: The Express backend runs the entire setup inside a single Prisma Interactive Transaction (prisma.$transaction). If any number is mistyped or double-entry balancing fails, it rolls back cleanly. If successful, it sets isInitialized = true, records goLiveDate = NOW(), and returns the Master Recovery Key (`masterRecoveryKey`). The modal must display this emergency recovery key to the user with a "Copy & Save" prompt before unlocking the full ERP.
+
 

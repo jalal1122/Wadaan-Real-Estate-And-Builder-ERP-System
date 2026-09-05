@@ -289,13 +289,13 @@ Payload:
 
 JSON
 {
-  "admin": { "email": "operator@wadaan.local", "password": "...", "fullName": "Muhammad Jalal" },
+  "admin": { "email": "operator@wadaan.local", "pin": "1234", "fullName": "Muhammad Jalal" },
   "cashAndBanks": [
     { "name": "Office Safe", "code": "1010", "balance": 250000 },
     { "name": "Meezan Bank", "code": "1020", "balance": 4200000 }
   ],
   "activeProjects": [
-    { "name": "Wadaan Heights", "prefix": "WH", "boq": 60000000, "spentToDate": 14500000 }
+    { "name": "Wadaan Heights", "prefix": "WH", "masterBOQ": 60000000, "spentToDate": 14500000 }
   ],
   "unpaidPayables": [
     { "vendorName": "Ali Hardware", "amountDue": 650000 }
@@ -316,33 +316,39 @@ getStatus(req, res)
 Queries the SystemSetting table (creates row if it doesn't exist).
 
 
-Returns { isInitialized: true/false }.
+Returns { success: true, data: { isInitialized: true/false, goLiveDate: ... } }.
 
 
 initializeSystem(req, res)
 
 
 
-Passes req.body to the massive Zod schema validator.
+Passes req.body to the massive Zod schema validator (GoLivePayloadSchema).
 
 
 Calls SystemService.executeGoLive(req.body).
 
 
-Returns 201 Created with the Master Recovery Key (generated during the embedded Admin creation).
+Returns 201 Created with:
+{
+  "success": true,
+  "message": "System Go-Live initialization completed successfully.",
+  "masterRecoveryKey": "ABC123XYZ...",
+  "goLiveDate": "2026-09-05T..."
+}
 
 
 3. Services & Core Logic (system.service.ts)
-This service orchestrates the prisma.$transaction.
+This service orchestrates the atomic prisma.$transaction.
 
 executeGoLive(payload)
 
 
 
-Pre-flight Check: Queries SystemSetting. If isInitialized === true, throws ERR_ALREADY_INITIALIZED. (Prevents someone from POSTing to this route to overwrite your data).
+Pre-flight Check: Queries SystemSetting. If isInitialized === true, throws AppError('System is already initialized.', 409, 'ALREADY_INITIALIZED'). (Prevents someone from POSTing to this route to overwrite your data).
 
 
-Step 1: Admin Creation: Calls AuthService.registerAdmin(payload.admin).
+Step 1: Admin Creation: Atomically creates Master Administrator within `tx` (hashes 4-digit PIN, generates and hashes Master Recovery Key). If admin was pre-created via /auth/setup, verifies admin existence.
 
 
 Step 2: Base Chart of Accounts Generation:

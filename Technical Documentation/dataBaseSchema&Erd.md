@@ -206,6 +206,10 @@ model SystemSetting {
   goLiveDate    DateTime?
 }
 
+Singleton Enforcement & Atomicity:
+- The `id: 1` constraint and interactive transaction boundary (`prisma.$transaction`) ensure that concurrent or repeated calls to `/api/v1/system/initialize` are rejected with `409 ALREADY_INITIALIZED`.
+- Master Administrator account creation, Chart of Accounts generation, liquid asset seeding, active project/WIP logging, vendor bills, and customer deal receivables are all performed within this single transaction. If double-entry balancing fails or network drops, everything is cleanly rolled back without leaving orphaned or partial records.
+
 Key Relational Guardrails (How Postgres Protects You):
 onDelete: Restrict: Notice how Vendors, Customers, and Accounts have this flag? This means if a Vendor has even one ExpenseBill attached to them, PostgreSQL will physically block you from deleting that Vendor. This prevents orphan data and guarantees your financial reports can never break.
 onDelete: Cascade: If you delete an ExpenseBill (which requires administrative reversal), Postgres automatically deletes the BillLineItems inside it so you don't have floating ghost items taking up space.
