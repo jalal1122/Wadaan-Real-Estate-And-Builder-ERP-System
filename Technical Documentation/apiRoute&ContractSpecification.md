@@ -831,61 +831,59 @@ Payload: { projectName: "Wadaan Heights", projectPrefix: "WH", masterBOQ: 600000
 
 GET /api/v1/projects
 
-
-
 Purpose: Fetches the master grid of projects with their live "Health Bars" (BOQ vs. Spent).
 
+GET /api/v1/projects/:id
+
+Purpose: Fetches detailed project metrics including associated bills, spentToDate, budgetVariance, isOverBudget, and budgetBurnPercentage.
 
 PATCH /api/v1/projects/:id/status
 
-
-
-Purpose: Locks a project (e.g., changes status from ACTIVE to COMPLETED).
-
+Purpose: Updates project status (e.g. changes status to ACTIVE, COMPLETED, or ON_HOLD).
+Payload: { status: "COMPLETED" }
 
 Vendors (Screens 5 & 7)
 
 POST /api/v1/vendors
 
-
-
 Purpose: Adds a new supplier.
-
+Payload: { vendorName: "Ali Hardware", phone: "03001234567" }
 
 GET /api/v1/vendors
 
-
-
-Purpose: Lists all suppliers with live calculated Total Outstanding balances.
-
+Purpose: Lists all suppliers with live calculated Total Outstanding balances and totalPaid.
 
 GET /api/v1/vendors/:id/unpaid-bills
 
-
-
-Purpose: Fetches the exact queue of unpaid invoices for Screen 7, ordered oldest to newest.
-
+Purpose: Fetches the exact queue of unpaid invoices for Screen 7, ordered strictly by oldest date first (FIFO).
 
 Expense Bills & Payments (Screens 5 & 7)
 
 POST /api/v1/bills
 
+Purpose: Logs a new expense (Screen 5) with automatic WIP vs Overhead routing, budget overrun warning, and GL journal posting.
+Payload: { vendorId, projectId (optional), invoiceNumber, billDate, paymentType: "ACCOUNTS_PAYABLE" | "DIRECT_CASH", sourceAccountId (required if DIRECT_CASH), lineItems: [{ description, quantity, unitPrice }] }
 
+GET /api/v1/bills
 
-Purpose: Logs a new expense (Screen 5).
+Purpose: Lists all expense bills with optional filtering (?vendorId, ?projectId, ?paymentStatus).
 
+GET /api/v1/bills/:id
 
-Payload: { vendorId, projectId (optional), invoiceNumber, billDate, paymentType, lineItems: [...] }
-
+Purpose: Fetches expense bill details by ID with line items, vendor, and project relations.
 
 POST /api/v1/payments/vendor
 
+Purpose: Executes the Thursday Payment Run (Screen 7) using strict FIFO waterfall across unpaid bills.
+Payload: { vendorId, sourceAccountId, amountPaid, chequeRef (optional), paymentDate (optional) }
 
+GET /api/v1/payments/vendor
 
-Purpose: Executes the Thursday Payment Run (Screen 7).
+Purpose: Fetches vendor payment history with optional ?vendorId filter.
 
+GET /api/v1/payments/vendor/:id
 
-Payload: { vendorId, sourceAccountId, amountPaid, chequeRef, paymentDate }
+Purpose: Fetches payment run details by ID.
 
 
 2. Controllers (bill.controller.ts & payment.controller.ts)

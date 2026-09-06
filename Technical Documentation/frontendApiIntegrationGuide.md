@@ -647,3 +647,240 @@ export const useLedgerStatement = (accountId: string, startDate?: string, endDat
 | `POST` | `/api/v1/journals` | Protected (`authGuard`) | Post manual double-entry journal voucher (Screen 2). |
 | `POST` | `/api/v1/journals/:id/reverse` | Protected (`authGuard`) | Post compensating mirror reversal journal voucher. |
 | `GET` | `/api/v1/journals/ledger/:accountId` | Protected (`authGuard`) | Fetch chronological ledger statement with running balance (Screen 3). |
+| `POST` | `/api/v1/projects` | Protected (`authGuard`) | Initialize a new construction project with master BOQ (Screen 4). |
+| `GET` | `/api/v1/projects` | Protected (`authGuard`) | List all projects with live calculated spent, variance, and burn % (Screen 4). |
+| `GET` | `/api/v1/projects/:id` | Protected (`authGuard`) | Fetch project detail with associated bills and budget metrics (Screen 4). |
+| `PATCH` | `/api/v1/projects/:id/status` | Protected (`authGuard`) | Update project status (ACTIVE, COMPLETED, ON_HOLD) (Screen 4). |
+| `POST` | `/api/v1/vendors` | Protected (`authGuard`) | Create a new supplier/vendor record (Screens 5 & 7). |
+| `GET` | `/api/v1/vendors` | Protected (`authGuard`) | List suppliers with live calculated total outstanding balances (Screen 5 & 7). |
+| `GET` | `/api/v1/vendors/:id/unpaid-bills` | Protected (`authGuard`) | Fetch unpaid bills queue ordered strictly by oldest date (FIFO) (Screen 7). |
+| `POST` | `/api/v1/bills` | Protected (`authGuard`) | Post expense bill with WIP/Overhead routing & budget warning (Screen 5). |
+| `GET` | `/api/v1/bills` | Protected (`authGuard`) | Filter and list expense bills (?vendorId, ?projectId, ?paymentStatus) (Screen 5). |
+| `GET` | `/api/v1/bills/:id` | Protected (`authGuard`) | Fetch expense bill detail by ID with line items (Screen 5). |
+| `POST` | `/api/v1/payments/vendor` | Protected (`authGuard`) | Execute FIFO payment run waterfall across unpaid bills (Screen 7). |
+| `GET` | `/api/v1/payments/vendor` | Protected (`authGuard`) | Fetch payment run history (?vendorId) (Screen 7). |
+| `GET` | `/api/v1/payments/vendor/:id` | Protected (`authGuard`) | Fetch payment run detail by ID (Screen 7). |
+
+---
+
+## 8. Module 2: Payables & Projects Integration (Screens 4, 5, 7)
+
+### 8.1 Screen 4: Projects & Budget Health Bars
+
+#### TypeScript Contracts (`frontend/src/features/projects/types.ts`)
+```typescript
+export interface ProjectItem {
+  id: string;
+  projectName: string;
+  projectPrefix: string;
+  masterBOQ: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'ON_HOLD';
+  createdAt: string;
+  spentToDate: string;
+  budgetVariance: string;
+  isOverBudget: boolean;
+  budgetBurnPercentage: number;
+}
+
+export interface CreateProjectPayload {
+  projectName: string;
+  projectPrefix: string;
+  masterBOQ: number | string;
+}
+```
+
+#### API Calls (`frontend/src/features/projects/api/projectApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+import { ProjectItem, CreateProjectPayload } from '../types';
+
+export const fetchProjects = async (): Promise<ProjectItem[]> => {
+  const res = await apiClient.get('/projects');
+  return res.data.data;
+};
+
+export const fetchProjectById = async (id: string): Promise<ProjectItem> => {
+  const res = await apiClient.get(`/projects/${id}`);
+  return res.data.data;
+};
+
+export const createProject = async (payload: CreateProjectPayload): Promise<ProjectItem> => {
+  const res = await apiClient.post('/projects', payload);
+  return res.data.data;
+};
+
+export const updateProjectStatus = async (
+  id: string,
+  status: 'ACTIVE' | 'COMPLETED' | 'ON_HOLD'
+): Promise<ProjectItem> => {
+  const res = await apiClient.patch(`/projects/${id}/status`, { status });
+  return res.data.data;
+};
+```
+
+---
+
+### 8.2 Screen 5: Expense Bills & WIP Capitalization
+
+#### TypeScript Contracts (`frontend/src/features/bills/types.ts`)
+```typescript
+export interface BillLineItemInput {
+  description: string;
+  quantity: number;
+  unitPrice: number | string;
+}
+
+export interface CreateBillPayload {
+  vendorId: string;
+  projectId?: string | null;
+  invoiceNumber: string;
+  billDate?: string;
+  paymentType: 'ACCOUNTS_PAYABLE' | 'DIRECT_CASH';
+  sourceAccountId?: string;
+  lineItems: BillLineItemInput[];
+}
+
+export interface CreateBillResponse {
+  bill: {
+    id: string;
+    vendorId: string;
+    projectId: string | null;
+    invoiceNumber: string;
+    billDate: string;
+    paymentType: 'ACCOUNTS_PAYABLE' | 'DIRECT_CASH';
+    paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
+    grandTotal: string;
+    pendingAmount: string;
+  };
+  isOverBudget: boolean;
+  overBudgetAmount: string;
+  journalEntry: {
+    id: string;
+    entryNumber: string;
+  };
+}
+```
+
+#### API Calls (`frontend/src/features/bills/api/billApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+import { CreateBillPayload, CreateBillResponse } from '../types';
+
+export const createBill = async (payload: CreateBillPayload): Promise<CreateBillResponse> => {
+  const res = await apiClient.post('/bills', payload);
+  return res.data.data;
+};
+
+export const fetchBills = async (filters?: {
+  vendorId?: string;
+  projectId?: string;
+  paymentStatus?: string;
+}) => {
+  const res = await apiClient.get('/bills', { params: filters });
+  return res.data.data;
+};
+```
+
+> [!NOTE]
+> **Soft Budget Overrun Notice**: If `isOverBudget: true`, prompt the user with a amber warning toast indicating the overage amount (`overBudgetAmount`), but allow the bill creation to succeed normally.
+
+---
+
+### 8.3 Screen 7: Vendor Payment Run (FIFO Waterfall)
+
+#### TypeScript Contracts (`frontend/src/features/payments/types.ts`)
+```typescript
+export interface UnpaidBillItem {
+  id: string;
+  invoiceNumber: string;
+  billDate: string;
+  grandTotal: string;
+  pendingAmount: string;
+  paymentStatus: 'UNPAID' | 'PARTIAL';
+  project?: {
+    projectName: string;
+    projectPrefix: string;
+  } | null;
+}
+
+export interface VendorUnpaidQueueResponse {
+  vendorId: string;
+  vendorName: string;
+  totalOutstanding: string;
+  bills: UnpaidBillItem[];
+}
+
+export interface ProcessPaymentPayload {
+  vendorId: string;
+  sourceAccountId: string;
+  amountPaid: number | string;
+  chequeRef?: string | null;
+  paymentDate?: string;
+}
+
+export interface SettledBillItem {
+  billId: string;
+  invoiceNumber: string;
+  amountApplied: string;
+  previousPending: string;
+  newPending: string;
+  status: 'PARTIAL' | 'PAID';
+}
+
+export interface PaymentRunResponse {
+  payment: {
+    id: string;
+    vendorId: string;
+    sourceAccountId: string;
+    amountPaid: string;
+    chequeRef: string | null;
+    paymentDate: string;
+  };
+  settledBills: SettledBillItem[];
+  journalEntry: {
+    id: string;
+    entryNumber: string;
+  };
+  totalSettled: string;
+  remainingVendorOutstanding: string;
+}
+```
+
+#### API Calls (`frontend/src/features/payments/api/paymentApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+import {
+  VendorUnpaidQueueResponse,
+  ProcessPaymentPayload,
+  PaymentRunResponse
+} from '../types';
+
+export const fetchVendorUnpaidBills = async (
+  vendorId: string
+): Promise<VendorUnpaidQueueResponse> => {
+  const res = await apiClient.get(`/vendors/${vendorId}/unpaid-bills`);
+  return res.data.data;
+};
+
+export const executePaymentRun = async (
+  payload: ProcessPaymentPayload
+): Promise<PaymentRunResponse> => {
+  const res = await apiClient.post('/payments/vendor', payload);
+  return res.data.data;
+};
+```
+
+---
+
+### 8.4 Module 2 Error Handling Blueprint
+
+| Error Code | HTTP Status | Cause | UI Action |
+|---|---|---|---|
+| `DUPLICATE_PROJECT_PREFIX` | `409` | Project prefix already registered. | Prompt user: "Prefix already taken. Choose another code (e.g. WH2)." |
+| `DUPLICATE_INVOICE` | `409` | Vendor invoice number already recorded. | Highlight invoice number field: "Invoice already exists for this vendor." |
+| `PAYMENT_EXCEEDS_OUTSTANDING` | `400` | Payment exceeds total unpaid bills. | Cap payment input to `totalOutstanding` and display warning alert. |
+| `INVALID_BILL_AMOUNT` | `400` | Bill grand total is 0 or negative. | Prevent submission until line item quantities/prices yield total > 0. |
+| `PROJECT_NOT_FOUND` | `404` | Selected project ID does not exist. | Refresh projects dropdown and notify user. |
+| `VENDOR_NOT_FOUND` | `404` | Selected vendor ID does not exist. | Refresh vendors dropdown and notify user. |
+| `ACCOUNT_NOT_FOUND` | `404` | Selected source cash/bank account missing. | Refresh Bank & Cash accounts list on Screen 1. |
+
