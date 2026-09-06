@@ -175,13 +175,15 @@ export const CreateJournalLineSchema = z
     debitAmount: z
       .union([
         z.number().min(0, 'Debit amount must be greater than or equal to 0'),
-        z.string().regex(/^\d+(\.\d+)?$/, 'Debit amount must be a non-negative number')
+        z.string().regex(/^\d+(\.\d+)?$/, 'Debit amount must be a non-negative number'),
+        z.instanceof(Decimal)
       ])
       .default(0),
     creditAmount: z
       .union([
         z.number().min(0, 'Credit amount must be greater than or equal to 0'),
-        z.string().regex(/^\d+(\.\d+)?$/, 'Credit amount must be a non-negative number')
+        z.string().regex(/^\d+(\.\d+)?$/, 'Credit amount must be a non-negative number'),
+        z.instanceof(Decimal)
       ])
       .default(0)
   })
@@ -215,3 +217,113 @@ export const CreateJournalSchema = z.object({
 });
 
 export type CreateJournalInput = z.infer<typeof CreateJournalSchema>;
+
+// ==========================================
+// MODULE 2 SCHEMAS: PAYABLES & PROJECTS
+// ==========================================
+
+export const CreateProjectSchema = z
+  .object({
+    name: z.string().optional(),
+    projectName: z.string().optional(),
+    prefix: z.string().optional(),
+    projectPrefix: z.string().optional(),
+    masterBOQ: z.union([
+      z.number().min(0, 'masterBOQ must be greater than or equal to 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'masterBOQ must be a non-negative number')
+    ])
+  })
+  .refine((data) => !!(data.name || data.projectName), {
+    message: 'Project name is required',
+    path: ['projectName']
+  })
+  .refine((data) => !!(data.prefix || data.projectPrefix), {
+    message: 'Project prefix is required',
+    path: ['projectPrefix']
+  })
+  .transform((data) => ({
+    projectName: (data.projectName || data.name)!,
+    projectPrefix: (data.projectPrefix || data.prefix)!.toUpperCase(),
+    masterBOQ: data.masterBOQ
+  }));
+
+export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
+
+export const UpdateProjectStatusSchema = z.object({
+  status: z.enum(['ACTIVE', 'COMPLETED', 'ON_HOLD'])
+});
+
+export type UpdateProjectStatusInput = z.infer<typeof UpdateProjectStatusSchema>;
+
+export const CreateVendorSchema = z.object({
+  vendorName: z.string().min(1, 'Vendor name is required'),
+  phone: z.string().optional()
+});
+
+export type CreateVendorInput = z.infer<typeof CreateVendorSchema>;
+
+export const CreateBillLineItemSchema = z.object({
+  description: z.string().min(1, 'Description is required'),
+  quantity: z.number().int().positive('Quantity must be an integer greater than 0'),
+  unitPrice: z.union([
+    z.number().min(0, 'unitPrice must be non-negative'),
+    z.string().regex(/^\d+(\.\d+)?$/, 'unitPrice must be a non-negative number')
+  ])
+});
+
+export const CreateBillSchema = z
+  .object({
+    vendorId: z.string().uuid('Invalid vendor ID format'),
+    projectId: z.string().uuid('Invalid project ID format').optional().nullable(),
+    invoiceNumber: z.string().min(1, 'Invoice number is required'),
+    billDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'billDate must be a valid date'
+      })
+      .optional()
+      .default(() => new Date().toISOString()),
+    paymentType: z.enum(['ACCOUNTS_PAYABLE', 'DIRECT_CASH']),
+    sourceAccountId: z.string().uuid('Invalid source account ID format').optional().nullable(),
+    lineItems: z
+      .array(CreateBillLineItemSchema)
+      .min(1, 'At least one line item is required')
+  })
+  .refine(
+    (data) => {
+      if (data.paymentType === 'DIRECT_CASH' && !data.sourceAccountId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'sourceAccountId is required when paymentType is DIRECT_CASH',
+      path: ['sourceAccountId']
+    }
+  );
+
+export type CreateBillInput = z.infer<typeof CreateBillSchema>;
+
+export const CreatePaymentSchema = z.object({
+  vendorId: z.string().uuid('Invalid vendor ID format'),
+  sourceAccountId: z.string().uuid('Invalid source account ID format'),
+  amountPaid: z
+    .union([
+      z.number().positive('amountPaid must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'amountPaid must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'amountPaid must be greater than 0'
+    }),
+  chequeRef: z.string().optional().nullable(),
+  paymentDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: 'paymentDate must be a valid date'
+    })
+    .optional()
+    .default(() => new Date().toISOString())
+});
+
+export type CreatePaymentInput = z.infer<typeof CreatePaymentSchema>;
+
