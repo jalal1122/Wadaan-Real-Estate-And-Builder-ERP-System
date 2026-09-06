@@ -884,3 +884,185 @@ export const executePaymentRun = async (
 | `VENDOR_NOT_FOUND` | `404` | Selected vendor ID does not exist. | Refresh vendors dropdown and notify user. |
 | `ACCOUNT_NOT_FOUND` | `404` | Selected source cash/bank account missing. | Refresh Bank & Cash accounts list on Screen 1. |
 
+---
+
+## 9. Module 3: Receivables & Revenue (Screens 8 & 9)
+
+### 9.1 Overview & Screen Mapping
+
+| Screen | Feature | Core APIs | Primary Responsibilities |
+|---|---|---|---|
+| **Screen 8** | **The Deal Hub** | `GET /customers`, `POST /customers`, `POST /deals`, `GET /deals`, `POST /deals/:id/transfer`, `POST /customers/:id/apply-wallet` | Manage client portfolio, issue Milestone Contracts (Sale, Construction, Brokerage), calculate pending balances, transfer files, consume advance wallets. |
+| **Screen 9** | **Cash & Cheque Gateway** | `POST /receipts`, `GET /receipts/waiting-room`, `POST /receipts/:id/clear`, `POST /receipts/:id/bounce` | Log desk receipts, manage the Cheque Waiting Room, confirm bank settlements into the General Ledger, bounce dishonored cheques. |
+
+---
+
+### 9.2 TypeScript Data Contracts
+
+```typescript
+export type DealType = 'WADAAN_SALE' | 'CONSTRUCTION' | 'BROKERAGE';
+export type PaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'PENDING_CLEARANCE';
+export type ClearanceStatus = 'PENDING' | 'CLEARED' | 'BOUNCED';
+
+export interface Customer {
+  id: string;
+  fullName: string;
+  phone: string;
+  walletBalance: string;
+  _count?: {
+    deals: number;
+    receipts: number;
+  };
+}
+
+export interface DealInvoice {
+  id: string;
+  dealId: string;
+  description: string;
+  amount: string;
+  dueDate: string;
+  paymentStatus: PaymentStatus;
+  receiptId?: string | null;
+}
+
+export interface Deal {
+  id: string;
+  customerId: string;
+  projectId?: string | null;
+  dealType: DealType;
+  totalValue: string;
+  commissionAmount?: string | null;
+  pendingBalance: string;
+  createdAt: string;
+  customer: Customer;
+  project?: {
+    projectName: string;
+    projectPrefix: string;
+  } | null;
+  invoices: DealInvoice[];
+}
+
+export interface Receipt {
+  id: string;
+  customerId: string;
+  amount: string;
+  paymentMethod: 'CASH' | 'CHEQUE' | 'ONLINE';
+  bankRefNumber?: string | null;
+  clearanceStatus: ClearanceStatus;
+  receiptDate: string;
+  customer: Customer;
+  invoices?: DealInvoice[];
+}
+
+export interface CreateDealPayload {
+  customerId: string;
+  dealType: DealType;
+  projectId?: string | null;
+  totalValue: number | string;
+  commissionAmount?: number | string | null;
+  invoices: {
+    description: string;
+    amount: number | string;
+    dueDate: string;
+  }[];
+}
+
+export interface CreateReceiptPayload {
+  customerId: string;
+  invoiceIds?: string[];
+  amount: number | string;
+  paymentMethod: 'CASH' | 'CHEQUE' | 'ONLINE';
+  bankRefNumber?: string | null;
+  targetAccountId?: string | null;
+}
+```
+
+---
+
+### 9.3 Screen 8 (Deal Hub) Integration
+
+#### API Client (`frontend/src/features/deals/api/dealApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+import { Customer, Deal, CreateDealPayload } from '../types';
+
+export const fetchCustomers = async (): Promise<Customer[]> => {
+  const res = await apiClient.get('/customers');
+  return res.data.data;
+};
+
+export const createCustomer = async (data: { fullName: string; phone: string }): Promise<Customer> => {
+  const res = await apiClient.post('/customers', data);
+  return res.data.data;
+};
+
+export const fetchDeals = async (): Promise<Deal[]> => {
+  const res = await apiClient.get('/deals');
+  return res.data.data;
+};
+
+export const createDeal = async (payload: CreateDealPayload): Promise<Deal> => {
+  const res = await apiClient.post('/deals', payload);
+  return res.data.data;
+};
+
+export const executeFileTransfer = async (
+  dealId: string,
+  payload: { newCustomerId: string; transferFeeAmount: number }
+) => {
+  const res = await apiClient.post(`/deals/${dealId}/transfer`, payload);
+  return res.data.data;
+};
+
+export const applyCustomerWallet = async (
+  customerId: string,
+  payload: { invoiceId: string; amount: number }
+) => {
+  const res = await apiClient.post(`/customers/${customerId}/apply-wallet`, payload);
+  return res.data.data;
+};
+```
+
+---
+
+### 9.4 Screen 9 (Cash & Cheque Gateway) Integration
+
+#### API Client (`frontend/src/features/receipts/api/receiptApi.ts`)
+```typescript
+import { apiClient } from '@/lib/api';
+import { Receipt, CreateReceiptPayload } from '../types';
+
+export const logInflow = async (payload: CreateReceiptPayload) => {
+  const res = await apiClient.post('/receipts', payload);
+  return res.data.data;
+};
+
+export const fetchWaitingRoom = async (): Promise<Receipt[]> => {
+  const res = await apiClient.get('/receipts/waiting-room');
+  return res.data.data;
+};
+
+export const clearPendingCheque = async (receiptId: string, targetBankAccountId: string) => {
+  const res = await apiClient.post(`/receipts/${receiptId}/clear`, { targetBankAccountId });
+  return res.data.data;
+};
+
+export const bouncePendingCheque = async (receiptId: string) => {
+  const res = await apiClient.post(`/receipts/${receiptId}/bounce`);
+  return res.data.data;
+};
+```
+
+---
+
+### 9.5 Module 3 Error Handling Blueprint
+
+| Error Code | HTTP Status | Cause | UI Action |
+|---|---|---|---|
+| `ERR_PENDING_FUNDS_LOCKED` | `400` | Attempted file transfer while cheque is floating. | Show Modal: "Cannot transfer file while cheque clearance is pending. Clear or bounce receipt first." |
+| `INSUFFICIENT_WALLET_BALANCE` | `400` | Requested wallet advance exceeds available balance. | Alert: "Insufficient wallet funds. Customer balance is Rs. X." |
+| `UNDERPAYMENT_NOT_ALLOWED` | `400` | Receipt amount less than total of selected invoices. | Warn: "Payment amount must at least equal the sum of selected invoices." |
+| `INVOICES_SUM_MISMATCH` | `400` | Milestone invoice sum != total contract value. | Auto-calculate remaining balance and alert in red on deal creator modal. |
+| `COMMISSION_REQUIRED` | `400` | Missing commissionAmount on Brokerage contract. | Prompt: "Wadaan commission amount is required for Brokerage deals." |
+| `RECEIPT_NOT_PENDING` | `400` | Attempted to clear or bounce an already settled receipt. | Refresh Waiting Room list via React Query invalidation. |
+

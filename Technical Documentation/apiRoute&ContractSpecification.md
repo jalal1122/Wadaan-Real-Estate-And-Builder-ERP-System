@@ -1054,78 +1054,89 @@ Guardrail: The Zod schema explicitly allows unitPrice: z.number().min(0) (inclus
 
 
 
-Module 3: Receivables & Revenue (The Inflow Engine)
+Module 3: Receivables & Revenue (The Inflow Engine) [IMPLEMENTED]
 1. API Routes (The Endpoints Blueprint)
 Customers & Deals (Screen 8)
 
+POST /api/v1/customers
+Purpose: Creates a new customer with initial zero wallet balance.
+Payload: { fullName: "Zain Ahmed", phone: "03001234567" }
+Response (201): { success: true, data: { id, fullName, phone, walletBalance: "0.00" }, message: "Customer created successfully" }
+
 GET /api/v1/customers
+Purpose: Lists all clients, their active walletBalance (Mobilization advances held), and deal/receipt counts.
+Response (200): { success: true, data: [{ id, fullName, phone, walletBalance, _count: { deals, receipts } }] }
 
+GET /api/v1/customers/:id
+Purpose: Fetches complete customer profile with all deals, invoices, and payment receipts.
+Response (200): { success: true, data: { id, fullName, phone, walletBalance, deals: [...], receipts: [...] } }
 
-
-Purpose: Lists all clients and their active walletBalance (Mobilization advances held).
-
+POST /api/v1/customers/:customerId/apply-wallet
+Purpose: Consumes client mobilization advance held in walletBalance toward an unpaid DealInvoice without moving cash.
+Payload: { invoiceId: "uuid", amount: 500000 }
+Response (200): { success: true, data: { walletBalanceRemaining: "0.00", invoicePaid: true }, message: "Customer wallet advance applied toward invoice successfully" }
 
 POST /api/v1/deals
-
-
-
-Purpose: Initializes a new financial contract (Sale, Construction, or Brokerage).
-
-
-Payload: { customerId, dealType, projectId (optional), totalValue, commissionAmount (if brokerage), invoices: [{ description, amount, dueDate }] }
-
+Purpose: Initializes a new financial contract (Sale, Construction, or Brokerage) and posts accrual journal entries.
+Payload: {
+  customerId: "uuid",
+  dealType: "WADAAN_SALE" | "CONSTRUCTION" | "BROKERAGE",
+  projectId: "uuid (optional)",
+  totalValue: 20000000,
+  commissionAmount: 200000, // Mandatory if dealType === "BROKERAGE"
+  invoices: [
+    { description: "Token / Down Payment", amount: 5000000, dueDate: "2026-09-15T00:00:00.000Z" },
+    { description: "Installment 1", amount: 15000000, dueDate: "2026-10-15T00:00:00.000Z" }
+  ]
+}
+Response (201): { success: true, data: { id, customerId, dealType, totalValue, commissionAmount, invoices: [...] }, message: "Deal contract initialized successfully" }
 
 GET /api/v1/deals
-
-
-
 Purpose: Fetches the master deal grid, calculating pendingBalance dynamically.
+Response (200): { success: true, data: [{ id, customerId, dealType, totalValue, pendingBalance, customer: {...}, project: {...}, invoices: [...] }] }
 
+GET /api/v1/deals/:id
+Purpose: Fetches single deal with dynamic pending balance and invoices.
+Response (200): { success: true, data: { id, totalValue, pendingBalance, customer: {...}, project: {...}, invoices: [...] } }
 
 POST /api/v1/deals/:dealId/transfer
-
-
-
-Purpose: Executes the "File Transfer" (Resale) logic.
-
-
-Payload: { newCustomerId, transferFeeAmount }
-
+Purpose: Executes the "File Transfer" (Resale) logic to reassign deal ownership.
+Guardrail: Rejects with ERR_PENDING_FUNDS_LOCKED (400) if any invoices are PENDING_CLEARANCE.
+Payload: { newCustomerId: "uuid", transferFeeAmount: 50000 }
+Response (200): { success: true, data: { deal: {...}, previousCustomerId, newCustomer: {...}, feeInvoice: {...} }, message: "File transfer executed successfully" }
 
 Receipts & Cheque Clearing (Screen 9)
 
 POST /api/v1/receipts
-
-
-
-Purpose: Logs physical money crossing the desk.
-
-
-Payload: { customerId, invoiceIds (optional), amount, paymentMethod, bankRefNumber }
-
+Purpose: Logs physical money crossing the desk (CASH, CHEQUE, ONLINE).
+- CASH: Immediately CLEARED, marks invoices PAID, updates Customer.walletBalance on overpayment, posts GL journal.
+- CHEQUE/ONLINE: Status PENDING, enters Cheque Waiting Room, marks invoices PENDING_CLEARANCE. NO GL journal until clearance.
+Payload: {
+  customerId: "uuid",
+  invoiceIds: ["uuid"], // Optional; if omitted, treated as unallocated advance directly into wallet
+  amount: 5000000,
+  paymentMethod: "CASH" | "CHEQUE" | "ONLINE",
+  bankRefNumber: "CHQ-882910", // Mandatory for CHEQUE/ONLINE
+  targetAccountId: "uuid (optional)"
+}
+Response (201): {
+  success: true,
+  data: { receipt: {...}, status: "CLEARED" | "PENDING", ... },
+  message: "..."
+}
 
 GET /api/v1/receipts/waiting-room
-
-
-
-Purpose: Fetches all receipts where clearanceStatus === 'PENDING'.
-
+Purpose: Fetches all receipts where clearanceStatus === 'PENDING' for the Cheque Waiting Room.
+Response (200): { success: true, data: [{ id, amount, paymentMethod, bankRefNumber, customer: {...}, invoices: [...] }] }
 
 POST /api/v1/receipts/:id/clear
-
-
-
 Purpose: Confirms bank settlement, moving money from "Waiting" into the live General Ledger.
-
-
-Payload: { targetBankAccountId }
-
+Payload: { targetBankAccountId: "uuid" }
+Response (200): { success: true, data: { receipt: {...}, clearedInvoicesCount: 1, settledAmount: "...", excessInjectedToWallet: "...", journalEntry: {...} }, message: "Cheque cleared and posted to ledger successfully" }
 
 POST /api/v1/receipts/:id/bounce
-
-
-
-Purpose: Rejects a dishonored cheque without destroying the accounting ledgers.
+Purpose: Rejects a dishonored cheque without destroying accounting ledgers. Invoices revert to UNPAID.
+Response (200): { success: true, data: { receipt: {...} }, message: "Cheque marked as bounced; invoices reverted to unpaid" }
 
 
 2. Controllers (deal.controller.ts & receipt.controller.ts)
