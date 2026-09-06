@@ -233,6 +233,7 @@ export class SystemService {
                 paymentType: PaymentType.ACCOUNTS_PAYABLE,
                 paymentStatus: PaymentStatus.UNPAID,
                 grandTotal: amountDue,
+                pendingAmount: amountDue,
                 lineItems: {
                   create: [
                     {
