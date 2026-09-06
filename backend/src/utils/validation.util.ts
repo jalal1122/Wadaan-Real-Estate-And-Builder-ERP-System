@@ -327,3 +327,150 @@ export const CreatePaymentSchema = z.object({
 
 export type CreatePaymentInput = z.infer<typeof CreatePaymentSchema>;
 
+// ==========================================
+// MODULE 3: RECEIVABLES & REVENUE SCHEMAS
+// ==========================================
+
+export const CreateCustomerSchema = z.object({
+  fullName: z.string().min(1, 'fullName is required'),
+  phone: z.string().min(1, 'phone is required')
+});
+
+export type CreateCustomerInput = z.infer<typeof CreateCustomerSchema>;
+
+export const CreateDealInvoiceSchema = z.object({
+  description: z.string().min(1, 'Invoice description is required'),
+  amount: z
+    .union([
+      z.number().positive('amount must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'amount must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'amount must be greater than 0'
+    }),
+  dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'dueDate must be a valid date'
+  })
+});
+
+export type CreateDealInvoiceInput = z.infer<typeof CreateDealInvoiceSchema>;
+
+export const CreateDealSchema = z
+  .object({
+    customerId: z.string().uuid('Invalid customer ID format'),
+    dealType: z.enum(['WADAAN_SALE', 'CONSTRUCTION', 'BROKERAGE']),
+    projectId: z.string().uuid('Invalid project ID format').optional().nullable(),
+    totalValue: z
+      .union([
+        z.number().positive('totalValue must be greater than 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'totalValue must be a positive number')
+      ])
+      .refine((val) => new Decimal(val).gt(0), {
+        message: 'totalValue must be greater than 0'
+      }),
+    commissionAmount: z
+      .union([
+        z.number().min(0, 'commissionAmount cannot be negative'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'commissionAmount must be a non-negative number')
+      ])
+      .optional()
+      .nullable(),
+    invoices: z.array(CreateDealInvoiceSchema).min(1, 'At least one invoice is required')
+  })
+  .refine(
+    (data) => {
+      const total = new Decimal(data.totalValue);
+      const invoicesSum = data.invoices.reduce(
+        (sum, inv) => sum.plus(new Decimal(inv.amount)),
+        new Decimal(0)
+      );
+      return total.equals(invoicesSum);
+    },
+    {
+      message: 'The sum of invoice amounts must equal totalValue exactly',
+      path: ['invoices']
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.dealType === 'BROKERAGE') {
+        if (data.commissionAmount === undefined || data.commissionAmount === null) {
+          return false;
+        }
+        const comm = new Decimal(data.commissionAmount);
+        const total = new Decimal(data.totalValue);
+        return comm.gt(0) && comm.lte(total);
+      }
+      return true;
+    },
+    {
+      message: 'commissionAmount is required for BROKERAGE deals and must be between 0 and totalValue',
+      path: ['commissionAmount']
+    }
+  );
+
+export type CreateDealInput = z.infer<typeof CreateDealSchema>;
+
+export const CreateReceiptSchema = z
+  .object({
+    customerId: z.string().uuid('Invalid customer ID format'),
+    invoiceIds: z.array(z.string().uuid('Invalid invoice ID format')).optional().default([]),
+    amount: z
+      .union([
+        z.number().positive('amount must be greater than 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'amount must be a positive number')
+      ])
+      .refine((val) => new Decimal(val).gt(0), {
+        message: 'amount must be greater than 0'
+      }),
+    paymentMethod: z.enum(['CASH', 'CHEQUE', 'ONLINE']),
+    bankRefNumber: z.string().optional().nullable(),
+    targetAccountId: z.string().uuid('Invalid target account ID format').optional().nullable()
+  })
+  .refine(
+    (data) => {
+      if ((data.paymentMethod === 'CHEQUE' || data.paymentMethod === 'ONLINE') && !data.bankRefNumber?.trim()) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'bankRefNumber is required for CHEQUE and ONLINE payments',
+      path: ['bankRefNumber']
+    }
+  );
+
+export type CreateReceiptInput = z.infer<typeof CreateReceiptSchema>;
+
+export const ClearChequeSchema = z.object({
+  targetBankAccountId: z.string().uuid('Invalid target bank account ID format')
+});
+
+export type ClearChequeInput = z.infer<typeof ClearChequeSchema>;
+
+export const TransferFileSchema = z.object({
+  newCustomerId: z.string().uuid('Invalid new customer ID format'),
+  transferFeeAmount: z
+    .union([
+      z.number().min(0, 'transferFeeAmount cannot be negative'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'transferFeeAmount must be a non-negative number')
+    ])
+    .default(0)
+});
+
+export type TransferFileInput = z.infer<typeof TransferFileSchema>;
+
+export const ApplyWalletSchema = z.object({
+  invoiceId: z.string().uuid('Invalid invoice ID format'),
+  amount: z
+    .union([
+      z.number().positive('amount must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'amount must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'amount must be greater than 0'
+    })
+});
+
+export type ApplyWalletInput = z.infer<typeof ApplyWalletSchema>;
+
