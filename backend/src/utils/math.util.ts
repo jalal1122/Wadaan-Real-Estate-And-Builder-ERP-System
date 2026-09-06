@@ -18,4 +18,18 @@ export class MathUtility {
     const sum = values.reduce((acc: Decimal, val) => acc.plus(new Decimal(val)), new Decimal(0));
     return sum.isZero();
   }
+
+  static safePercentage(
+    part: Decimal | number | string,
+    whole: Decimal | number | string
+  ): string {
+    const dPart = new Decimal(part);
+    const dWhole = new Decimal(whole);
+
+    if (dWhole.isZero()) {
+      return '0.00';
+    }
+
+    return dPart.dividedBy(dWhole).times(100).toFixed(2);
+  }
 }
