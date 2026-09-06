@@ -92,14 +92,17 @@ export const applyWalletAdvance = async (req: Request, res: Response, next: Next
       throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      return WalletManager.consumeAdvance(
-        customerId,
-        parseResult.data.amount,
-        parseResult.data.invoiceId,
-        tx
-      );
-    });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        return WalletManager.consumeAdvance(
+          customerId,
+          parseResult.data.amount,
+          parseResult.data.invoiceId,
+          tx
+        );
+      },
+      { maxWait: 10000, timeout: 30000 }
+    );
 
     res.status(200).json({
       success: true,

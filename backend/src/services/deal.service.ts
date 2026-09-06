@@ -138,7 +138,7 @@ export class DealService {
         } else {
           await JournalService.postEntry(
             {
-              description: `Contract Initialized: ${deal.dealType} deal for ${customer.fullName} (Total: Rs. ${totalValue})`,
+              description: `Contract Initialized: ${deal.dealType} deal for ${customer.fullName} (Deal ID: ${deal.id}) (Total: Rs. ${totalValue})`,
               entryDate: new Date().toISOString(),
               lines: [
                 {
