@@ -1066,3 +1066,181 @@ export const bouncePendingCheque = async (receiptId: string) => {
 | `COMMISSION_REQUIRED` | `400` | Missing commissionAmount on Brokerage contract. | Prompt: "Wadaan commission amount is required for Brokerage deals." |
 | `RECEIPT_NOT_PENDING` | `400` | Attempted to clear or bounce an already settled receipt. | Refresh Waiting Room list via React Query invalidation. |
 
+---
+
+## 10. Module 4: Executive Intelligence (Screen 10 Dashboard)
+
+Screen 10 serves as the single pane of glass for Wadaan executive leadership. It aggregates live metrics from general ledger accounts, bills, deals, invoices, and customer wallets into real-time visual cards, tables, and radar widgets.
+
+### 10.1 TypeScript Interfaces (`frontend/src/features/reports/types/index.ts`)
+
+```typescript
+export interface ExecutiveSnapshot {
+  liquidCash: string;        // Cash in Office Safe + Bank accounts (GL 10xx)
+  clientFundsHeld: string;   // Customer mobilization wallets + Escrow Liability (GL 2100)
+  totalAR: string;           // Unpaid/partial milestone receivables
+  totalAP: string;           // Unpaid/partial vendor payables
+}
+
+export interface DealMarginItem {
+  dealId: string;
+  dealType: 'WADAAN_SALE' | 'CONSTRUCTION' | 'BROKERAGE';
+  customerName: string;
+  projectName: string | null;
+  totalValue: string;
+  revenueCollected: string;
+  totalProjectCost: string;
+  grossProfit: string;
+  marginPercentage: string;  // e.g. "25.00" or "0.00" (protected against div-by-zero)
+  isWipAsset: boolean;       // true if revenueCollected == 0 (capitalized construction phase)
+}
+
+export interface AgingReceivableItem {
+  invoiceId: string;
+  customerName: string;
+  description: string;
+  amount: string;
+  dueDate: string;           // ISO 8601 string
+  daysOverdue: number;       // Calendar days past due date (0 if not yet due)
+}
+
+export interface AgingPayableItem {
+  billId: string;
+  vendorName: string;
+  invoiceNumber: string;
+  pendingAmount: string;
+  billDate: string;          // ISO 8601 string
+  daysOverdue: number;       // Calendar days past bill date (0 if current)
+}
+
+export interface AgingRadarResponse {
+  receivables: AgingReceivableItem[];
+  payables: AgingPayableItem[];
+}
+
+export interface NetIncomeReport {
+  period: {
+    startDate: string;       // ISO 8601 string
+    endDate: string;         // ISO 8601 string
+  };
+  grossDealProfit: string;
+  brokerageCommissions: string;
+  generalOverhead: string;
+  netIncome: string;         // (grossDealProfit + brokerageCommissions) - generalOverhead
+}
+```
+
+---
+
+### 10.2 API Client (`frontend/src/features/reports/api/reportApi.ts`)
+
+```typescript
+import { apiClient } from '@/lib/api';
+import {
+  ExecutiveSnapshot,
+  DealMarginItem,
+  AgingRadarResponse,
+  NetIncomeReport
+} from '../types';
+
+/**
+ * Fetches top-line survival metrics (Liquid Cash, Client Funds Held, AR, AP)
+ */
+export const fetchExecutiveSnapshot = async (): Promise<ExecutiveSnapshot> => {
+  const res = await apiClient.get('/reports/snapshot');
+  return res.data.data;
+};
+
+/**
+ * Fetches deal-by-deal gross margin breakdown
+ */
+export const fetchDealMargins = async (status?: 'ACTIVE' | 'COMPLETED'): Promise<DealMarginItem[]> => {
+  const res = await apiClient.get('/reports/deal-margins', {
+    params: status ? { status } : undefined
+  });
+  return res.data.data;
+};
+
+/**
+ * Fetches aging receivables and payables sorted by days overdue
+ */
+export const fetchAgingRadar = async (): Promise<AgingRadarResponse> => {
+  const res = await apiClient.get('/reports/aging-radar');
+  return res.data.data;
+};
+
+/**
+ * Fetches true net income for fiscal year or custom date range
+ */
+export const fetchNetIncome = async (params?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<NetIncomeReport> => {
+  const res = await apiClient.get('/reports/net-income', { params });
+  return res.data.data;
+};
+```
+
+---
+
+### 10.3 TanStack Query Hooks (`frontend/src/features/reports/hooks/useReports.ts`)
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import {
+  fetchExecutiveSnapshot,
+  fetchDealMargins,
+  fetchAgingRadar,
+  fetchNetIncome
+} from '../api/reportApi';
+
+export const reportKeys = {
+  all: ['reports'] as const,
+  snapshot: () => [...reportKeys.all, 'snapshot'] as const,
+  margins: (status?: string) => [...reportKeys.all, 'margins', status] as const,
+  aging: () => [...reportKeys.all, 'aging'] as const,
+  netIncome: (start?: string, end?: string) => [...reportKeys.all, 'net-income', start, end] as const
+};
+
+export const useExecutiveSnapshot = () => {
+  return useQuery({
+    queryKey: reportKeys.snapshot(),
+    queryFn: fetchExecutiveSnapshot,
+    refetchInterval: 30_000 // Polling every 30s for live executive dashboard
+  });
+};
+
+export const useDealMargins = (status?: 'ACTIVE' | 'COMPLETED') => {
+  return useQuery({
+    queryKey: reportKeys.margins(status),
+    queryFn: () => fetchDealMargins(status)
+  });
+};
+
+export const useAgingRadar = () => {
+  return useQuery({
+    queryKey: reportKeys.aging(),
+    queryFn: fetchAgingRadar
+  });
+};
+
+export const useNetIncome = (startDate?: string, endDate?: string) => {
+  return useQuery({
+    queryKey: reportKeys.netIncome(startDate, endDate),
+    queryFn: () => fetchNetIncome({ startDate, endDate })
+  });
+};
+```
+
+---
+
+### 10.4 Screen 10 Widget Design & Architectural Guardrails
+
+| Widget | Backend Source | Financial Guardrail Enforced |
+|---|---|---|
+| **Liquid Cash** | `GET /api/v1/reports/snapshot` | Uncleared wealth filter: pending cheques in Waiting Room generate NO journal lines, so they cannot artificially inflate cash. |
+| **Client Funds Held** | `GET /api/v1/reports/snapshot` | Escrow segregation: Client wallets and Escrow Liability (2100) are flagged in red so leadership never spends third-party funds. |
+| **Deal Margins** | `GET /api/v1/reports/deal-margins` | Safe percentage: Unsold construction projects (`revenueCollected == 0`) are flagged as `isWipAsset = true` with `0.00%` margin, preventing `NaN` crashes. |
+| **Aging Radar** | `GET /api/v1/reports/aging-radar` | Priority ordering: Overdue receivables and payables are dynamically sorted by `daysOverdue DESC` using real-time date math. |
+| **True Net Income** | `GET /api/v1/reports/net-income` | Accrual matching: WIP projects with zero revenue are excluded from P&L deduction, ensuring unearned expenses stay on the balance sheet. |
+

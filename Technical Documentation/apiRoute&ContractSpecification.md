@@ -1324,48 +1324,114 @@ Module 4: Executive Intelligence (The Aggregation Engine)
 1. API Routes (The Endpoints Blueprint)
 GET /api/v1/reports/snapshot
 
-
-
-Purpose: Fetches the top-row "Survival Snapshot" metrics (Liquid Cash, Funds Held, Total AR, Total AP).
-
-
-Access: Protected.
-
+Purpose: Fetches the top-row "Survival Snapshot" metrics (Liquid Cash, Client Funds Held, Total AR, Total AP).
+Access: Protected (Bearer JWT / Cookie).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "liquidCash": "4450000.00",
+    "clientFundsHeld": "500000.00",
+    "totalAR": "15000000.00",
+    "totalAP": "650000.00"
+  }
+}
+```
 
 GET /api/v1/reports/deal-margins
 
-
-
-Purpose: Generates the Deal-by-Deal P&L table, subtracting specific WIP costs from specific Sale revenues.
-
-
-Access: Protected.
-
-
-Query Params: ?status=ACTIVE|COMPLETED
-
+Purpose: Generates the Deal-by-Deal P&L table, subtracting project WIP costs from collected sale revenues.
+Access: Protected (Bearer JWT / Cookie).
+Query Params: `?status=ACTIVE|COMPLETED` (Optional filter by linked project status).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "dealId": "c3f1b402-86bb-49e2-9d33-40e8a715f523",
+      "dealType": "WADAAN_SALE",
+      "customerName": "Zain Ahmed",
+      "projectName": "Wadaan Heights",
+      "totalValue": "20000000.00",
+      "revenueCollected": "5000000.00",
+      "totalProjectCost": "14500000.00",
+      "grossProfit": "-9500000.00",
+      "marginPercentage": "-190.00",
+      "isWipAsset": false
+    },
+    {
+      "dealId": "d8e2a110-91cc-41e3-8e44-51e9b826f634",
+      "dealType": "CONSTRUCTION",
+      "customerName": "Tariq Mahmood",
+      "projectName": "G-13 Villa",
+      "totalValue": "35000000.00",
+      "revenueCollected": "0.00",
+      "totalProjectCost": "3200000.00",
+      "grossProfit": "-3200000.00",
+      "marginPercentage": "0.00",
+      "isWipAsset": true
+    }
+  ]
+}
+```
 
 GET /api/v1/reports/aging-radar
 
-
-
-Purpose: Fetches the prioritized list of who owes Wadaan money and who Wadaan owes, calculated by days overdue.
-
-
-Access: Protected.
-
+Purpose: Fetches the prioritized list of who owes Wadaan money (Deal Invoices) and who Wadaan owes (Expense Bills), strictly ordered by days overdue descending.
+Access: Protected (Bearer JWT / Cookie).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "receivables": [
+      {
+        "invoiceId": "e1f2a3b4-1111-2222-3333-444455556666",
+        "customerName": "Zain Ahmed",
+        "description": "Milestone 2 - Structure",
+        "amount": "5000000.00",
+        "dueDate": "2026-08-15T00:00:00.000Z",
+        "daysOverdue": 22
+      }
+    ],
+    "payables": [
+      {
+        "billId": "a9b8c7d6-5555-6666-7777-888899990000",
+        "vendorName": "Ali Hardware",
+        "invoiceNumber": "WH-045",
+        "pendingAmount": "650000.00",
+        "billDate": "2026-08-20T00:00:00.000Z",
+        "daysOverdue": 17
+      }
+    ]
+  }
+}
+```
 
 GET /api/v1/reports/net-income
 
+Purpose: Calculates True Office Net Income by aggregating recognized gross deal profits, adding brokerage commissions, and deducting general office overhead.
+Access: Protected (Bearer JWT / Cookie).
+Query Params: `?startDate=2026-07-01&endDate=2026-09-06` (Defaults to current fiscal year July 1 - June 30).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "period": {
+      "startDate": "2026-07-01T00:00:00.000Z",
+      "endDate": "2027-06-30T23:59:59.999Z"
+    },
+    "grossDealProfit": "5500000.00",
+    "brokerageCommissions": "200000.00",
+    "generalOverhead": "350000.00",
+    "netIncome": "5350000.00"
+  }
+}
+```
 
-
-Purpose: Calculates True Office Net Income by deducting Screen 5 General Overhead from Screen 8 Deal Profits.
-
-
-Access: Protected.
-
-
-Query Params: ?startDate=2026-07-01&endDate=2026-09-02 (Defaults to current fiscal year).
 
 
 2. Controllers (report.controller.ts)

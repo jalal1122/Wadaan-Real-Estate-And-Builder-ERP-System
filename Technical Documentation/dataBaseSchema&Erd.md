@@ -237,3 +237,11 @@ Whenever modifying or extending models in backend/prisma/schema.prisma:
    - The editor will reload fresh .d.ts types from disk immediately.
 4. Centralized Client Singleton:
    Always import the Prisma database client and types from backend/src/config/db.ts (import { prisma, User } from '../config/db'). Never instantiate new PrismaClient() directly in controllers or services to avoid exhausting connection pools.
+
+7. Architectural Note: Module 4 (Executive Intelligence) Zero-Migration Aggregation
+Module 4 (Screen 10 Dashboard) introduces NO new database models, columns, or Prisma migrations. It acts as a pure read-only mathematical aggregation engine over existing core tables:
+- `Account` & `JournalLine`: Computes liquid cash balances (`category = 'ASSET'` and `accountCode LIKE '10%'`) and client funds held (escrow liability account `2100` credits minus debits).
+- `Customer`: Sums `walletBalance` for client advances held.
+- `DealInvoice`: Aggregates active receivables (`paymentStatus != 'PAID'`) and confirmed deal revenue (`paymentStatus = 'PAID'`).
+- `ExpenseBill`: Aggregates active payables (`pendingAmount` where `paymentStatus != 'PAID'`), project costs (grouped by `projectId`), and office general overhead (`projectId IS NULL`).
+- `Deal`: Joins deals, milestones, and project costs to calculate gross profit, safe margins, WIP capitalization, and brokerage commissions.
