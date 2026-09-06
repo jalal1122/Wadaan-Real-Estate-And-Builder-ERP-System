@@ -25,6 +25,7 @@ enum PaymentStatus {
   UNPAID
   PARTIAL
   PAID
+  PENDING_CLEARANCE
 }
 
 enum ClearanceStatus {
@@ -163,17 +164,18 @@ model Customer {
 }
 
 model Deal {
-  id            String    @id @default(uuid())
-  customerId    String
-  projectId     String?   // Links to Screen 4 (to calculate Gross Profit)
-  dealType      DealType  // SALE, CONSTRUCTION, BROKERAGE
-  totalValue    Decimal   @db.Decimal(15, 2)
-  createdAt     DateTime  @default(now())
+  id               String        @id @default(uuid())
+  customerId       String
+  projectId        String?       // Links to Screen 4 (to calculate Gross Profit)
+  dealType         DealType      // SALE, CONSTRUCTION, BROKERAGE
+  totalValue       Decimal       @db.Decimal(15, 2)
+  commissionAmount Decimal?      @db.Decimal(15, 2)
+  createdAt        DateTime      @default(now())
 
   // Relationships
-  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  project       Project?  @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  invoices      DealInvoice[]
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  project          Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  invoices         DealInvoice[]
 }
 
 model DealInvoice {
@@ -183,8 +185,10 @@ model DealInvoice {
   amount        Decimal       @db.Decimal(15, 2)
   dueDate       DateTime
   paymentStatus PaymentStatus @default(UNPAID)
+  receiptId     String?
 
   deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  receipt       Receipt?      @relation(fields: [receiptId], references: [id], onDelete: SetNull)
 }
 
 model Receipt {
@@ -197,6 +201,7 @@ model Receipt {
   receiptDate     DateTime        @default(now())
 
   customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoices        DealInvoice[]
 }
 
 model SystemSetting {
