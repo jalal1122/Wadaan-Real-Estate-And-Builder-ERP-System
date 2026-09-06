@@ -118,11 +118,14 @@ model ExpenseBill {
   paymentType   PaymentType   // AP vs Direct Cash
   paymentStatus PaymentStatus @default(UNPAID)
   grandTotal    Decimal       @db.Decimal(15, 2)
+  pendingAmount Decimal       @default(0.00) @db.Decimal(15, 2)
   
   // Relationships
   vendor        Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   project       Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
   lineItems     BillLineItem[]
+
+  @@unique([vendorId, invoiceNumber])
 }
 
 model BillLineItem {
