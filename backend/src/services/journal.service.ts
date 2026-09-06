@@ -19,7 +19,8 @@ export class JournalService {
    */
   static async postEntry(
     payload: CreateJournalInput,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    options?: { skipLockCheck?: boolean }
   ): Promise<JournalEntry> {
     const execute = async (client: Prisma.TransactionClient) => {
       // 1. Double-entry zero-sum mathematical validation
@@ -43,13 +44,15 @@ export class JournalService {
         );
       }
 
-      for (const account of accounts) {
-        if (account.isSystemLocked) {
-          throw new AppError(
-            `Account '${account.accountName}' (${account.accountCode}) is system-locked. Manual adjustments to this account are prohibited.`,
-            403,
-            'ERR_SYSTEM_ACCOUNT_LOCKED'
-          );
+      if (!options?.skipLockCheck) {
+        for (const account of accounts) {
+          if (account.isSystemLocked) {
+            throw new AppError(
+              `Account '${account.accountName}' (${account.accountCode}) is system-locked. Manual adjustments to this account are prohibited.`,
+              403,
+              'ERR_SYSTEM_ACCOUNT_LOCKED'
+            );
+          }
         }
       }
 
