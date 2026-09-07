@@ -7,15 +7,17 @@ export class AppError extends Error {
   metadata?: Record<string, any>;
   constructor(message: string, statusCode: number, code: string, metadata?: Record<string, any>) {
     super(message);
+    this.name = 'AppError';
     this.statusCode = statusCode;
     this.code = code;
     this.metadata = metadata;
+    Object.setPrototypeOf(this, AppError.prototype);
   }
 }
 
 export const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
   // Catch Custom Business Errors
-  if (err instanceof AppError) {
+  if (err instanceof AppError || (err && err.statusCode && err.code)) {
     return res.status(err.statusCode).json({
       success: false,
       error: {

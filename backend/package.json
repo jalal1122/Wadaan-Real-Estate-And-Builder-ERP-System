@@ -4,10 +4,11 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon src/server.ts",
+    "dev": "nodemon -e ts,json src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "db:reset-test": "ts-node scripts/reset-test-db.ts",
     "contract:emit": "prisma contract emit"
   },
   "keywords": [],
