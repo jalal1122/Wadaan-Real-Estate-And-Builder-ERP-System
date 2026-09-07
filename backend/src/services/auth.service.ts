@@ -29,6 +29,7 @@ export class AuthService {
         {
           remainingSeconds,
           lockoutTier: user.lockoutTier,
+          displayTier: user.lockoutTier + 1,
           failedAttempts: user.failedAttempts,
           maxAttempts: limit
         }
@@ -55,6 +56,8 @@ export class AuthService {
           data: { failedAttempts: newAttempts, lockoutTier: newTier, lockoutExpiresAt: newLockoutDate }
         });
 
+        const nextLimit = newTier === 0 ? 5 : 4; // Always 4 since newTier >= 1
+
         throw new AppError(
           `Account locked. Try again in ${lockDuration} seconds.`,
           429,
@@ -62,8 +65,9 @@ export class AuthService {
           {
             remainingSeconds: lockDuration,
             lockoutTier: newTier,
+            displayTier: newTier + 1,
             failedAttempts: 0,
-            maxAttempts: limit
+            maxAttempts: nextLimit
           }
         );
       }
@@ -80,7 +84,8 @@ export class AuthService {
         {
           failedAttempts: newAttempts,
           maxAttempts: limit,
-          lockoutTier: newTier
+          lockoutTier: newTier,
+          displayTier: newTier + 1
         }
       );
     }
