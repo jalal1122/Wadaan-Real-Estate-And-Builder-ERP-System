@@ -5,13 +5,15 @@ import {
   logout,
   getMe,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  getLockoutStatus
 } from '../controllers/auth.controller';
 import { authGuard } from '../middleware/authGuard';
 
 const router = Router();
 
 // Public routes
+router.get('/lockout-status', getLockoutStatus);
 router.post('/setup', setupAdmin);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);

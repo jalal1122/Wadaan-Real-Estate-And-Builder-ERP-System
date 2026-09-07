@@ -100,6 +100,47 @@ export class AuthService {
   }
 
   /**
+   * Returns the current progressive lockout status for the master administrator.
+   * Safe to call publicly: returns isLocked: false and default tier if no admin or not locked.
+   */
+  static async getLockoutStatus(): Promise<{
+    isLocked: boolean;
+    remainingSeconds: number;
+    failedAttempts: number;
+    maxAttempts: number;
+    lockoutTier: number;
+    displayTier: number;
+  }> {
+    const user = await prisma.user.findFirst();
+    if (!user) {
+      return {
+        isLocked: false,
+        remainingSeconds: 0,
+        failedAttempts: 0,
+        maxAttempts: 5,
+        lockoutTier: 0,
+        displayTier: 1
+      };
+    }
+
+    const isLocked = Boolean(user.lockoutExpiresAt && user.lockoutExpiresAt > new Date());
+    const remainingSeconds = isLocked && user.lockoutExpiresAt
+      ? Math.max(0, Math.ceil((user.lockoutExpiresAt.getTime() - Date.now()) / 1000))
+      : 0;
+
+    const maxAttempts = user.lockoutTier === 0 ? 5 : 4;
+
+    return {
+      isLocked,
+      remainingSeconds,
+      failedAttempts: user.failedAttempts,
+      maxAttempts,
+      lockoutTier: user.lockoutTier,
+      displayTier: user.lockoutTier + 1
+    };
+  }
+
+  /**
    * Registers the single master administrator account with a 4-digit PIN.
    * Generates and returns a Master Recovery Key.
    */

@@ -146,3 +146,19 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 };
+
+/**
+ * Public query for lockout status (used by AuthVault on mount to resume countdown/tier).
+ */
+export const getLockoutStatus = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = await AuthService.getLockoutStatus();
+    res.status(200).json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
