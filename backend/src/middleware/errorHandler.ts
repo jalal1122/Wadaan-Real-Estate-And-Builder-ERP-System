@@ -4,17 +4,26 @@ import { Prisma } from '@prisma/client';
 export class AppError extends Error {
   statusCode: number;
   code: string;
-  constructor(message: string, statusCode: number, code: string) {
+  metadata?: Record<string, any>;
+  constructor(message: string, statusCode: number, code: string, metadata?: Record<string, any>) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
+    this.metadata = metadata;
   }
 }
 
 export const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
   // Catch Custom Business Errors
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({ success: false, error: { code: err.code, message: err.message } });
+    return res.status(err.statusCode).json({
+      success: false,
+      error: {
+        code: err.code,
+        message: err.message,
+        ...(err.metadata || {})
+      }
+    });
   }
 
   // Catch Prisma Network/Offline Errors (Crucial for Electron local app)

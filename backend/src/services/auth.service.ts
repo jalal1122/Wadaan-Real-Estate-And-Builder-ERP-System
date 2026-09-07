@@ -21,7 +21,18 @@ export class AuthService {
     // Check Lockout
     if (user.lockoutExpiresAt && user.lockoutExpiresAt > new Date()) {
       const remainingSeconds = Math.ceil((user.lockoutExpiresAt.getTime() - Date.now()) / 1000);
-      throw new AppError(`Account locked. Try again in ${remainingSeconds} seconds.`, 429, 'ACCOUNT_LOCKED');
+      const limit = user.lockoutTier === 0 ? 5 : 4;
+      throw new AppError(
+        `Account locked. Try again in ${remainingSeconds} seconds.`,
+        429,
+        'ACCOUNT_LOCKED',
+        {
+          remainingSeconds,
+          lockoutTier: user.lockoutTier,
+          failedAttempts: user.failedAttempts,
+          maxAttempts: limit
+        }
+      );
     }
 
     const isValid = await CryptoUtility.compare(pinRaw, user.pinHash);
@@ -38,6 +49,23 @@ export class AuthService {
         newLockoutDate = new Date(Date.now() + lockDuration * 1000);
         newTier += 1;
         newAttempts = 0; // Reset attempts for the next tier
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { failedAttempts: newAttempts, lockoutTier: newTier, lockoutExpiresAt: newLockoutDate }
+        });
+
+        throw new AppError(
+          `Account locked. Try again in ${lockDuration} seconds.`,
+          429,
+          'ACCOUNT_LOCKED',
+          {
+            remainingSeconds: lockDuration,
+            lockoutTier: newTier,
+            failedAttempts: 0,
+            maxAttempts: limit
+          }
+        );
       }
 
       await prisma.user.update({
@@ -45,7 +73,16 @@ export class AuthService {
         data: { failedAttempts: newAttempts, lockoutTier: newTier, lockoutExpiresAt: newLockoutDate }
       });
 
-      throw new AppError('Invalid PIN.', 401, 'INVALID_PIN');
+      throw new AppError(
+        'Invalid PIN.',
+        401,
+        'INVALID_PIN',
+        {
+          failedAttempts: newAttempts,
+          maxAttempts: limit,
+          lockoutTier: newTier
+        }
+      );
     }
 
     // Success - Reset Lockout Counters and record login
