@@ -28,6 +28,14 @@ datasource db {
 }
 ```
 
+⚠ Windows Development Note:
+The Supavisor pooler (port 6543) drops idle TCP connections on Windows with
+`Os { code: 10054, ConnectionReset }` after ~30s of inactivity. During local
+development on Windows, set DATABASE_URL to the DIRECT_URL value (port 5432)
+to prevent false 500 errors that would otherwise interfere with the progressive
+lockout engine. The pooler URL (port 6543) should be restored for production
+Electron builds where connection churn is higher and pooling provides value.
+
 2. The Multi-Tier Backup Strategy
 A real estate ERP cannot rely solely on cloud provider guarantees. Wadaan ERP employs a dual-layer backup system.
 

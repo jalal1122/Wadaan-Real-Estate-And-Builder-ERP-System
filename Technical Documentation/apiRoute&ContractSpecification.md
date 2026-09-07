@@ -72,6 +72,32 @@ Access: Open.
 Payload: { email, resetToken, newPin } (resetToken can be the Email OTP or the offline Master Recovery Key).
 
 
+GET /api/v1/auth/lockout-status
+
+
+
+Purpose: Returns the current lockout state for the master admin account.
+         Used by the AuthVault component on mount to restore countdown and
+         tier display after a page refresh.
+
+
+Access: Open (Public - safe metadata only).
+
+
+Response 200 OK:
+{
+  "success": true,
+  "data": {
+    "isLocked": true,
+    "remainingSeconds": 28,
+    "failedAttempts": 0,
+    "maxAttempts": 4,
+    "lockoutTier": 1,
+    "displayTier": 2
+  }
+}
+
+
 2. Controllers (auth.controller.ts)
 setupAdmin(req, res)
 
@@ -125,6 +151,13 @@ Calls AuthService.validateResetTokenAndSetPin().
 Hashes the new 4-digit PIN, updates DB (pinHash), resets failedAttempts and lockoutTier to 0.
 
 
+getLockoutStatus(req, res)
+
+
+
+Calls AuthService.getLockoutStatus(). Returns current lockout status: { isLocked, remainingSeconds, failedAttempts, maxAttempts, lockoutTier, displayTier }.
+
+
 3. Services & Core Logic (auth.service.ts)
 verifyCredentials(rawPin): The Progressive Lockout Engine
 
@@ -136,7 +169,7 @@ Fetches master admin. If not found, throws 404.
 Validates that rawPin is exactly 4 digits.
 
 
-Checks lockoutExpiresAt. If current time is before expiration, immediately throws ERR_ACCOUNT_LOCKED along with the remaining seconds.
+Checks lockoutExpiresAt. If current time is before expiration, immediately throws ACCOUNT_LOCKED (HTTP 429) along with remainingSeconds, lockoutTier, displayTier, failedAttempts, and maxAttempts.
 
 
 Calls CryptoUtility.compare(rawPin, user.pinHash).
@@ -169,7 +202,7 @@ The Lock Trigger:
 baseTime = 30 (seconds).
 
 
-lockDuration = baseTime * (2 ^ lockoutTier). (Tier 0 = 30s, Tier 1 = 60s, Tier 2 = 120s, Tier 3 = 240s).
+lockDuration = baseTime * (2 ^ lockoutTier). (Tier 1 = 30s, Tier 2 = 60s, Tier 3 = 120s, Tier 4 = 240s).
 
 
 Set lockoutExpiresAt = NOW() + lockDuration.
@@ -181,7 +214,27 @@ Set lockoutTier += 1.
 Set failedAttempts = 0 (resets the counter for the next batch of 4 tries).
 
 
-Throws ERR_INVALID_CREDENTIALS.
+Throws ACCOUNT_LOCKED (HTTP 429) with metadata:
+  - remainingSeconds: number   — seconds until lock expires
+  - lockoutTier: number        — internal 0-indexed tier
+  - displayTier: number        — human-readable tier (lockoutTier + 1)
+  - failedAttempts: number     — 0 (reset for next tier)
+  - maxAttempts: number        — 4 (limit for next tier)
+
+
+getLockoutStatus()
+
+
+
+Inspects the single master admin record. Safe to query publicly. Returns:
+{
+  isLocked: boolean,
+  remainingSeconds: number,
+  failedAttempts: number,
+  maxAttempts: number,        // 5 for Tier 1, 4 for Tier 2+
+  lockoutTier: number,        // internal 0-indexed tier
+  displayTier: number         // human tier = lockoutTier + 1
+}
 
 
 generatePasswordResetToken(email)

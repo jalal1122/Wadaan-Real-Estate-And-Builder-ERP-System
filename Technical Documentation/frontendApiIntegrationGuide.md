@@ -153,9 +153,17 @@ try {
   router.push('/dashboard'); // 15-minute HttpOnly cookie set automatically by browser/Electron
 } catch (err: any) {
   if (err.code === 'ACCOUNT_LOCKED') {
-    // Message contains countdown: "Account locked. Try again in 30 seconds."
-    setLockoutBanner(err.message);
+    setLockoutTimer(err.remainingSeconds ?? 30);
+    setLockoutTier(err.lockoutTier ?? 0);
+    setMaxAttempts(err.maxAttempts ?? 4); // Next tier limit
+    setAttemptCount(0);
+    // UI Banner: `Security Lock Active • Tier ${err.displayTier}`
+  } else if (err.code === 'INVALID_PIN') {
+    setAttemptCount(err.failedAttempts);
+    setMaxAttempts(err.maxAttempts);
+    setErrorMessage(err.message);
   } else {
+    // Network or server error — do not increment attempts
     setErrorMessage(err.message);
   }
 }
@@ -198,6 +206,44 @@ export const submitPinReset = async (payload: {
 }) => {
   return apiClient.post('/auth/reset-password', payload);
 };
+```
+
+### 4.5 Lockout Status Query (Mount-Time Sync)
+
+When `AuthVault` mounts or is reloaded during an active lockout, it queries `GET /api/v1/auth/lockout-status` to restore the remaining countdown seconds and human tier display without losing context.
+
+```typescript
+// Route: GET /api/v1/auth/lockout-status
+export interface LockoutStatus {
+  isLocked: boolean;
+  remainingSeconds: number;
+  failedAttempts: number;
+  maxAttempts: number;
+  lockoutTier: number;
+  displayTier: number;       // Human-readable: lockoutTier + 1
+}
+
+export const getLockoutStatus = async (): Promise<LockoutStatus> => {
+  const response = await apiClient.get('/auth/lockout-status');
+  return response.data.data;
+};
+```
+
+**Usage in `AuthVault.tsx` (mount):**
+```typescript
+useEffect(() => {
+  getLockoutStatus().then((status) => {
+    if (!status) return;
+    setAttemptCount(status.failedAttempts);
+    setMaxAttempts(status.maxAttempts);
+    setLockoutTier(status.lockoutTier);
+    if (status.isLocked && status.remainingSeconds > 0) {
+      setLockoutTimer(status.remainingSeconds);
+    }
+  }).catch(() => {
+    // Silently fail — if backend unreachable, default state remains intact
+  });
+}, []);
 ```
 
 ---

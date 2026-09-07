@@ -20,11 +20,14 @@ Behind the scenes, the system securely tracks key operational and cryptographic 
 3. Business Rules & Security Guardrails
 Since this software holds Wadaan's bank balances and client data, the login screen acts like a bank vault door with strict automatic rules.
 The Progressive Anti-Brute-Force Engine: Because a 4-digit PIN has 10,000 combinations, progressive mathematical backoff is strictly enforced:
-  - Tier 0: 5 incorrect PIN attempts trigger a 30-second lock.
-  - Tier 1: 4 more incorrect attempts trigger a 60-second lock.
-  - Tier 2: 4 more incorrect attempts trigger a 120-second lock.
-  - Tier 3+: Doubles continuously (240s, 480s...).
-  - Correct PIN entry resets the failed counter and tier back to 0.
+  - Tier 1 (initial): 5 incorrect PIN attempts trigger a 30-second lock.
+  - Tier 2: 4 incorrect attempts trigger a 60-second lock.
+  - Tier 3: 4 incorrect attempts trigger a 120-second lock.
+  - Tier 4+: Doubles continuously (240s, 480s...).
+  - Correct PIN entry resets the failed counter AND tier back to Tier 1.
+  The attempt counter resets to 0 after each lockout expiry; the next cycle
+  uses 4 attempts max (not 5). On page refresh during a lockout, the
+  countdown and tier are restored from the server via GET /api/v1/auth/lockout-status.
 The 15-Minute Auto-Logout Rule (Session Expiry): Following high-security banking standards, the authentication token is stored inside an HttpOnly, SameSite=Strict cookie with a **15-minute** lifespan. If left idle at the desk, the session expires cleanly and locks the ERP.
 The Invisible Bouncer (authGuard): Route protection middleware intercepts all private endpoints (`/api/v1/*`). If an unauthorized user or expired session tries to access Screen 4 (Projects) or Screen 7 (Payments), the API returns 401 and the frontend redirects to the PIN screen.
 
