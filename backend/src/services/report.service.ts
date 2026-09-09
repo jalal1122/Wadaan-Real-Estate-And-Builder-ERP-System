@@ -4,6 +4,25 @@ import { prisma } from '../config/db';
 import { DateUtility, MathUtility } from '../utils/aggregation.util';
 import { FiscalYearUtility } from '../utils/fiscal.util';
 
+export interface TrialBalanceLineItem {
+  accountCode: string;
+  accountName: string;
+  category: AccountCategory;
+  debit: string;   // Populated for ASSET and EXPENSE accounts
+  credit: string;  // Populated for LIABILITY, EQUITY, and REVENUE accounts
+}
+
+export interface TrialBalanceReport {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  accounts: TrialBalanceLineItem[];
+  grandTotalDebit: string;
+  grandTotalCredit: string;
+  isBalanced: boolean;
+}
+
 export interface ExecutiveSnapshot {
   liquidCash: string;
   clientFundsHeld: string;
@@ -425,6 +444,124 @@ export class ReportService {
       brokerageCommissions: brokerageCommissions.toFixed(2),
       generalOverhead: generalOverhead.toFixed(2),
       netIncome: netIncome.toFixed(2)
+    };
+  }
+
+  /**
+   * 5. Trial Balance Report
+   *
+   * Accounting boundary rules:
+   * - ASSET, LIABILITY, EQUITY (permanent): Cumulative balance from the beginning
+   *   of time up to endDate. startDate is IGNORED for these — they never reset.
+   * - REVENUE, EXPENSE (annual): Balance strictly between startDate and endDate.
+   *   If no startDate provided, defaults to the current fiscal year start.
+   *
+   * Zero-balance accounts are filtered from the result.
+   */
+  static async getTrialBalance(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<TrialBalanceReport> {
+    const { startDate: defaultStart, endDate: defaultEnd } = FiscalYearUtility.getCurrentBoundary();
+    const periodStart = startDate ?? defaultStart;
+    const periodEnd = endDate ?? defaultEnd;
+
+    // Fetch all active (non-archived) accounts
+    const allAccounts = await prisma.account.findMany({
+      where: { isArchived: false },
+      orderBy: { accountCode: 'asc' }
+    });
+
+    const permanentCategories = [
+      AccountCategory.ASSET,
+      AccountCategory.LIABILITY,
+      AccountCategory.EQUITY
+    ];
+    const annualCategories = [AccountCategory.REVENUE, AccountCategory.EXPENSE];
+
+    const permanentIds = allAccounts
+      .filter((a) => permanentCategories.includes(a.category))
+      .map((a) => a.id);
+    const annualIds = allAccounts
+      .filter((a) => annualCategories.includes(a.category))
+      .map((a) => a.id);
+
+    // Permanent: all-time up to endDate (balance sheet is continuous)
+    const permanentAgg = permanentIds.length > 0
+      ? await prisma.journalLine.groupBy({
+          by: ['accountId'],
+          _sum: { debitAmount: true, creditAmount: true },
+          where: {
+            accountId: { in: permanentIds },
+            journal: { entryDate: { lte: periodEnd } }
+          }
+        })
+      : [];
+
+    // Annual: strictly between startDate and endDate (P&L period)
+    const annualAgg = annualIds.length > 0
+      ? await prisma.journalLine.groupBy({
+          by: ['accountId'],
+          _sum: { debitAmount: true, creditAmount: true },
+          where: {
+            accountId: { in: annualIds },
+            journal: { entryDate: { gte: periodStart, lte: periodEnd } }
+          }
+        })
+      : [];
+
+    // Build a totals lookup map
+    const totalsMap = new Map<string, { debit: Decimal; credit: Decimal }>();
+    for (const row of [...permanentAgg, ...annualAgg]) {
+      totalsMap.set(row.accountId, {
+        debit: new Decimal(row._sum.debitAmount?.toString() || '0'),
+        credit: new Decimal(row._sum.creditAmount?.toString() || '0')
+      });
+    }
+
+    let grandTotalDebit = new Decimal(0);
+    let grandTotalCredit = new Decimal(0);
+    const lines: TrialBalanceLineItem[] = [];
+
+    for (const acc of allAccounts) {
+      const totals = totalsMap.get(acc.id) ?? { debit: new Decimal(0), credit: new Decimal(0) };
+
+      // Normal balance direction determines which column the net balance sits in
+      const isDebitNormal =
+        acc.category === AccountCategory.ASSET ||
+        acc.category === AccountCategory.EXPENSE;
+
+      const netBalance = isDebitNormal
+        ? totals.debit.minus(totals.credit)
+        : totals.credit.minus(totals.debit);
+
+      // Filter out zero-balance accounts
+      if (netBalance.isZero()) continue;
+
+      const debitCol = isDebitNormal ? netBalance.toFixed(2) : '0.00';
+      const creditCol = isDebitNormal ? '0.00' : netBalance.toFixed(2);
+
+      grandTotalDebit = grandTotalDebit.plus(new Decimal(debitCol));
+      grandTotalCredit = grandTotalCredit.plus(new Decimal(creditCol));
+
+      lines.push({
+        accountCode: acc.accountCode,
+        accountName: acc.accountName,
+        category: acc.category,
+        debit: debitCol,
+        credit: creditCol
+      });
+    }
+
+    return {
+      period: {
+        startDate: periodStart.toISOString(),
+        endDate: periodEnd.toISOString()
+      },
+      accounts: lines,
+      grandTotalDebit: grandTotalDebit.toFixed(2),
+      grandTotalCredit: grandTotalCredit.toFixed(2),
+      isBalanced: grandTotalDebit.equals(grandTotalCredit)
     };
   }
 }
