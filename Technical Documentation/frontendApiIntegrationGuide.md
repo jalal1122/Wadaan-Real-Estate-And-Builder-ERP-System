@@ -4,6 +4,27 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 
 ---
 
+## Implementation Status Matrix
+
+| Module | Screen / Route | Implementation Path | Status |
+|---|---|---|---|
+| **0 - Authentication** | Screen 0: Lock & Vault (`/login`) | `src/components/auth/AuthVault.tsx` | ✅ Implemented (v1.1.0) |
+| **0.5 - Initializer** | Starter Modal (`StarterModal.tsx`) | `src/components/system/StarterModal.tsx` | ✅ Implemented (v1.2.0) |
+| **Shell & Layout** | Global Navigation Shell (`(dashboard)`) | `src/components/layout/DashboardLayout.tsx` | ✅ Implemented (v1.3.0) |
+| **Dashboard** | Executive Dashboard (`/dashboard`) | `src/app/(dashboard)/dashboard/page.tsx` | ✅ Implemented (v1.3.0) |
+| **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.3.0) |
+| **1 - Accounting** | Screen 2: General Journal (`/journal`) | `src/app/(dashboard)/journal/page.tsx` | 🔲 Scheduled (Module 1) |
+| **1 - Accounting** | Screen 3: Trial Balance & Ledger (`/ledger`) | `src/app/(dashboard)/ledger/page.tsx` | 🔲 Scheduled (Module 1) |
+| **2 - Projects** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | 🔲 Scheduled (Module 2) |
+| **2 - Projects** | Screen 5: Supplier Bills (`/bills`) | `src/app/(dashboard)/bills/page.tsx` | 🔲 Scheduled (Module 2) |
+| **2 - Projects** | Screen 6: Vendor Ledgers (`/vendors`) | `src/app/(dashboard)/vendors/page.tsx` | 🔲 Scheduled (Module 2) |
+| **2 - Projects** | Screen 7: Thursday Payment Run (`/payments`) | `src/app/(dashboard)/payments/page.tsx` | 🔲 Scheduled (Module 2) |
+| **3 - Inflow** | Screen 8: Deals & Customer Hub (`/deals`) | `src/app/(dashboard)/deals/page.tsx` | 🔲 Scheduled (Module 3) |
+| **3 - Inflow** | Screen 9: Receipts & Cheque Room (`/receipts`) | `src/app/(dashboard)/receipts/page.tsx` | 🔲 Scheduled (Module 3) |
+| **4 - Analytics** | Screen 10: Executive Intelligence (`/reports`) | `src/app/(dashboard)/reports/page.tsx` | 🔲 Scheduled (Module 4) |
+
+---
+
 ## 1. Core API Client Setup (Axios)
 
 Because authentication uses **HttpOnly, SameSite=Strict cookies**, all requests must be dispatched with `withCredentials: true`. Without this flag, browsers and Electron Chromium windows will strip the session cookie, resulting in false `401 UNAUTHORIZED` errors.
