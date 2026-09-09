@@ -169,6 +169,21 @@ export const CreateAccountSchema = z.object({
 
 export type CreateAccountInput = z.infer<typeof CreateAccountSchema>;
 
+export const UpdateAccountSchema = z
+  .object({
+    accountName: z.string().min(1, 'Account name is required').optional(),
+    category: z
+      .nativeEnum(AccountCategory, {
+        message: 'Category must be one of ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE'
+      })
+      .optional()
+  })
+  .refine((data) => data.accountName !== undefined || data.category !== undefined, {
+    message: 'At least one field (accountName or category) must be provided for update'
+  });
+
+export type UpdateAccountInput = z.infer<typeof UpdateAccountSchema>;
+
 export const CreateJournalLineSchema = z
   .object({
     accountId: z.string().uuid('Invalid account ID format'),

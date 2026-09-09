@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import { AccountCategory, Account } from '@prisma/client';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { CreateAccountInput } from '../utils/validation.util';
+import { CreateAccountInput, UpdateAccountInput } from '../utils/validation.util';
 
 export interface AccountWithBalance {
   id: string;
@@ -51,8 +51,9 @@ export class AccountService {
    *   for transactions where entryDate >= fiscalStartDate.
    */
   static async getLiveBalances(fiscalStartDate?: Date): Promise<LiveBalancesResult> {
-    // 1. Fetch all accounts in the system
+    // 1. Fetch all active accounts in the system
     const allAccounts = await prisma.account.findMany({
+      where: { isArchived: false },
       orderBy: { accountCode: 'asc' }
     });
 
@@ -227,5 +228,101 @@ export class AccountService {
     });
 
     return newAccount;
+  }
+
+  /**
+   * Updates an existing account's name or category.
+   * - accountName can always be updated.
+   * - category can only be updated if isSystemLocked === false.
+   */
+  static async updateAccount(id: string, data: UpdateAccountInput): Promise<Account> {
+    const account = await prisma.account.findUnique({
+      where: { id }
+    });
+
+    if (!account) {
+      throw new AppError('Account not found.', 404, 'NOT_FOUND');
+    }
+
+    if (account.isArchived) {
+      throw new AppError('Cannot modify an archived account.', 400, 'ACCOUNT_ARCHIVED');
+    }
+
+    if (data.category && data.category !== account.category) {
+      if (account.isSystemLocked) {
+        throw new AppError(
+          'Cannot change category of a system-locked account.',
+          403,
+          'OPERATION_FORBIDDEN'
+        );
+      }
+    }
+
+    const updated = await prisma.account.update({
+      where: { id },
+      data: {
+        ...(data.accountName ? { accountName: data.accountName } : {}),
+        ...(data.category ? { category: data.category } : {})
+      }
+    });
+
+    return updated;
+  }
+
+  /**
+   * Deletes or archives an account using the three-tier policy:
+   * Tier 1: System-locked accounts cannot be deleted or archived.
+   * Tier 2: Accounts with journal transactions are soft-deleted (isArchived: true).
+   * Tier 3: Accounts without transactions are permanently deleted.
+   */
+  static async deleteAccount(id: string): Promise<{ message: string; action: 'DELETED' | 'ARCHIVED' }> {
+    const account = await prisma.account.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { journalLines: true }
+        }
+      }
+    });
+
+    if (!account) {
+      throw new AppError('Account not found.', 404, 'NOT_FOUND');
+    }
+
+    if (account.isArchived) {
+      throw new AppError('Account is already archived.', 400, 'ALREADY_ARCHIVED');
+    }
+
+    // Tier 1: System-locked accounts are protected
+    if (account.isSystemLocked) {
+      throw new AppError(
+        'System-locked accounts cannot be deleted or archived.',
+        403,
+        'OPERATION_FORBIDDEN'
+      );
+    }
+
+    // Tier 2: Account has journal activity -> soft-delete (archive)
+    if (account._count.journalLines > 0) {
+      await prisma.account.update({
+        where: { id },
+        data: { isArchived: true }
+      });
+
+      return {
+        message: `Account '${account.accountName}' (${account.accountCode}) has transaction history and was archived.`,
+        action: 'ARCHIVED'
+      };
+    }
+
+    // Tier 3: Zero journal activity -> hard delete
+    await prisma.account.delete({
+      where: { id }
+    });
+
+    return {
+      message: `Account '${account.accountName}' (${account.accountCode}) was deleted successfully.`,
+      action: 'DELETED'
+    };
   }
 }
