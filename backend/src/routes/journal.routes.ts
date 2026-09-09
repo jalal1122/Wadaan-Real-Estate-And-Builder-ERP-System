@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createEntry,
+  getEntries,
   reverseEntry,
   getLedger
 } from '../controllers/journal.controller';
@@ -13,7 +14,8 @@ const router = Router();
 router.get('/ledger/:accountId', authGuard, getLedger);
 
 // Screen 2: General Journal Entries & Reversals
-router.post('/', authGuard, createEntry);
-router.post('/:id/reverse', authGuard, reverseEntry);
+router.get('/', authGuard, getEntries);        // List journal entries (paginated)
+router.post('/', authGuard, createEntry);       // Create new journal entry
+router.post('/:id/reverse', authGuard, reverseEntry); // Reverse a journal entry
 
 export default router;

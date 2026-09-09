@@ -200,7 +200,11 @@ export const CreateJournalLineSchema = z
         z.string().regex(/^\d+(\.\d+)?$/, 'Credit amount must be a non-negative number'),
         z.instanceof(Decimal)
       ])
-      .default(0)
+      .default(0),
+    memo: z.string().max(200, 'Memo cannot exceed 200 characters').optional().nullable(),
+    customerId: z.string().uuid('Invalid customer ID format').optional().nullable(),
+    vendorId: z.string().uuid('Invalid vendor ID format').optional().nullable(),
+    projectId: z.string().uuid('Invalid project ID format').optional().nullable()
   })
   .refine(
     (line) => {
@@ -216,6 +220,7 @@ export const CreateJournalLineSchema = z
   );
 
 export type CreateJournalLineInput = z.infer<typeof CreateJournalLineSchema>;
+
 
 export const CreateJournalSchema = z.object({
   entryDate: z

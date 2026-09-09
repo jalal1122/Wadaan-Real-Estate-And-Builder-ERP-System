@@ -5,6 +5,30 @@ import { CreateJournalSchema } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
 /**
+ * Controller to retrieve a paginated list of journal entries.
+ * GET /api/v1/journals?page=1&limit=20
+ */
+export const getEntries = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+    const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+
+    if (isNaN(page) || page < 1) throw new AppError('Invalid page parameter.', 400, 'VALIDATION_ERROR');
+    if (isNaN(limit) || limit < 1 || limit > 100) throw new AppError('Invalid limit parameter (1–100).', 400, 'VALIDATION_ERROR');
+
+    const result = await JournalService.getEntries(page, limit);
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+/**
  * Controller to create a manual double-entry journal voucher.
  */
 export const createEntry = async (req: Request, res: Response, next: NextFunction) => {

@@ -83,7 +83,11 @@ export class JournalService {
             create: payload.lines.map((l) => ({
               accountId: l.accountId,
               debitAmount: new Decimal(l.debitAmount || 0),
-              creditAmount: new Decimal(l.creditAmount || 0)
+              creditAmount: new Decimal(l.creditAmount || 0),
+              memo: l.memo ?? null,
+              customerId: l.customerId ?? null,
+              vendorId: l.vendorId ?? null,
+              projectId: l.projectId ?? null
             }))
           }
         },
@@ -178,5 +182,37 @@ export class JournalService {
 
       return reversalEntry;
     });
+  }
+
+  /**
+   * Retrieves a paginated list of all journal entries, newest first.
+   * Used by Screen 2 Journal Entry list view.
+   */
+  static async getEntries(
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ entries: JournalEntry[]; total: number; page: number; limit: number }> {
+    const skip = (page - 1) * limit;
+
+    const [entries, total] = await Promise.all([
+      prisma.journalEntry.findMany({
+        skip,
+        take: limit,
+        orderBy: { entryDate: 'desc' },
+        include: {
+          lines: {
+            include: {
+              account: true,
+              customer: { select: { id: true, fullName: true } },
+              vendor: { select: { id: true, vendorName: true } },
+              project: { select: { id: true, projectName: true } }
+            }
+          }
+        }
+      }),
+      prisma.journalEntry.count()
+    ]);
+
+    return { entries, total, page, limit };
   }
 }
