@@ -22,3 +22,34 @@ This screen protects you from making accounting mistakes.
 The "No Manual Typing" Rule: You can never just click on "Meezan Bank" and type in a new balance. The system updates these balances automatically based on the bills you pay on Screen 7 and the cash you receive on Screen 9. This ensures nobody can secretly change the bank balance.
 The Deletion Guardrail: If you create a bucket (e.g., "Advertising Expense") and record a Rs. 50,000 transaction in it, the system will permanently block you from deleting that bucket. You can "Archive" it so it hides from your view, but the financial history is protected forever so your books stay balanced.
 Screen 1 is the quiet engine running in the background, keeping all Wadaan's money perfectly categorized without you having to do manual math.
+
+---
+
+## 5. Technical Frontend Implementation (v1.3.0)
+
+### File Paths & Architecture
+- **Route**: `app/(dashboard)/accounts/page.tsx`
+- **Component**: `AccountsPage`
+- **Modal Component**: `src/app/(dashboard)/accounts/_components/CreateAccountModal.tsx`
+- **Feature Data Layer**:
+  - Types: `src/features/accounting/types/index.ts` (`AccountWithBalance`, `GroupedAccounts`, `AccountsSummary`, `AccountsResponse`)
+  - API Client: `src/features/accounting/api/accountsApi.ts` (`fetchAccounts(fy)`, `createAccount(payload)`)
+  - React Query Hook: `src/features/accounting/hooks/useAccounting.ts` (`useChartOfAccounts(fy)`, `useCreateAccount()`)
+
+### UI Components & Interactions
+1. **Summary Cards (Row 1)**:
+   - **Total Assets**: Emerald green currency card displaying `summary.totalAssets`.
+   - **Total Liabilities**: Rose red currency card displaying `summary.totalLiabilities`.
+   - **Owner's Equity**: Slate blue currency card displaying `summary.totalEquity`.
+2. **Fiscal Year Boundary Toggle**:
+   - Switches query between all-time mode (`/accounts`) and fiscal-year mode (`/accounts?fy=true`).
+   - When enabled, revenue and expense ledger totals strictly reflect activity starting July 1st of the active fiscal year.
+3. **Grouped Master Table**:
+   - Five distinct categorical sections: `ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`.
+   - Each section displays real-time item count and category subtotal.
+   - Column schema: Account Code (mono), Account Name, Category Badge, Live Balance (mono, bold, right-aligned PKR), Status (`Locked` vs `Active`), Actions (`View Ledger`).
+4. **Account Creation Modal (`CreateAccountModal`)**:
+   - Accessible via top header "+ Add Account" CTA (`bg-[#0F172A]`).
+   - Inputs: Account Code, Account Name, Category (`ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`).
+   - Error Handling: Intercepts HTTP 409 / `DUPLICATE_RECORD` and displays an inline red field error (`"Account code already in use"`).
+   - Invalidation: Mutates via `useCreateAccount()` and invalidates query cache `['accounts']` upon success.
