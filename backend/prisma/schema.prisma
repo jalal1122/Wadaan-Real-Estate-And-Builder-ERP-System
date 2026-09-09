@@ -82,10 +82,17 @@ model JournalLine {
   accountId     String
   debitAmount   Decimal      @default(0.00) @db.Decimal(15, 2)
   creditAmount  Decimal      @default(0.00) @db.Decimal(15, 2)
-  
+  memo          String?      // Optional line-level annotation
+  customerId    String?      // Optional: link to a Customer party
+  vendorId      String?      // Optional: link to a Vendor party
+  projectId     String?      // Optional: link to a Project cost centre
+
   // Relationships (Foreign Keys)
   journal       JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
   account       Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  vendor        Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  project       Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
 }
 
 model Project {
@@ -99,6 +106,7 @@ model Project {
   // Relationships
   expenseBills  ExpenseBill[]
   deals         Deal[] // Links construction cost to final revenue
+  journalLines  JournalLine[] // Party/project linkage from manual journals
 }
 
 model Vendor {
@@ -109,6 +117,7 @@ model Vendor {
   // Relationships
   expenseBills ExpenseBill[]
   payments     VendorPayment[]
+  journalLines JournalLine[] // Party linkage from manual journals
 }
 
 model ExpenseBill {
@@ -162,6 +171,7 @@ model Customer {
   // Relationships
   deals        Deal[]
   receipts     Receipt[]
+  journalLines JournalLine[] // Party linkage from manual journals
 }
 
 model Deal {

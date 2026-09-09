@@ -642,7 +642,7 @@ Response (200 OK):
 ```
 
 POST /api/v1/journals
-Purpose: Post a manual double-entry (Screen 2).
+Purpose: Post a manual double-entry (Screen 2 - v1.5.0).
 Access: Protected (`authGuard`).
 Payload:
 ```json
@@ -653,16 +653,32 @@ Payload:
     {
       "accountId": "uuid-expense-account",
       "debitAmount": 5000,
-      "creditAmount": 0
+      "creditAmount": 0,
+      "memo": "Chai & Biscuits for client meeting",
+      "customerId": null,
+      "vendorId": "uuid-vendor-party",
+      "projectId": "uuid-project-cost-center"
     },
     {
       "accountId": "uuid-cash-account",
       "debitAmount": 0,
-      "creditAmount": 5000
+      "creditAmount": 5000,
+      "memo": null,
+      "customerId": null,
+      "vendorId": null,
+      "projectId": null
     }
   ]
 }
 ```
+Validation & Guardrails:
+- `entryDate`: ISO 8601 string.
+- `description`: String, 3–255 characters.
+- `lines`: Minimum 2 lines required. Total debits must equal total credits exactly (tested via `Decimal.js`).
+- `memo`: Optional string, max 200 chars.
+- `customerId` / `vendorId`: Optional UUIDs pointing to Customer or Vendor party records.
+- `projectId`: Optional UUID pointing to Project cost center.
+- `isSystemLocked` guard: Throws `403 Forbidden` (`ERR_SYSTEM_ACCOUNT_LOCKED`) if any line targets an account flagged `isSystemLocked: true`.
 Response (201 Created):
 ```json
 {
@@ -674,6 +690,50 @@ Response (201 Created):
     "entryDate": "2026-09-02T00:00:00.000Z",
     "description": "Office Tea & Snacks",
     "lines": [ ... ]
+  }
+}
+```
+
+GET /api/v1/journals
+Purpose: Fetches a paginated list of recorded journal entries and their line items for Screen 2 history table (v1.5.0).
+Access: Protected (`authGuard`).
+Query Params: `?page=1&limit=20` (defaults: page 1, limit 20).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "entries": [
+      {
+        "id": "uuid",
+        "entryNumber": "JV-0002",
+        "entryDate": "2026-09-02T00:00:00.000Z",
+        "description": "Office Tea & Snacks",
+        "createdAt": "2026-09-02T10:15:00.000Z",
+        "lines": [
+          {
+            "id": "uuid-line",
+            "accountId": "uuid-acc",
+            "debitAmount": "5000.00",
+            "creditAmount": "0.00",
+            "memo": "Chai & Biscuits for client meeting",
+            "customerId": null,
+            "vendorId": "uuid-vendor",
+            "projectId": "uuid-proj",
+            "account": {
+              "id": "uuid-acc",
+              "accountCode": "5010",
+              "accountName": "Tea & Entertainment",
+              "category": "EXPENSE"
+            }
+          }
+        ]
+      }
+    ],
+    "total": 42,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 3
   }
 }
 ```
@@ -1528,6 +1588,48 @@ Response (200 OK):
     "brokerageCommissions": "200000.00",
     "generalOverhead": "350000.00",
     "netIncome": "5350000.00"
+  }
+}
+```
+
+GET /api/v1/reports/trial-balance
+
+Purpose: Generates the formal mathematical double-entry Trial Balance report (Screen 3 - v1.5.0) proving debit/credit equality.
+Access: Protected (`authGuard`).
+Query Params: `?startDate=2026-07-01&endDate=2027-06-30` (optional; defaults to current Pakistani fiscal year boundary July 1 -> June 30).
+Aggregation Rules:
+- Permanent Accounts (ASSET, LIABILITY, EQUITY): Aggregates all cumulative journal lines up to `endDate` (balance sheet balances continuous across all time).
+- Annual / P&L Accounts (REVENUE, EXPENSE): Aggregates journal lines strictly between `startDate` and `endDate`.
+- Normal Balance Mapping: Net debit placed in `debit` column for ASSET/EXPENSE; net credit placed in `credit` column for LIABILITY/EQUITY/REVENUE.
+- Zero-balance accounts automatically excluded from response list.
+Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "period": {
+      "startDate": "2026-07-01T00:00:00.000Z",
+      "endDate": "2027-06-30T00:00:00.000Z"
+    },
+    "accounts": [
+      {
+        "accountCode": "1001",
+        "accountName": "Meezan Bank",
+        "category": "ASSET",
+        "debit": "4200000.00",
+        "credit": "0.00"
+      },
+      {
+        "accountCode": "3001",
+        "accountName": "Owner's Opening Equity",
+        "category": "EQUITY",
+        "debit": "0.00",
+        "credit": "4200000.00"
+      }
+    ],
+    "grandTotalDebit": "4200000.00",
+    "grandTotalCredit": "4200000.00",
+    "isBalanced": true
   }
 }
 ```

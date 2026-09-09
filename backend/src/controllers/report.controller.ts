@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ReportService } from '../services/report.service';
+import { AppError } from '../middleware/errorHandler';
 
 /**
  * Controller to fetch the executive cash, receivables, payables, and client funds snapshot.
@@ -68,3 +69,36 @@ export const getNetIncome = async (req: Request, res: Response, next: NextFuncti
     next(error);
   }
 };
+
+/**
+ * Controller to fetch Trial Balance with date-filtered period.
+ * - Permanent accounts (Asset/Liability/Equity): cumulative up to endDate.
+ * - Annual accounts (Revenue/Expense): strictly between startDate and endDate.
+ * GET /api/v1/reports/trial-balance?startDate=2026-07-01&endDate=2026-09-30
+ */
+export const getTrialBalance = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const startDate = req.query.startDate
+      ? new Date(String(req.query.startDate))
+      : undefined;
+    const endDate = req.query.endDate
+      ? new Date(String(req.query.endDate))
+      : undefined;
+
+    if (startDate && isNaN(startDate.getTime())) {
+      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+    if (endDate && isNaN(endDate.getTime())) {
+      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+
+    const data = await ReportService.getTrialBalance(startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
