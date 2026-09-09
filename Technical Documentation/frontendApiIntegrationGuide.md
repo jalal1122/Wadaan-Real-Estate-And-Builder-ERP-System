@@ -10,8 +10,8 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 |---|---|---|---|
 | **0 - Authentication** | Screen 0: Lock & Vault (`/login`) | `src/components/auth/AuthVault.tsx` | ✅ Implemented (v1.1.0) |
 | **0.5 - Initializer** | Starter Modal (`StarterModal.tsx`) | `src/components/system/StarterModal.tsx` | ✅ Implemented (v1.2.0) |
-| **Shell & Layout** | Global Navigation Shell (`(dashboard)`) | `src/components/layout/DashboardLayout.tsx` | ✅ Implemented (v1.3.0) |
-| **Dashboard** | Executive Dashboard (`/dashboard`) | `src/app/(dashboard)/dashboard/page.tsx` | ✅ Implemented (v1.3.0) |
+| **Shell & Layout** | Global Navigation Shell (`(dashboard)`) | `src/components/layout/DashboardLayout.tsx` | ✅ Implemented (v1.3.1) |
+| **Dashboard** | Executive Dashboard (`/dashboard`) | `src/app/(dashboard)/dashboard/page.tsx` | ✅ Implemented (v1.3.1) |
 | **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.3.0) |
 | **1 - Accounting** | Screen 2: General Journal (`/journal`) | `src/app/(dashboard)/journal/page.tsx` | 🔲 Scheduled (Module 1) |
 | **1 - Accounting** | Screen 3: Trial Balance & Ledger (`/ledger`) | `src/app/(dashboard)/ledger/page.tsx` | 🔲 Scheduled (Module 1) |
@@ -77,6 +77,20 @@ apiClient.interceptors.response.use(
   }
 );
 ```
+
+### 1.1 Layout Route Guard & Query Resilience (v1.3.1)
+
+To prevent cascading `401 UNAUTHORIZED` requests from unauthenticated clients:
+1. **Layout Route Guard (`src/app/(dashboard)/layout.tsx`)**:
+   - Gated via `useAuth()`.
+   - Displays a neutral full-page loading spinner (`"Verifying session..."`) while `isLoadingUser` is true.
+   - Immediately executes `router.replace('/login')` if `currentUser` is null.
+2. **Query Retry & Polling Policy**:
+   - All dashboard query hooks (`useReports`, `useReceipts`, `useProjects`) MUST configure `retry: false` to fail fast upon 401.
+   - Polling intervals (`refetchInterval`) MUST evaluate error status to pause intervals when errors occur:
+     ```typescript
+     refetchInterval: (query) => (query.state.status === 'error' ? false : 30000)
+     ```
 
 ---
 

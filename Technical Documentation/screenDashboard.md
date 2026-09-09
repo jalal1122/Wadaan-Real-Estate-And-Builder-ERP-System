@@ -111,5 +111,26 @@ The executive layout is divided into four distinct horizontal rows:
 
 ## 3. Formatting & Security Standards
 1. **Currency**: All amounts formatted through `formatPKR(value)` (`src/lib/formatters.ts`) rendering Pakistani Rupee standard formatting.
-2. **Offline / Error Handling**: Each individual widget renders an alert card or fallback skeleton upon failure, preventing full-screen crashes.
+2. **Offline / Error Handling**: Each individual widget renders an alert card or fallback skeleton upon failure, preventing full-screen crashes. Distinguishes between `UNAUTHORIZED` ("Session Required") and `NETWORK_OFFLINE` ("Backend Offline") using `getFeedErrorMessage`.
 3. **Icons**: Strictly SVG components from `lucide-react`.
+
+---
+
+## 4. Authentication Boundary & Feed Resilience (v1.3.1)
+
+### Route-Level Session Guard
+The `(dashboard)` route group is protected at the layout boundary (`src/app/(dashboard)/layout.tsx`):
+- **Client Component Boundary**: Checks session state via `useAuth()`.
+- **Loading State**: Displays full-page neutral loading spinner (`bg-[#F9FAFB]`) with `"Verifying session..."` to prevent unauthenticated content flashes.
+- **Unauthenticated Redirect**: Immediately issues `router.replace('/login')` if `currentUser` is null when loading completes.
+- **Zero Premature Requests**: Child components and downstream feature queries never mount until an active session is verified.
+
+### Fail-Fast Query & Adaptive Polling Policy
+To prevent console flooding and cascading 401 requests upon session expiration:
+1. **`retry: false`**: All dashboard queries (`useExecutiveSnapshot`, `useDealMargins`, `useAgingRadar`, `useNetIncome`, `useWaitingRoom`, `useProjects`) are configured with `retry: false`.
+2. **Adaptive Polling**: Hooks with background intervals (`useExecutiveSnapshot` at 30s, `useAgingRadar` at 60s, `useWaitingRoom` at 30s) use dynamic callback evaluators:
+   ```typescript
+   refetchInterval: (query) => (query.state.status === 'error' ? false : 30000)
+   ```
+   If any query transitions to the `error` state (such as 401 UNAUTHORIZED or 503 service outage), background polling is suspended immediately until manually refreshed.
+
