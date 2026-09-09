@@ -13,8 +13,8 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 | **Shell & Layout** | Global Navigation Shell (`(dashboard)`) | `src/components/layout/DashboardLayout.tsx` | ✅ Implemented (v1.3.1) |
 | **Dashboard** | Executive Dashboard (`/dashboard`) | `src/app/(dashboard)/dashboard/page.tsx` | ✅ Implemented (v1.3.1) |
 | **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.4.0) |
-| **1 - Accounting** | Screen 2: General Journal (`/journal`) | `src/app/(dashboard)/journal/page.tsx` | 🔲 Scheduled (Module 1) |
-| **1 - Accounting** | Screen 3: Trial Balance & Ledger (`/ledger`) | `src/app/(dashboard)/ledger/page.tsx` | 🔲 Scheduled (Module 1) |
+| **1 - Accounting** | Screen 2: General Journal (`/journals`) | `src/app/(dashboard)/journals/page.tsx` | ✅ Implemented (v1.5.0) |
+| **1 - Accounting** | Screen 3: Trial Balance (`/trial-balance`) | `src/app/(dashboard)/trial-balance/page.tsx` | ✅ Implemented (v1.5.0) |
 | **2 - Projects** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | 🔲 Scheduled (Module 2) |
 | **2 - Projects** | Screen 5: Supplier Bills (`/bills`) | `src/app/(dashboard)/bills/page.tsx` | 🔲 Scheduled (Module 2) |
 | **2 - Projects** | Screen 6: Vendor Ledgers (`/vendors`) | `src/app/(dashboard)/vendors/page.tsx` | 🔲 Scheduled (Module 2) |
@@ -592,32 +592,41 @@ export const useDeleteAccount = () => {
 
 ---
 
-### 6.2 Screen 2: General Journal Entries (`/api/v1/journals`)
+### 6.2 Screen 2: General Journal Entries (`/api/v1/journals`) [v1.5.0]
 
-#### Data Models & Interfaces
+#### Data Models & Interfaces (`src/features/accounting/types/journal.ts`)
 ```typescript
-export interface JournalLineInput {
+export interface JournalLinePayload {
   accountId: string;
   debitAmount: number;
   creditAmount: number;
+  memo?: string;
+  customerId?: string | null;
+  vendorId?: string | null;
+  projectId?: string | null;
 }
 
 export interface CreateJournalPayload {
-  entryDate?: string; // ISO 8601 string, e.g. "2026-09-02T00:00:00.000Z"
+  entryDate: string; // ISO 8601 string, e.g. "2026-09-02T00:00:00.000Z"
   description: string;
-  lines: JournalLineInput[];
+  lines: JournalLinePayload[];
 }
 
-export interface JournalEntryRecord {
+export interface JournalEntry {
   id: string;
   entryNumber: string; // e.g. "JV-0002"
   entryDate: string;
   description: string;
+  createdAt: string;
   lines: {
     id: string;
     accountId: string;
     debitAmount: string;
     creditAmount: string;
+    memo?: string | null;
+    customerId?: string | null;
+    vendorId?: string | null;
+    projectId?: string | null;
     account: {
       id: string;
       accountCode: string;
@@ -626,55 +635,105 @@ export interface JournalEntryRecord {
     };
   }[];
 }
+
+export interface JournalEntriesResponse {
+  entries: JournalEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 ```
 
-#### API Calls (`frontend/src/features/accounting/api/journalApi.ts`)
+#### API Calls (`src/features/accounting/api/journalsApi.ts`)
 ```typescript
 import { apiClient } from '@/lib/api';
 
-/**
- * Post a manual double-entry journal voucher.
- * Validates zero-sum balance and blocks targeting system-locked accounts.
- */
-export const postJournalEntry = async (payload: CreateJournalPayload): Promise<JournalEntryRecord> => {
+export const createJournalEntry = async (payload: CreateJournalPayload): Promise<JournalEntry> => {
   const response = await apiClient.post('/journals', payload);
   return response.data.data;
 };
 
-/**
- * Reverse an existing journal entry. Posts a mirrored compensating entry.
- */
-export const reverseJournalEntry = async (journalId: string): Promise<JournalEntryRecord> => {
-  const response = await apiClient.post(`/journals/${journalId}/reverse`);
+export const fetchJournalEntries = async (page: number = 1, limit: number = 20): Promise<JournalEntriesResponse> => {
+  const response = await apiClient.get('/journals', { params: { page, limit } });
   return response.data.data;
 };
 ```
 
-#### React Query Mutation Hook Example (`Screen 2`)
+#### React Query Hooks (`src/features/accounting/hooks/useJournals.ts`)
 ```typescript
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { postJournalEntry, reverseJournalEntry } from './journalApi';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createJournalEntry, fetchJournalEntries } from '../api/journalsApi';
 
-export const usePostJournal = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: postJournalEntry,
-    onSuccess: () => {
-      // Invalidate both accounts and any open ledger views
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['ledger'] });
-    }
+export const useJournalEntries = (page: number = 1, limit: number = 20) => {
+  return useQuery({
+    queryKey: ['journals', page, limit],
+    queryFn: () => fetchJournalEntries(page, limit),
+    staleTime: 1000 * 60,
   });
 };
 
-export const useReverseJournal = () => {
+export const useCreateJournal = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: reverseJournalEntry,
+    mutationFn: createJournalEntry,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['journals'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'trial-balance'] });
     }
+  });
+};
+```
+
+---
+
+### 6.4 Screen 3: Live Trial Balance Report (`/api/v1/reports/trial-balance`) [v1.5.0]
+
+#### Data Models & Interfaces (`src/features/reports/types/index.ts`)
+```typescript
+export interface TrialBalanceLineItem {
+  accountCode: string;
+  accountName: string;
+  category: AccountCategory;
+  debit: string;
+  credit: string;
+}
+
+export interface TrialBalanceReport {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  accounts: TrialBalanceLineItem[];
+  grandTotalDebit: string;
+  grandTotalCredit: string;
+  isBalanced: boolean;
+}
+```
+
+#### API Calls (`src/features/reports/api/reportApi.ts`)
+```typescript
+export const fetchTrialBalance = async (
+  startDate?: string,
+  endDate?: string
+): Promise<TrialBalanceReport> => {
+  const params: Record<string, string> = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+
+  const response = await apiClient.get('/reports/trial-balance', { params });
+  return response.data.data;
+};
+```
+
+#### React Query Hook (`src/features/reports/hooks/useReports.ts`)
+```typescript
+export const useTrialBalance = (startDate?: string, endDate?: string) => {
+  return useQuery({
+    queryKey: ['reports', 'trial-balance', startDate, endDate],
+    queryFn: () => fetchTrialBalance(startDate, endDate),
+    staleTime: 1000 * 60 * 2,
   });
 };
 ```

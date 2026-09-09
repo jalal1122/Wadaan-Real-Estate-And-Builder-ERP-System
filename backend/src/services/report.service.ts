@@ -472,12 +472,12 @@ export class ReportService {
       orderBy: { accountCode: 'asc' }
     });
 
-    const permanentCategories = [
+    const permanentCategories: AccountCategory[] = [
       AccountCategory.ASSET,
       AccountCategory.LIABILITY,
       AccountCategory.EQUITY
     ];
-    const annualCategories = [AccountCategory.REVENUE, AccountCategory.EXPENSE];
+    const annualCategories: AccountCategory[] = [AccountCategory.REVENUE, AccountCategory.EXPENSE];
 
     const permanentIds = allAccounts
       .filter((a) => permanentCategories.includes(a.category))

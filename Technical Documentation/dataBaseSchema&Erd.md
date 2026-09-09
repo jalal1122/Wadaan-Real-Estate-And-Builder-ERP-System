@@ -58,6 +58,7 @@ model Account {
   accountName    String          // e.g., "Meezan Bank", "Office Safe"
   category       AccountCategory 
   isSystemLocked Boolean         @default(false) // Protects AP/AR buckets
+  isArchived     Boolean         @default(false) // v1.4.0: 3-tier archive policy
   
   // Relationships
   journalLines   JournalLine[]
@@ -79,10 +80,17 @@ model JournalLine {
   accountId     String
   debitAmount   Decimal      @default(0.00) @db.Decimal(15, 2)
   creditAmount  Decimal      @default(0.00) @db.Decimal(15, 2)
+  memo          String?      // Optional line-level annotation (v1.5.0)
+  customerId    String?      // Optional: link to a Customer party (v1.5.0)
+  vendorId      String?      // Optional: link to a Vendor party (v1.5.0)
+  projectId     String?      // Optional: link to a Project cost centre (v1.5.0)
   
   // Relationships (Foreign Keys)
   journal       JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
   account       Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  vendor        Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  project       Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
 }
 
 3. Payables & Projects (Screens 4, 5, 7)
@@ -98,6 +106,7 @@ model Project {
   // Relationships
   expenseBills  ExpenseBill[]
   deals         Deal[] // Links construction cost to final revenue
+  journalLines  JournalLine[] // v1.5.0: Project cost center allocation
 }
 
 model Vendor {
@@ -108,6 +117,7 @@ model Vendor {
   // Relationships
   expenseBills ExpenseBill[]
   payments     VendorPayment[]
+  journalLines JournalLine[] // v1.5.0: Direct vendor party tracking
 }
 
 model ExpenseBill {
@@ -163,6 +173,7 @@ model Customer {
   // Relationships
   deals        Deal[]
   receipts     Receipt[]
+  journalLines JournalLine[] // v1.5.0: Direct customer party tracking
 }
 
 model Deal {
@@ -245,3 +256,12 @@ Module 4 (Screen 10 Dashboard) introduces NO new database models, columns, or Pr
 - `DealInvoice`: Aggregates active receivables (`paymentStatus != 'PAID'`) and confirmed deal revenue (`paymentStatus = 'PAID'`).
 - `ExpenseBill`: Aggregates active payables (`pendingAmount` where `paymentStatus != 'PAID'`), project costs (grouped by `projectId`), and office general overhead (`projectId IS NULL`).
 - `Deal`: Joins deals, milestones, and project costs to calculate gross profit, safe margins, WIP capitalization, and brokerage commissions.
+
+8. Architectural Note: Module 1 (v1.5.0 General Journal & Trial Balance Expansion)
+In v1.5.0, the double-entry accounting engine was expanded to support manual General Journal adjustments and multi-period Trial Balance generation:
+- `Account.isArchived`: Added `Boolean @default(false)` to support 3-tier archive lifecycle rules (v1.4.0).
+- `JournalLine.memo`: Optional string (max 200 chars) for per-line descriptions.
+- `JournalLine.customerId`: Optional UUID nullable foreign key referencing `Customer(id) ON DELETE SET NULL` for party tracking.
+- `JournalLine.vendorId`: Optional UUID nullable foreign key referencing `Vendor(id) ON DELETE SET NULL` for vendor sub-ledger tracking.
+- `JournalLine.projectId`: Optional UUID nullable foreign key referencing `Project(id) ON DELETE SET NULL` for WIP cost center tagging.
+- Reverse relations: `customer.journalLines`, `vendor.journalLines`, and `project.journalLines` established for full bi-directional querying.
