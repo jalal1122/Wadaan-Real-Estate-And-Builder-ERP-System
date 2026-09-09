@@ -12,7 +12,7 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 | **0.5 - Initializer** | Starter Modal (`StarterModal.tsx`) | `src/components/system/StarterModal.tsx` | ✅ Implemented (v1.2.0) |
 | **Shell & Layout** | Global Navigation Shell (`(dashboard)`) | `src/components/layout/DashboardLayout.tsx` | ✅ Implemented (v1.3.1) |
 | **Dashboard** | Executive Dashboard (`/dashboard`) | `src/app/(dashboard)/dashboard/page.tsx` | ✅ Implemented (v1.3.1) |
-| **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.3.0) |
+| **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.3.2) |
 | **1 - Accounting** | Screen 2: General Journal (`/journal`) | `src/app/(dashboard)/journal/page.tsx` | 🔲 Scheduled (Module 1) |
 | **1 - Accounting** | Screen 3: Trial Balance & Ledger (`/ledger`) | `src/app/(dashboard)/ledger/page.tsx` | 🔲 Scheduled (Module 1) |
 | **2 - Projects** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | 🔲 Scheduled (Module 2) |
@@ -91,6 +91,21 @@ To prevent cascading `401 UNAUTHORIZED` requests from unauthenticated clients:
      ```typescript
      refetchInterval: (query) => (query.state.status === 'error' ? false : 30000)
      ```
+
+### 1.2 Mutation Error Parsing & Field-Level Conflict Mapping (v1.3.2)
+
+Because the Axios response interceptor unwraps errors and rejects with `error.response.data.error` (`ApiErrorPayload`), mutation `catch (err: unknown)` blocks in forms must safely parse `ApiErrorPayload` rather than assuming raw `AxiosError`:
+```typescript
+const apiErr = err as Partial<ApiErrorPayload> | undefined;
+const errorCode = apiErr?.code || (axios.isAxiosError(err) ? err.response?.data?.code : undefined);
+const errorMessage = apiErr?.message || (axios.isAxiosError(err) ? err.response?.data?.error || err.response?.data?.message : undefined);
+
+if (errorCode === 'DUPLICATE_RECORD' || (axios.isAxiosError(err) && err.response?.status === 409)) {
+  setCodeError(errorMessage || 'Account code already in use');
+}
+```
+- **Field-Level Mapping**: `DUPLICATE_RECORD` (409) maps directly to the specific form field (e.g. Account Code) with inline red styling.
+- **Client-Side Pre-Validation**: Forms should validate uniqueness against in-memory query data (`existingCodes`) before submitting to avoid unnecessary network round-trips.
 
 ---
 
