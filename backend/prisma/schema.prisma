@@ -60,6 +60,7 @@ model Account {
   accountName    String          // e.g., "Meezan Bank", "Office Safe"
   category       AccountCategory 
   isSystemLocked Boolean         @default(false) // Protects AP/AR buckets
+  isArchived     Boolean         @default(false)
   
   // Relationships
   journalLines   JournalLine[]

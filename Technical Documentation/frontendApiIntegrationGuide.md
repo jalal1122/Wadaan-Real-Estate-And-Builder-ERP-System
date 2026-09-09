@@ -12,7 +12,7 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 | **0.5 - Initializer** | Starter Modal (`StarterModal.tsx`) | `src/components/system/StarterModal.tsx` | ✅ Implemented (v1.2.0) |
 | **Shell & Layout** | Global Navigation Shell (`(dashboard)`) | `src/components/layout/DashboardLayout.tsx` | ✅ Implemented (v1.3.1) |
 | **Dashboard** | Executive Dashboard (`/dashboard`) | `src/app/(dashboard)/dashboard/page.tsx` | ✅ Implemented (v1.3.1) |
-| **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.3.2) |
+| **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.4.0) |
 | **1 - Accounting** | Screen 2: General Journal (`/journal`) | `src/app/(dashboard)/journal/page.tsx` | 🔲 Scheduled (Module 1) |
 | **1 - Accounting** | Screen 3: Trial Balance & Ledger (`/ledger`) | `src/app/(dashboard)/ledger/page.tsx` | 🔲 Scheduled (Module 1) |
 | **2 - Projects** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | 🔲 Scheduled (Module 2) |
@@ -522,12 +522,34 @@ export const createAccount = async (payload: {
   const response = await apiClient.post('/accounts', payload);
   return response.data.data;
 };
+
+/**
+ * Update an existing Account name or category (v1.4.0).
+ */
+export const updateAccount = async (id: string, payload: {
+  accountName?: string;
+  category?: AccountCategory;
+}) => {
+  const response = await apiClient.patch(`/accounts/${id}`, payload);
+  return response.data.data;
+};
+
+/**
+ * Delete or archive an Account record (v1.4.0).
+ */
+export const deleteAccount = async (id: string) => {
+  const response = await apiClient.delete(`/accounts/${id}`);
+  return {
+    message: response.data.message,
+    data: response.data.data
+  };
+};
 ```
 
-#### React Query Hook Example (`Screen 1`)
+#### React Query Hook Example (`Screen 1` - v1.4.0 Full CRUD)
 ```typescript
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchAccounts, createAccount } from './accountsApi';
+import { fetchAccounts, createAccount, updateAccount, deleteAccount } from './accountsApi';
 
 export const useChartOfAccounts = (fy: boolean = false) => {
   return useQuery({
@@ -541,6 +563,26 @@ export const useCreateAccount = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createAccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    }
+  });
+};
+
+export const useUpdateAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => updateAccount(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    }
+  });
+};
+
+export const useDeleteAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteAccount(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     }

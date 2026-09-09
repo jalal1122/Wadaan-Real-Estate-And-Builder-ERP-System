@@ -62,3 +62,48 @@ Screen 1 is the quiet engine running in the background, keeping all Wadaan's mon
      - **Layer 2 (Server-Side 409 Conflict Handling)**: Safely parses `ApiErrorPayload` (`code: 'DUPLICATE_RECORD'`) rejected by the Axios response interceptor, highlighting the code input with a red ring and inline message (`"Account with code '...' already exists."`).
    - Invalidation: Mutates via `useCreateAccount()` and invalidates query cache `['accounts']` upon success.
 
+---
+
+## 6. Account Lifecycle Management & GL Navigation (v1.4.0)
+
+### 6.1 Account Edit Modal (`EditAccountModal`)
+- **Location**: `src/app/(dashboard)/accounts/_components/EditAccountModal.tsx`
+- **Fields**:
+  - **Account Code**: Read-only display with lock badge. Immutable to preserve double-entry audit history.
+  - **Account Name**: Editable text field with whitespace trim and required field validation.
+  - **Category**: Dropdown selector (`ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`).
+- **Guardrails**:
+  - If `account.isSystemLocked === true`: Category dropdown is disabled with a `System Locked` badge and warning banner (`"System accounts cannot change category to preserve ledger reconciliation"`). The mutation omits `category` from the payload to avoid server 403 errors.
+  - If `account.isSystemLocked === false`: Category dropdown is fully editable.
+- **Backend API**: `PATCH /api/v1/accounts/:id`
+  - Input Schema: `UpdateAccountSchema` (`accountName?: string`, `category?: AccountCategory`)
+  - Enforces `403 OPERATION_FORBIDDEN` if category change is attempted on a system-locked account.
+
+### 6.2 Three-Tier Delete / Archive Policy (`DeleteAccountDialog`)
+- **Location**: `src/app/(dashboard)/accounts/_components/DeleteAccountDialog.tsx`
+- **Three-Tier Policy**:
+  1. **Tier 1 (System Locked)**:
+     - Identified by `account.isSystemLocked === true`.
+     - Action button is completely hidden from the dropdown menu. If opened directly, shows a protected security banner with only a "Close" button. Deletion or archiving is strictly forbidden.
+  2. **Tier 2 (Has Transaction History — Soft Delete / Archive)**:
+     - Identified by `totalDebit > 0 || totalCredit > 0` or database journal lines count > 0.
+     - Modal displays amber warning with real-time debit and credit totals.
+     - Action: Updates `isArchived: true` in the database.
+     - Active query filter `prisma.account.findMany({ where: { isArchived: false } })` hides archived accounts from the master grid while preserving all double-entry ledger history and historical reporting.
+  3. **Tier 3 (Zero Transaction History — Hard Delete)**:
+     - Identified by `totalDebit == 0 && totalCredit == 0` and zero journal lines.
+     - Modal displays rose warning for permanent removal.
+     - Action: `prisma.account.delete({ where: { id } })` permanently deletes the unused account record.
+- **Backend API**: `DELETE /api/v1/accounts/:id`
+  - Returns `{ success: true, message: string, data: { action: 'DELETED' | 'ARCHIVED' } }`
+
+### 6.3 General Ledger Sub-Tab Navigation
+- Located directly underneath the Chart of Accounts header.
+- Sub-tabs:
+  1. **Chart of Accounts** (Active): Highlights with emerald bottom-border (`#059669`) and bold title.
+  2. **Journal Entries**: Core ledger entry screen (inactive with "Coming Soon" badge).
+  3. **Trial Balance**: Periodic audit balancing view (inactive with "Coming Soon" badge).
+
+### 6.4 Clean Production Presentation
+- Removed developmental "Module 1" badge from the Chart of Accounts header.
+- Streamlined action menu inside the master grid with dedicated "Edit Account", "Archive Account" (amber), and "Delete Account" (rose) actions alongside "View Ledger".

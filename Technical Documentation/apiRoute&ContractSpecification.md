@@ -594,6 +594,53 @@ Response (201 Created):
 }
 ```
 
+PATCH /api/v1/accounts/:id
+Purpose: Updates an account's name or category (Screen 1 - v1.4.0).
+Access: Protected (`authGuard`).
+Payload:
+```json
+{
+  "accountName": "Meezan Corporate Bank",
+  "category": "ASSET"
+}
+```
+Validation & Guardrails:
+- `accountName`: Optional string, min length 1.
+- `category`: Optional enum (`ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`).
+- System Lock Guardrail: If `account.isSystemLocked === true` and category change is requested, returns `403 Forbidden` (`OPERATION_FORBIDDEN`).
+Response (200 OK):
+```json
+{
+  "success": true,
+  "message": "Account 'Meezan Corporate Bank' updated successfully.",
+  "data": {
+    "id": "uuid",
+    "accountCode": "1001",
+    "accountName": "Meezan Corporate Bank",
+    "category": "ASSET",
+    "isSystemLocked": false
+  }
+}
+```
+
+DELETE /api/v1/accounts/:id
+Purpose: Deletes or archives an account using the three-tier policy (Screen 1 - v1.4.0).
+Access: Protected (`authGuard`).
+Three-Tier Policy:
+- Tier 1 (System-Locked): Rejects with `403 Forbidden` (`OPERATION_FORBIDDEN`). System accounts cannot be deleted or archived.
+- Tier 2 (Has Journal Lines): Soft-deletes record (`isArchived: true`). Preserves double-entry audit history.
+- Tier 3 (Zero Journal Lines): Hard-deletes record permanently from database.
+Response (200 OK):
+```json
+{
+  "success": true,
+  "message": "Account 'Old Cash Box' (1050) has transaction history and was archived.",
+  "data": {
+    "action": "ARCHIVED"
+  }
+}
+```
+
 POST /api/v1/journals
 Purpose: Post a manual double-entry (Screen 2).
 Access: Protected (`authGuard`).
