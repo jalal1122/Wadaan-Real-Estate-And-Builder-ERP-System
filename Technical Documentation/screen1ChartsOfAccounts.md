@@ -48,8 +48,17 @@ Screen 1 is the quiet engine running in the background, keeping all Wadaan's mon
    - Five distinct categorical sections: `ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`.
    - Each section displays real-time item count and category subtotal.
    - Column schema: Account Code (mono), Account Name, Category Badge, Live Balance (mono, bold, right-aligned PKR), Status (`Locked` vs `Active`), Actions (`View Ledger`).
-4. **Account Creation Modal (`CreateAccountModal`)**:
+4. **Account Creation Modal (`CreateAccountModal`) (v1.3.2 Enhanced)**:
    - Accessible via top header "+ Add Account" CTA (`bg-[#0F172A]`).
    - Inputs: Account Code, Account Name, Category (`ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`).
-   - Error Handling: Intercepts HTTP 409 / `DUPLICATE_RECORD` and displays an inline red field error (`"Account code already in use"`).
+   - Category Range Guidance: Under the Account Code input, displays recommended range per category:
+     - `ASSET`: 1000–1999 (Current & Fixed Assets)
+     - `LIABILITY`: 2000–2999 (Payables & Obligations)
+     - `EQUITY`: 3000–3999 (Owner Capital & Reserves)
+     - `REVENUE`: 4000–4999 (Sales & Brokerage Income)
+     - `EXPENSE`: 5000–5999 (Operating & Site Expenses)
+   - Two-Layer Duplicate Code Protection:
+     - **Layer 1 (Client-Side Pre-Validation)**: Receives `existingCodes` prop from `accounts/page.tsx` query cache. If the entered code exists, flags immediate inline error without firing an HTTP request.
+     - **Layer 2 (Server-Side 409 Conflict Handling)**: Safely parses `ApiErrorPayload` (`code: 'DUPLICATE_RECORD'`) rejected by the Axios response interceptor, highlighting the code input with a red ring and inline message (`"Account with code '...' already exists."`).
    - Invalidation: Mutates via `useCreateAccount()` and invalidates query cache `['accounts']` upon success.
+
