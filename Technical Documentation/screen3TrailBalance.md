@@ -44,12 +44,20 @@ Structured table with the following columns:
 4. **Debit (PKR)**: Net debit balance (normal balance side for Assets and Expenses). Rendered in bold monospace. Formatted as `—` if zero.
 5. **Credit (PKR)**: Net credit balance (normal balance side for Liabilities, Equity, and Revenue). Rendered in bold monospace. Formatted as `—` if zero.
 
-### E. Grand Total Footer & Balance Indicator
+### E. Grand Total Footer, Balance Indicator & Isolated Print Layout
 - **Grand Total Debit & Credit**: Sum of all debit and credit columns rendered in bold monospace.
 - **Mathematical Proof Pill**:
   - 🟢 **Balances Match — Books are perfectly balanced**: Displayed when `grandTotalDebit === grandTotalCredit`.
   - 🔴 **Out of Balance — Difference: PKR X**: Displayed in the rare event of a system imbalance with the exact disparity.
-- **Print / PDF Export**: Prominent button triggering high-resolution desktop printing / PDF saving (`window.print()`) targeting the printable report container.
+- **Isolated Print / PDF Export (`window.print()`)**:
+  - **Clean Report Isolation**: Clicking **"Print Report"** triggers `@media print` rules that suppress all application chrome — the sidebar navigation, top navigation bar, GL sub-tabs, date filter bar, and search input are completely hidden (`.no-print`).
+  - **Institutional Print Letterhead**: A formal header is dynamically rendered at the top of the printed document containing:
+    - Company Legal Name: **Wadaan Real Estate & Builders (Pvt) Ltd.**
+    - Document Title: **Trial Balance Report**
+    - Selected Fiscal/Reporting Period (e.g. `01 Jul 2026 — 30 Jun 2027` or `All Time`)
+    - Generation Date & Timestamp
+  - **Report Table & Verification**: The printable area `#trial-balance-printable` expands to full page width with crisp high-contrast border and typography, followed by the grand totals and the mathematical balance indicator.
+
 
 ---
 

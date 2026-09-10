@@ -53,10 +53,25 @@ export interface ApiErrorResponse {
   };
 }
 
-// Global Axios response interceptor for unified error parsing
+// Global Axios response interceptor for unified error parsing & 401 session expiry redirect
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response?.status === 401) {
+      // Silently kill the cache so stale data is not re-displayed on re-login
+      queryClient.clear();
+      // Hard redirect — works outside React component tree (Electron-safe)
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.replace('/login');
+      }
+      return Promise.reject(
+        error.response.data?.error || {
+          code: 'SESSION_EXPIRED',
+          message: 'Your session has expired. Please log in again.',
+        }
+      );
+    }
+
     if (error.response?.data?.error) {
       // Backend returned our standard AppError payload
       return Promise.reject(error.response.data.error);
@@ -92,7 +107,17 @@ To prevent cascading `401 UNAUTHORIZED` requests from unauthenticated clients:
      refetchInterval: (query) => (query.state.status === 'error' ? false : 30000)
      ```
 
-### 1.2 Mutation Error Parsing & Field-Level Conflict Mapping (v1.3.2)
+### 1.2 Global 401 Session Expiry Auto-Redirect (v1.5.1)
+
+When a user's session cookie expires mid-operation while remaining on any dashboard screen:
+- **Root Cause Avoided**: Previously, mid-session API failures surfaced as generic query error cards or toasts without evicting the expired session.
+- **Architectural Solution**: The response interceptor in `frontend/src/lib/api.ts` directly intercepts any HTTP `401` response:
+  1. **Cache Eviction**: Immediately calls `queryClient.clear()` to invalidate all cached financial ledgers, ensuring zero stale data leaks across users or re-logins.
+  2. **Electron & Browser Hard Redirect**: Checks `typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')`, and invokes `window.location.replace('/login')`. This triggers an instant, un-cached navigation back to the authentication screen without depending on React component lifecycles.
+  3. **Standardized Rejection Payload**: Emits `{ code: 'SESSION_EXPIRED', message: 'Your session has expired. Please log in again.' }` to satisfy TypeScript callers.
+
+
+### 1.3 Mutation Error Parsing & Field-Level Conflict Mapping (v1.3.2)
 
 Because the Axios response interceptor unwraps errors and rejects with `error.response.data.error` (`ApiErrorPayload`), mutation `catch (err: unknown)` blocks in forms must safely parse `ApiErrorPayload` rather than assuming raw `AxiosError`:
 ```typescript
