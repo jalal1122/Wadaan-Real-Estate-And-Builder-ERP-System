@@ -56,9 +56,29 @@ Step 3: Secure IPC (Inter-Process Communication)
 If Screen 9 needs to generate and print a physical payment receipt, the Next.js frontend cannot access the Windows printer directly. It sends a message through the preload.js bridge:
 
 // Next.js triggers this: 
-window.electronAPI.printReceipt({ receiptId: '123', amount: 50000 }); 
+window.electronAPI.printVoucher(paymentData); 
 
-Electron receives this in main.js, generates the PDF locally, and sends it to the default Windows printer.
+Electron receives this in main.js, generates the perforated A4 CPV layout locally, and sends it to the default Windows printer.
+
+### IPC Bridge Contract (v2.0.0)
+
+Documented in `electron/preload.js` and `electron/main.js`:
+```typescript
+interface ElectronAPI {
+  printVoucher: (paymentData: any) => Promise<{ success: boolean; failureReason?: string }>;
+  exportBackup: () => Promise<{ success: boolean; message: string }>;
+}
+declare global {
+  interface Window {
+    electronAPI?: ElectronAPI;
+  }
+}
+```
+- `printVoucher(paymentData)`:
+  Generates an A4 printable HTML Cash/Cheque Payment Voucher (CPV) with midpoint perforation (top: Wadaan Institutional Copy, bottom: Vendor/Payee Receipt), matching Stitch design `4d29bb1b44f84bb7ba531ddc6b2da313`, and invokes native Windows print dialog. In web/browser dev mode, gracefully falls back to `window.print()`.
+- `exportBackup()`:
+  Exports encrypted database backup to local file system (Phase 5 execution stub).
+
 
 Step 4: Compiling the .exe
 You use a tool called electron-builder. You run a single terminal command:

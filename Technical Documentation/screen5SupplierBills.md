@@ -1,25 +1,63 @@
-In real estate, treating construction costs like regular office expenses is a massive mistake. If you spend Rs. 10,000,000 on steel and cement, you didn't "lose" 10 million rupees—you just converted cash into a physical asset (a plaza or a villa).
-Screen 4 is where you track the bricks, mortar, and labor. It is your Work-In-Progress (WIP) command center, keeping project costs completely separate from your office overhead.
-1. What You See (The Interface)
-When you open this screen, you don’t see accounting spreadsheets; you see your active construction sites.
-The Dashboard View: A grid of large, visual "Cards." Every active site Wadaan is building has its own card (e.g., "Wadaan Villa 5", "Mr. Ali's Commercial Plaza").
-The Vital Stats: Right on the face of the card, you see three big numbers:
-Master BOQ (Budget): How much you planned to spend.
-Total Spent: Exactly how much has been billed to this site to date.
-The Health Bar: A visual progress bar. As you spend money, it fills up. (Green means you are safely under budget, Yellow means you are getting close, Red means you have overspent).
-The Drill-Down: Clicking a project card opens its specific timeline—a clean, chronological list of every single bag of cement, steel delivery, and labor payout that belongs to this project.
-2. Setting Up a New Project (The 1-Minute Setup)
-Because you are a solo operator, creating a new project takes seconds. There are no complex "micro-phases" (like foundation, grey structure, finishing) to get bogged down in. You just input three things:
-Project Name: (e.g., "Wadaan Heights").
-Master Budget (BOQ): The total estimated cost (e.g., Rs. 50,000,000).
-The Project Prefix: You give the project a 2-3 letter shortcode (e.g., WH). The system uses this later to automatically generate clean, organized invoice numbers (like WH-001, WH-002) for blank vendor bills.
-3. How the Costs Accumulate (The "Magnet" Logic)
-You actually do zero data entry on Screen 4. You never type "Bought 50 bags of cement" here.
-Instead, Screen 4 acts like a magnet. When you are on Screen 5 (The Master Bill Entry) and you log a bill from Ali Hardware, you simply tag it to "Wadaan Heights." The system automatically pulls that cost into this dashboard and instantly updates the Total Spent and the Health Bar.
-4. Business Rules & Guardrails
-This screen is designed to give you total visibility without slowing down your real-world operations.
-The "Soft-Lock" Budget Rule: If your budget is Rs. 10,000,000, and a new steel bill pushes your total spent to Rs. 11,000,000, what does the system do?
-It does not block the bill. In the real world, if the steel is delivered, you have to record the debt.
-Instead, it throws a massive Red Warning Flag on the project card. It allows the business to keep moving but screams at you that your profit margin on this deal is shrinking.
-The WIP Accounting Magic (Invisible Guardrail): Every rupee tracked on this screen is categorized by the system as "Work In Progress Inventory" (An Asset). This guarantees that spending heavy cash on a site never accidentally makes Wadaan look bankrupt on the Income Statement (Screen 3). The costs sit safely here until the property is officially sold or billed to the client on Screen 8.
-Screen 4 tells you exactly how much your physical sites are costing you in real-time, warning you before a budget blows up.
+# Screen 5: Expense Bills & WIP Capitalization
+
+**Route**: `/payables` (Tab: "Record Bill")  
+**Module**: Module 2 (The Outflow Engine)  
+**Implementation**: `src/components/payables/RecordBillPanel.tsx`
+
+---
+
+## 1. Overview & Purpose
+
+In construction and real estate development, expenses fall into two fundamentally different categories:
+1. **Capitalized Construction Costs (WIP)**: Cement, steel, labor, and subcontractor bills dedicated to a physical construction site. These represent asset conversion (Cash/AP &rarr; 1200 Work In Progress Asset).
+2. **Office Overhead & Operating Expenses**: Utilities, office rent, stationery, and administrative bills that do not belong to a construction site. These represent immediate period expenses (Cash/AP &rarr; 5000 Operating Expenses).
+
+Screen 5 is Wadaan's master entry portal for all outbound obligations. It provides automated ledger routing, budget overrun detection, and line-item auditing in a fast, keyboard-friendly interface.
+
+---
+
+## 2. Layout Structure & Key Workflows
+
+The screen uses a split-panel architecture matching the institutional design system:
+
+### Left Panel: Bill Metadata
+- **Vendor / Supplier Dropdown**: Live list from `/api/v1/vendors`. Includes an inline **"+ New Vendor"** button to quickly register a supplier without leaving the bill workflow.
+- **Project Allocation Dropdown & WIP Routing Indicator**:
+  - Selecting a project tags the bill to that cost center and displays an active emerald badge: `→ WIP Asset (1200)`.
+  - Selecting *"None — General Office Overhead"* tags the bill to operations and displays a slate badge: `→ Office Overhead (5000)`.
+- **Invoice Number**: Required text input. Validated against duplicates for the selected vendor.
+- **Bill Date**: Date picker defaulting to the current date.
+- **Settlement Type Toggle**:
+  - `ACCOUNTS_PAYABLE` (Default): Records bill as `UNPAID` with full pending balance. Credits GL Account 2000 (Accounts Payable). The invoice enters the FIFO queue on Screen 7.
+  - `DIRECT_CASH`: Used when paying immediately from an office safe or bank account. Exposes the conditional **Source Asset Account** dropdown. Bill status is immediately marked `PAID` with `pendingAmount = 0`. Credits the selected cash/bank asset account.
+
+### Right Panel: Dynamic Line Items
+- Dynamic table supporting multiple line items:
+  - **Description**: Text description of item or milestone.
+  - **Quantity**: Integer count (&gt; 0).
+  - **Unit Price**: PKR unit cost (&ge; 0).
+  - **Line Total**: Auto-calculated on every keystroke (`quantity × unitPrice`).
+- **Grand Total Banner**: High-visibility PKR total formatted with JetBrains Mono font.
+- Minimum 1 valid line item enforced before submission.
+
+---
+
+## 3. Double-Entry Accounting Matrix
+
+| Scenario | Debit Account | Credit Account | Bill Status | Pending Amount |
+|---|---|---|---|---|
+| Project Bill via AP | `1200` (Work In Progress Asset) | `2000` (Accounts Payable) | `UNPAID` | `grandTotal` |
+| Overhead Bill via AP | `5000` (General Operating Expenses) | `2000` (Accounts Payable) | `UNPAID` | `grandTotal` |
+| Project Bill via Cash | `1200` (Work In Progress Asset) | Selected Safe/Bank Account (`100X`) | `PAID` | `0` |
+| Overhead Bill via Cash | `5000` (General Operating Expenses) | Selected Safe/Bank Account (`100X`) | `PAID` | `0` |
+
+---
+
+## 4. Business Rules & Guardrails
+
+1. **Anti-Duplicate Invoice Guard**: If an invoice number already exists for the selected vendor, the API returns `409 DUPLICATE_INVOICE`. The UI catches this and displays an inline red error under the invoice number field.
+2. **Budget Soft-Lock Rule**: If logging a project bill pushes the project's cumulative spent past its approved Master BOQ:
+   - The bill is saved and double-entry posted normally to ensure accounting integrity.
+   - An amber warning banner appears alerting the operator: *"Bill saved! Project exceeds approved BOQ by Rs. X."*
+   - The project card on Screen 4 turns red with an `Over Budget` alert badge.
+3. **Atomic Cache Sync**: On successful bill creation, TanStack Query invalidates `['projects']`, `['vendors']`, `['accounts']`, and `['bills']` so that Screen 4 health bars, Screen 7 outstanding debt balances, and Screen 1 GL balances refresh instantly.
