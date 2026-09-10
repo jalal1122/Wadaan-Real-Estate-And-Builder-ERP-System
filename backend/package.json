@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:reset-test": "ts-node scripts/reset-test-db.ts",
+    "seed:module1": "ts-node scripts/seed-module1.ts",
     "contract:emit": "prisma contract emit"
   },
   "keywords": [],
