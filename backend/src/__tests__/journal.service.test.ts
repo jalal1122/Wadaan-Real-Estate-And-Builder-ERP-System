@@ -32,7 +32,12 @@ describe('JournalService.postEntry', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (mockPrisma.account.findMany as jest.Mock).mockResolvedValue(mockAccounts);
+    (mockPrisma.account.findMany as jest.Mock).mockImplementation(({ where }) => {
+      if (where?.id?.in) {
+        return Promise.resolve(mockAccounts.filter((a) => where.id.in.includes(a.id)));
+      }
+      return Promise.resolve(mockAccounts);
+    });
     (mockPrisma.journalEntry.count as jest.Mock).mockResolvedValue(0);
     (mockPrisma.journalEntry.findUnique as jest.Mock).mockResolvedValue(null);
     (mockPrisma.journalEntry.create as jest.Mock).mockImplementation(({ data }) =>
@@ -112,7 +117,7 @@ describe('JournalService.postEntry', () => {
 
     await expect(JournalService.postEntry(payload as any)).rejects.toThrow(AppError);
     await expect(JournalService.postEntry(payload as any)).rejects.toMatchObject({
-      errorCode: 'UNBALANCED_JOURNAL',
+      code: 'UNBALANCED_JOURNAL',
     });
   });
 
@@ -132,7 +137,7 @@ describe('JournalService.postEntry', () => {
     };
 
     await expect(JournalService.postEntry(payload as any)).rejects.toMatchObject({
-      errorCode: 'ERR_SYSTEM_ACCOUNT_LOCKED',
+      code: 'ERR_SYSTEM_ACCOUNT_LOCKED',
     });
   });
 });

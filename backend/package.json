@@ -7,7 +7,7 @@
     "dev": "nodemon -e ts,json src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "db:reset-test": "ts-node scripts/reset-test-db.ts",
     "seed:module1": "ts-node scripts/seed-module1.ts",
     "contract:emit": "prisma contract emit"
@@ -31,10 +31,13 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.4.1",
+    "jest": "^30.5.1",
     "nodemon": "^3.1.14",
     "prisma": "^5.14.0",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
