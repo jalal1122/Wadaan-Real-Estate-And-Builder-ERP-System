@@ -10,16 +10,22 @@ The Drill-Down: When you decide you want to pay Ali Hardware, you click on their
 Because you manage cash flow strictly, you might owe Khan Builders Rs. 1,200,000, but you only want to release a Rs. 500,000 cheque this week.
 How it Works: Next to the expanded bills, there is a "Payment Amount" box. It defaults to the full amount, but you can simply erase it and type 500000.
 The FIFO Logic (First-In, First-Out): You don't have to manually figure out which specific invoices to apply that Rs. 500,000 to. The system acts like a smart accountant. It automatically clears Khan Builder's oldest bills first. The remaining Rs. 700,000 is safely kept in the system's memory, waiting in the Screen 7 queue for your next payment run.
-3. The Cheque Lock (Where is the money coming from?)
+3. The Payment Mode & Reference Lock (Where is the money coming from?)
 Before you can finalize the payment, the system must know exactly which Wadaan pocket the money is leaving from, so your bank balances stay accurate.
 The Dropdown: You must select the source account (e.g., "Office Safe" or "Meezan Bank").
-The Mandatory Audit Trail: If you select "Meezan Bank," a new text box instantly appears asking for the Cheque / Transfer Reference Number. The system physically locks the "Post Payment" button until you type something in this box. This guarantees that months from now, if there is a dispute, you have the exact cheque number digitally linked to the supplier's bill.
+The Mandatory Audit Trail:
+- If you select "Meezan Bank" (or any bank account), a method selector appears:
+  1. **Cheque Payment**: Asks for `Cheque Number` (Mandatory). This cheque reference is stored with the payment and routed to the Waiting Room audit workflow for physical clearance or bouncing verification.
+  2. **Online Transfer**: Asks for `Transaction ID / Wire Reference` (Mandatory). This transfer reference (e.g., FT or RRN) is stored directly on the payment record for immediate settlement without requiring clearance room audit.
+- The system physically locks the "Execute Payment & Print Voucher" button until the required reference is provided.
+- If you select Cash / Safe, direct settlement occurs with no reference required.
+
 4. The 1-Click Payment Voucher (The Physical Proof)
-When handing a contractor a massive stack of cash or a high-value cheque, you must have a legal, signed receipt for your office files.
-The Feature: The precise second you click "Post Payment," the system clears the debt and a "Print Voucher" button appears.
-The Output: It instantly generates a clean, professional A4 PDF page, perforated exactly down the middle.
-The Top Half (Wadaan's Copy): Contains the date, the vendor's name, the cheque number, the exact invoices cleared, and a "Received By" signature line. The contractor signs this, and you file it.
-The Bottom Half (Receiver's Copy): An exact duplicate for the contractor to take with them.
+When handing a contractor a payment, you must have a legal, signed receipt for your office files and the vendor's records.
+The Feature: The precise second you click "Execute Payment & Print Voucher", the system clears the debt, synchronizes the General Ledger, and triggers native printing.
+The Output: It instantly generates a clean, professional A4 page, perforated exactly down the middle.
+- **The Top Half (Vendor / Payee Receipt - Original)**: Contains the voucher number, date, vendor's name, payment reference (Cheque # or Online Transaction ID), settled invoices table (applied amounts and remaining balances), and a distinct "RECEIVED WITH THANKS" receiver acknowledgment and stamp box. The payee takes this copy.
+- **The Bottom Half (Wadaan Institutional Copy - Office Record)**: Contains an exact institutional copy with settled bills audit breakdown and 4 official signature lines: Prepared By (Accounts), Audited / Verified By, Approved By (CFO/Director), and Payee Signature. Wadaan files this in accounting.
 5. Business Rules & Guardrails
 When you click "Post" on this screen, you kick off a massive chain reaction in the background that saves you hours of accounting work.
 The Triple Update: In one click, the system automatically:
