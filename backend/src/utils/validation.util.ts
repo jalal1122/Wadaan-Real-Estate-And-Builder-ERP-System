@@ -336,6 +336,7 @@ export const CreatePaymentSchema = z.object({
       message: 'amountPaid must be greater than 0'
     }),
   chequeRef: z.string().optional().nullable(),
+  transactionId: z.string().optional().nullable(),
   paymentDate: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), {

@@ -138,6 +138,7 @@ export class FifoService {
           sourceAccountId: data.sourceAccountId,
           amountPaid: totalPayment,
           chequeRef: data.chequeRef || null,
+          transactionId: data.transactionId || null,
           paymentDate
         },
         include: {
@@ -146,8 +147,12 @@ export class FifoService {
       });
 
       // Post double-entry journal entry: Debit AP (2000), Credit Cash/Bank (sourceAccountId)
-      const chequeNote = data.chequeRef ? ` (Cheque: ${data.chequeRef})` : '';
-      const journalDescription = `Vendor Payment to ${vendor.vendorName}${chequeNote}`;
+      const refNote = data.transactionId
+        ? ` (Online: ${data.transactionId})`
+        : data.chequeRef
+        ? ` (Cheque: ${data.chequeRef})`
+        : '';
+      const journalDescription = `Vendor Payment to ${vendor.vendorName}${refNote}`;
 
       const journalEntry = await JournalService.postEntry(
         {

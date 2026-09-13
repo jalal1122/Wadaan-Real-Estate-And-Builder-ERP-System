@@ -156,7 +156,8 @@ model VendorPayment {
   vendorId        String
   sourceAccountId String   // Where the money came from (Screen 1)
   amountPaid      Decimal  @db.Decimal(15, 2)
-  chequeRef       String?  // Mandatory if paid via Bank
+  chequeRef       String?  // Mandatory if paid via Bank with Cheque
+  transactionId   String?  // For online/wire transfers — no clearing process required
   paymentDate     DateTime @default(now())
   
   vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)

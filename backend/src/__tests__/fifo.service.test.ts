@@ -177,4 +177,42 @@ describe('FifoService.processPaymentRun', () => {
       code: 'VENDOR_NOT_FOUND',
     });
   });
+
+  test('5. stores transactionId for online bank payment and marks journal description accordingly', async () => {
+    const bill = {
+      id: 'bill-online-1',
+      invoiceNumber: 'INV-ON-001',
+      billDate: new Date('2026-02-01'),
+      grandTotal: new Decimal(100000),
+      pendingAmount: new Decimal(100000),
+    };
+
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([bill]);
+
+    await FifoService.processPaymentRun({
+      vendorId: 'vend-1',
+      sourceAccountId: 'acc-bank',
+      amountPaid: 100000,
+      transactionId: 'FT-99882244',
+      paymentDate: '2026-03-01T00:00:00Z',
+    });
+
+    expect(mockPrisma.vendorPayment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          transactionId: 'FT-99882244',
+          chequeRef: null,
+          amountPaid: new Decimal(100000),
+        }),
+      })
+    );
+
+    expect(JournalService.postEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: expect.stringContaining('(Online: FT-99882244)'),
+      }),
+      expect.anything(),
+      { skipLockCheck: true }
+    );
+  });
 });
