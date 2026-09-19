@@ -8,6 +8,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printVoucher: (paymentData) => ipcRenderer.invoke('print-voucher', paymentData),
 
   /**
+   * Triggers native Windows print dialog with dual-copy Official Inflow Receipt (Screen 9).
+   * @param {Object} receiptData - Receipt payload with customer and invoice breakdown
+   */
+  printReceipt: (receiptData) => ipcRenderer.invoke('print-receipt', receiptData),
+
+  /**
    * Exports encrypted database backup to local file system.
    * Documented in execution.md Phase 5 - stub for future implementation.
    */

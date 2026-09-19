@@ -330,6 +330,288 @@ function generateCPVHtml(paymentData = {}) {
 </html>`;
 }
 
+/**
+ * Generates an A4 dual-copy HTML document for Inflow Receipts (Screen 9).
+ * Contains Customer Copy (Original) and Wadaan Accounts Copy with perforated divider.
+ */
+function generateReceiptHtml(receiptData) {
+  const receiptId = receiptData.id ? `REC-${receiptData.id.slice(0, 8).toUpperCase()}` : `REC-${Date.now()}`;
+  const customerName = receiptData.customer?.fullName || receiptData.customerName || 'Walk-in Client';
+  const customerPhone = receiptData.customer?.phone || receiptData.customerPhone || '—';
+  const dateStr = new Date(receiptData.receiptDate || Date.now()).toLocaleDateString('en-PK', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const amountNum = Number(receiptData.amount || receiptData.totalAmount || 0);
+  const amount = isNaN(amountNum) ? '0' : amountNum.toLocaleString('en-PK');
+  const paymentMethod = receiptData.paymentMethod || 'CASH';
+  const refNumber = receiptData.bankRefNumber || receiptData.referenceNo || '—';
+  const invoices = receiptData.invoices || [];
+
+  const paymentRefHtml =
+    paymentMethod === 'CHEQUE'
+      ? `<strong style="color: #d97706;">Cheque (Escrow)</strong> &bull; Leaf / Ref: <strong>${refNumber}</strong>`
+      : paymentMethod === 'ONLINE'
+      ? `<strong style="color: #2563eb;">Online Transfer</strong> &bull; UTR / Trx: <strong>${refNumber}</strong>`
+      : `<strong style="color: #059669;">Cash In Hand</strong> &bull; Direct Safe Inflow`;
+
+  const renderInvoicesList = () => {
+    if (!invoices || invoices.length === 0) {
+      return `
+        <div style="padding: 8px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; font-size: 10px; color: #475569; margin: 8px 0;">
+          <strong>Allocation:</strong> Credited to Customer Advance Mobilization Escrow Wallet (Liability 2100).
+        </div>
+      `;
+    }
+
+    const rows = invoices
+      .map((inv) => {
+        const invAmt = Number(inv.amount || 0).toLocaleString('en-PK');
+        return `
+        <tr>
+          <td style="padding: 3px 6px; border: 1px solid #e2e8f0; font-size: 10px;">${inv.description || 'Milestone Installment'}</td>
+          <td style="padding: 3px 6px; border: 1px solid #e2e8f0; font-size: 10px; text-align: right; font-family: monospace;">PKR ${invAmt}</td>
+        </tr>
+      `;
+      })
+      .join('');
+
+    return `
+      <table style="width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 10px;">
+        <thead>
+          <tr style="background: #f1f5f9; color: #475569;">
+            <th style="padding: 3px 6px; border: 1px solid #cbd5e1; text-align: left;">Allocated Milestone / Invoice</th>
+            <th style="padding: 3px 6px; border: 1px solid #cbd5e1; text-align: right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+  };
+
+  const renderCustomerCopy = () => `
+    <div class="voucher-copy">
+      <div class="header">
+        <div>
+          <h2>Wadaan Real Estate &amp; Builders</h2>
+          <p class="subtitle">Official Financial Receipt &bull; <strong style="color: #059669;">Customer Copy (Original)</strong></p>
+        </div>
+        <div class="header-right">
+          <h1>Official Receipt</h1>
+          <p class="voucher-id">${receiptId}</p>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Received From:</span> <strong>${customerName}</strong></div>
+        <div class="meta-item"><span class="meta-label">Receipt Date:</span> ${dateStr}</div>
+        <div class="meta-item"><span class="meta-label">Contact / Phone:</span> ${customerPhone}</div>
+        <div class="meta-item"><span class="meta-label">Payment Mode:</span> ${paymentRefHtml}</div>
+        <div class="meta-item" style="grid-column: span 2; border-top: 1px dashed #cbd5e1; padding-top: 5px;">
+          <span class="meta-label">Total Amount Received:</span>
+          <strong style="font-size: 16px; color: #059669; font-family: monospace;">PKR ${amount}</strong>
+        </div>
+      </div>
+
+      ${renderInvoicesList()}
+
+      <div class="stamp-box">
+        <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a;">
+          Official Acknowledgement &bull; Wadaan ERP
+        </div>
+        <div style="font-size: 9.5px; color: #64748b; margin-top: 2px;">
+          Received with thanks the sum of <strong>PKR ${amount}</strong> via ${paymentMethod}. Instruments subject to realization.
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 10.5px; color: #334155;">
+          <span>Cashier / Officer: ____________________________</span>
+          <span>Authorized Signatory &amp; Stamp: ____________________________</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const renderWadaanCopy = () => `
+    <div class="voucher-copy">
+      <div class="header">
+        <div>
+          <h2>Wadaan Real Estate &amp; Builders</h2>
+          <p class="subtitle">Institutional Revenue Ledger &bull; <strong style="color: #0f172a;">Accounts &amp; Audit Copy</strong></p>
+        </div>
+        <div class="header-right">
+          <h1>Official Receipt</h1>
+          <p class="voucher-id">${receiptId}</p>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Received From:</span> <strong>${customerName}</strong></div>
+        <div class="meta-item"><span class="meta-label">Receipt Date:</span> ${dateStr}</div>
+        <div class="meta-item"><span class="meta-label">Contact / Phone:</span> ${customerPhone}</div>
+        <div class="meta-item"><span class="meta-label">Payment Mode:</span> ${paymentRefHtml}</div>
+        <div class="meta-item" style="grid-column: span 2; border-top: 1px dashed #cbd5e1; padding-top: 5px;">
+          <span class="meta-label">Total Credited into Ledger:</span>
+          <strong style="font-size: 16px; color: #0f172a; font-family: monospace;">PKR ${amount}</strong>
+        </div>
+      </div>
+
+      ${renderInvoicesList()}
+
+      <div class="signatures">
+        <div class="sig-line">Cashier (Received)</div>
+        <div class="sig-line">Posting Officer (GL)</div>
+        <div class="sig-line">Internal Audit</div>
+        <div class="sig-line">Manager Finance</div>
+      </div>
+    </div>
+  `;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt - ${receiptId}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page-container {
+      display: flex;
+      flex-direction: column;
+      height: 275mm;
+      justify-content: space-between;
+    }
+    .voucher-copy {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 18px;
+      box-sizing: border-box;
+      height: 130mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 6px;
+    }
+    .header h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #0f172a;
+      letter-spacing: -0.2px;
+    }
+    .subtitle {
+      margin: 2px 0 0 0;
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-right {
+      text-align: right;
+    }
+    .header-right h1 {
+      margin: 0;
+      font-size: 14px;
+      color: #059669;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .voucher-id {
+      margin: 2px 0 0 0;
+      font-size: 11px;
+      font-family: monospace;
+      font-weight: bold;
+      color: #0f172a;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+      margin: 8px 0;
+      font-size: 11px;
+      background: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    .meta-label {
+      color: #64748b;
+      font-size: 10px;
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+    .stamp-box {
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-top: 4px;
+    }
+    .signatures {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 6px;
+      padding-top: 4px;
+    }
+    .sig-line {
+      border-top: 1px solid #94a3b8;
+      padding-top: 4px;
+      font-size: 9.5px;
+      color: #64748b;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .perforation {
+      border-top: 1px dashed #94a3b8;
+      position: relative;
+      margin: 4mm 0;
+      text-align: center;
+    }
+    .perforation-label {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 0 8px;
+      font-size: 8.5px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    ${renderCustomerCopy()}
+    <div class="perforation">
+      <span class="perforation-label">&bull; Cut / Detach Along Line &bull; Official Wadaan Copy Below &bull;</span>
+    </div>
+    ${renderWadaanCopy()}
+  </div>
+</body>
+</html>`;
+}
+
 // Register IPC handlers
 ipcMain.handle('print-voucher', async (event, paymentData) => {
   try {
@@ -361,6 +643,40 @@ ipcMain.handle('print-voucher', async (event, paymentData) => {
     });
   } catch (error) {
     console.error('Error handling print-voucher IPC:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('print-receipt', async (event, receiptData) => {
+  try {
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    const html = generateReceiptHtml(receiptData);
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    return new Promise((resolve) => {
+      printWin.webContents.print(
+        {
+          silent: false,
+          printBackground: true,
+        },
+        (success, failureReason) => {
+          printWin.close();
+          if (!success) {
+            console.warn('Printing receipt was cancelled or failed:', failureReason);
+          }
+          resolve({ success, failureReason });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error handling print-receipt IPC:', error);
     throw error;
   }
 });
