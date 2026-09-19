@@ -24,6 +24,46 @@ How it Works: You select the new buyer (e.g., Zain), and input Wadaan’s standa
 The Automation: In one click, the system closes the old buyer's ledger, shifts the entire remaining debt to Zain, generates a new invoice for the Rs. 50,000 Transfer Fee, and marks it as 100% Wadaan profit.
 6. Business Rules & Guardrails
 The Red Alert (Overdue Tracker): Any installment or milestone that passes its due date instantly turns bright red on the dashboard, making it impossible to forget who you need to call for recovery.
-The Escrow Lock: The system strictly prevents you from claiming "Escrow Liability" money or "Customer Advance Wallet" money as Wadaan’s net profit on your Income Statement, protecting you from thinking you are richer than you actually are on paper.
 Screen 8 perfectly organizes all your revenue streams, client debt, and middleman cash without requiring you to do complex accounting math.
+
+---
+
+## Technical Architecture & Implementation Spec (v3.0.0)
+
+### Frontend Layer Architecture
+- **Route**: `/deals` (`src/app/(dashboard)/deals/page.tsx`)
+- **Components**:
+  - `DealKPIStrip.tsx`: Aggregates active receivables, client mobilization advances in escrow, construction project volume, and brokerage escrow vs. earned commissions.
+  - `DealTable.tsx`: Full-featured data table with route filtering (Sales, Construction, Brokerage), status filtering (Active vs Settled), real-time search, and milestone progress bars.
+  - `CreateDealModal.tsx`: 3-step wizard with fast client onboarding, multi-route selection, project linking for WIP attribution, and dynamic milestone builder with zero-sum mathematical validation (`sum(invoices) === totalValue`).
+  - `CustomerKhaataDrawer.tsx`: Slide-over drawer presenting complete client ledger portfolio (advance wallet balance, active contracts, milestone schedules, chronological receipts history, and 1-click advance allocation to unpaid installments).
+  - `TransferFileModal.tsx`: Assigns contract ownership to a new client with automated transfer fee assessment credited to Revenue (4000).
+
+### Backend REST API Contracts
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/deals` | Fetches master deal portfolio with dynamic `pendingBalance` |
+| `POST` | `/api/v1/deals` | Initializes contract with multi-route journal entries |
+| `GET` | `/api/v1/deals/:id` | Fetches single deal with linked project and invoices |
+| `POST` | `/api/v1/deals/:dealId/transfer` | Transfers deal file ownership to new customer |
+| `GET` | `/api/v1/customers` | Lists all customers with wallet balances and deal counts |
+| `GET` | `/api/v1/customers/:id` | Returns customer detail with full Khaata history |
+| `POST` | `/api/v1/customers` | Creates customer with initial 0.00 wallet |
+| `POST` | `/api/v1/customers/:id/apply-wallet` | Consumes wallet advance against a specific invoice |
+
+### Double-Entry Accounting Ledger Postings
+- **Direct Sale (`WADAAN_SALE`)**:
+  - `DR 1100 Accounts Receivable` / `CR 4000 Property Sales Revenue`
+- **Construction Contract (`CONSTRUCTION`)**:
+  - `DR 1100 Accounts Receivable` / `CR 4000 Construction Contract Revenue` (tagged with `projectId` for gross margin analysis)
+- **Brokerage Transaction (`BROKERAGE`)**:
+  - `DR 1100 Accounts Receivable` (Total Deal Value)
+  - `CR 4000 Brokerage Commission Revenue` (Wadaan Cut)
+  - `CR 2200 Third-Party Escrow Liability` (Remaining seller funds)
+- **Customer Advance Allocation**:
+  - `DR 2100 Customer Advance Liability` / `CR 1100 Accounts Receivable`
+- **File Transfer**:
+  - Shifts remaining unpaid installment balance to new customer Khaata
+  - `DR 1100 Accounts Receivable (New Customer)` / `CR 4000 Transfer Fee Revenue` (if fee > 0)
+
 

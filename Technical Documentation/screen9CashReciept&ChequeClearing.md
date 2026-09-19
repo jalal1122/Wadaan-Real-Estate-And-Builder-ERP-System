@@ -27,3 +27,42 @@ The Advance Wallet Link: If the money you received was a "Mobilization Advance" 
 The Cash Reversal Lock: You can "Bounce" a cheque, but you cannot "Bounce" a cash payment. If you made a mistake with a cash receipt, you must use a proper reversal process to ensure the cash drawer audit trail remains intact.
 Screen 9 ensures that every single rupee entering Wadaan is receipted, tracked, and verified by the bank before you ever consider it "safe."
 This completes Module 3: Receivables & Revenue.
+
+---
+
+## Technical Architecture & Implementation Spec (v3.0.0)
+
+### Frontend Layer Architecture
+- **Route**: `/receipts` (`src/app/(dashboard)/receipts/page.tsx`)
+- **Components**:
+  - `FastInflowForm.tsx`: Unified fast entry form with customer picker, invoice milestone multi-selection, automatic excess advance wallet allocation, and Electron A4 printing trigger.
+  - `WaitingRoomTable.tsx`: Live dashboard grid monitoring uncleared cheques in escrow, with real-time text search, clearance modal trigger, and bounce confirmation safeguards.
+  - `ClearanceModal.tsx`: Real-time depository account selector routing realized funds into active bank accounts (1010 Meezan, 1011 HBL) and clearing the escrow ledger.
+- **Electron IPC Integration**:
+  - Exposes `window.electronAPI.printReceipt(receiptData)` via `electron/preload.js`.
+  - Generates A4 dual-copy receipt with midpoint perforation (Customer Original + Accounts & Audit Copy) via `electron/main.js`.
+  - Includes browser print fallback (`window.print()`) in web dev mode.
+
+### Backend REST API Contracts
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/receipts` | Records customer payment (CASH, CHEQUE, ONLINE) |
+| `GET` | `/api/v1/receipts/waiting-room` | Returns all pending uncleared instruments |
+| `POST` | `/api/v1/receipts/:id/clear` | Clears cheque and posts depository GL settlement |
+| `POST` | `/api/v1/receipts/:id/bounce` | Marks instrument bounced and reverts invoice statuses |
+
+### Double-Entry Accounting Ledger Postings
+- **Cash Inflow (`CASH`)**:
+  - `DR 1001 Cash in Safe` / `CR 1100 Accounts Receivable` (or `CR 2100 Customer Advance Liability`)
+- **Online Transfer (`ONLINE`)**:
+  - `DR 1010/1011 Depository Bank Asset` / `CR 1100 Accounts Receivable` (or `CR 2100`)
+- **Uncleared Cheque (`CHEQUE`)**:
+  - `DR 1020 Undeposited Funds / Escrow Waiting Room` / `CR 1100 Accounts Receivable`
+  - Invoices flagged as `PENDING_CLEARANCE`
+- **Cheque Settlement / Clearance**:
+  - `DR 1010/1011 Target Bank Account` / `CR 1020 Undeposited Funds`
+  - Invoices updated to `PAID` (or wallet balance unlocked)
+- **Cheque Dishonor / Bounce**:
+  - Reverts attached invoices from `PENDING_CLEARANCE` back to `UNPAID`
+  - Flags receipt as `BOUNCED` in customer Khaata audit trail
+

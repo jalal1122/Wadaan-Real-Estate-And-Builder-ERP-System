@@ -18,8 +18,8 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 | **2 - Outflow Engine** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | ✅ Implemented (v2.0.0) |
 | **2 - Outflow Engine** | Screen 5: Expense Bills (`/payables` Tab 1) | `src/app/(dashboard)/payables/page.tsx` | ✅ Implemented (v2.0.0) |
 | **2 - Outflow Engine** | Screen 7: Payment Run (`/payables` Tab 2) | `src/app/(dashboard)/payables/page.tsx` | ✅ Implemented (v2.0.0) |
-| **3 - Inflow** | Screen 8: Deals & Customer Hub (`/deals`) | `src/app/(dashboard)/deals/page.tsx` | 🔲 Scheduled (Module 3) |
-| **3 - Inflow** | Screen 9: Receipts & Cheque Room (`/receipts`) | `src/app/(dashboard)/receipts/page.tsx` | 🔲 Scheduled (Module 3) |
+| **3 - Inflow** | Screen 8: Deals & Customer Hub (`/deals`) | `src/app/(dashboard)/deals/page.tsx` | ✅ Implemented (v3.0.0) |
+| **3 - Inflow** | Screen 9: Receipts & Cheque Room (`/receipts`) | `src/app/(dashboard)/receipts/page.tsx` | ✅ Implemented (v3.0.0) |
 | **4 - Analytics** | Screen 10: Executive Intelligence (`/reports`) | `src/app/(dashboard)/reports/page.tsx` | 🔲 Scheduled (Module 4) |
 
 ---
