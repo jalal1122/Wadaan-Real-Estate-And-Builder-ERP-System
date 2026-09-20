@@ -74,3 +74,17 @@ export const updateProjectStatus = async (req: Request, res: Response, next: Nex
     next(error);
   }
 };
+
+export const getProjectTransactions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const result = await ProjectService.getProjectTransactions(id);
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};

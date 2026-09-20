@@ -189,12 +189,16 @@ export class BillService {
             {
               accountId: debitAccount.id,
               debitAmount: calculatedGrandTotal,
-              creditAmount: new Decimal(0)
+              creditAmount: new Decimal(0),
+              projectId: data.projectId || null,
+              vendorId: data.vendorId || null
             },
             {
               accountId: creditAccountId,
               debitAmount: new Decimal(0),
-              creditAmount: calculatedGrandTotal
+              creditAmount: calculatedGrandTotal,
+              projectId: data.projectId || null,
+              vendorId: data.vendorId || null
             }
           ]
         },

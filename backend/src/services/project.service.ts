@@ -119,4 +119,94 @@ export class ProjectService {
       data: { status: input.status }
     });
   }
+
+  /**
+   * Fetches all General Ledger transactions (JournalLines) linked to this project.
+   */
+  static async getProjectTransactions(id: string) {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        projectName: true,
+        projectPrefix: true,
+        status: true,
+        masterBOQ: true,
+        createdAt: true
+      }
+    });
+
+    if (!project) {
+      throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
+    }
+
+    const lines = await prisma.journalLine.findMany({
+      where: { projectId: id },
+      include: {
+        journal: {
+          select: {
+            id: true,
+            entryNumber: true,
+            entryDate: true,
+            description: true
+          }
+        },
+        account: {
+          select: {
+            id: true,
+            accountCode: true,
+            accountName: true,
+            category: true
+          }
+        },
+        vendor: {
+          select: {
+            id: true,
+            vendorName: true
+          }
+        },
+        customer: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        }
+      },
+      orderBy: [
+        { journal: { entryDate: 'asc' } },
+        { id: 'asc' }
+      ]
+    });
+
+    let runningBalance = new Decimal(0);
+    const transactions = lines.map((line) => {
+      const debit = new Decimal(line.debitAmount);
+      const credit = new Decimal(line.creditAmount);
+      runningBalance = runningBalance.plus(debit).minus(credit);
+
+      return {
+        id: line.id,
+        journalId: line.journalId,
+        entryNumber: line.journal.entryNumber,
+        entryDate: line.journal.entryDate,
+        journalDescription: line.journal.description,
+        memo: line.memo,
+        accountCode: line.account.accountCode,
+        accountName: line.account.accountName,
+        accountCategory: line.account.category,
+        debitAmount: debit,
+        creditAmount: credit,
+        runningBalance: runningBalance,
+        partyName: line.vendor?.vendorName || line.customer?.fullName || null
+      };
+    });
+
+    return {
+      project,
+      totalDebit: lines.reduce((sum, l) => sum.plus(new Decimal(l.debitAmount)), new Decimal(0)),
+      totalCredit: lines.reduce((sum, l) => sum.plus(new Decimal(l.creditAmount)), new Decimal(0)),
+      netBalance: runningBalance,
+      transactions
+    };
+  }
 }

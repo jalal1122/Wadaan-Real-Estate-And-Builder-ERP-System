@@ -3,7 +3,8 @@ import {
   createProject,
   getAllProjects,
   getProjectById,
-  updateProjectStatus
+  updateProjectStatus,
+  getProjectTransactions
 } from '../controllers/project.controller';
 import { authGuard } from '../middleware/authGuard';
 
@@ -15,6 +16,7 @@ router.use(authGuard);
 router.post('/', createProject);
 router.get('/', getAllProjects);
 router.get('/:id', getProjectById);
+router.get('/:id/transactions', getProjectTransactions);
 router.patch('/:id/status', updateProjectStatus);
 
 export default router;

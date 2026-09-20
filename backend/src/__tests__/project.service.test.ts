@@ -11,6 +11,9 @@ jest.mock('../config/db', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    journalLine: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -154,6 +157,96 @@ describe('ProjectService', () => {
         statusCode: 404,
         code: 'PROJECT_NOT_FOUND',
       });
+    });
+  });
+
+  describe('getProjectTransactions', () => {
+    test('7. throws PROJECT_NOT_FOUND (404) if project does not exist', async () => {
+      (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(ProjectService.getProjectTransactions('invalid-project')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'PROJECT_NOT_FOUND',
+      });
+    });
+
+    test('8. returns journal transactions with correct running balance and totals', async () => {
+      (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue({
+        id: 'proj-1',
+        projectName: 'Wadaan Heights',
+        projectPrefix: 'WH',
+        status: 'ACTIVE',
+        masterBOQ: new Decimal(5000000),
+        createdAt: new Date('2026-01-01'),
+      });
+
+      (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'line-1',
+          journalId: 'jv-1',
+          debitAmount: new Decimal(200000),
+          creditAmount: new Decimal(0),
+          memo: 'Cement purchase',
+          journal: {
+            id: 'jv-1',
+            entryNumber: 'JV-0001',
+            entryDate: new Date('2026-01-05'),
+            description: 'Expense for Project: Wadaan Heights',
+          },
+          account: {
+            id: 'acc-1200',
+            accountCode: '1200',
+            accountName: 'Work In Progress',
+            category: 'ASSET',
+          },
+          vendor: {
+            id: 'vend-1',
+            vendorName: 'Lucky Cement',
+          },
+          customer: null,
+        },
+        {
+          id: 'line-2',
+          journalId: 'jv-2',
+          debitAmount: new Decimal(50000),
+          creditAmount: new Decimal(0),
+          memo: 'Steel purchase',
+          journal: {
+            id: 'jv-2',
+            entryNumber: 'JV-0002',
+            entryDate: new Date('2026-01-10'),
+            description: 'Expense for Project: Wadaan Heights',
+          },
+          account: {
+            id: 'acc-1200',
+            accountCode: '1200',
+            accountName: 'Work In Progress',
+            category: 'ASSET',
+          },
+          vendor: {
+            id: 'vend-2',
+            vendorName: 'Mughal Steel',
+          },
+          customer: null,
+        },
+      ]);
+
+      const result = await ProjectService.getProjectTransactions('proj-1');
+
+      expect(result.project.projectName).toBe('Wadaan Heights');
+      expect(result.transactions).toHaveLength(2);
+      expect(result.totalDebit.toString()).toBe('250000');
+      expect(result.totalCredit.toString()).toBe('0');
+      expect(result.netBalance.toString()).toBe('250000');
+
+      // Check running balance on transactions
+      expect(result.transactions[0].runningBalance.toString()).toBe('200000');
+      expect(result.transactions[0].entryNumber).toBe('JV-0001');
+      expect(result.transactions[0].partyName).toBe('Lucky Cement');
+
+      expect(result.transactions[1].runningBalance.toString()).toBe('250000');
+      expect(result.transactions[1].entryNumber).toBe('JV-0002');
+      expect(result.transactions[1].partyName).toBe('Mughal Steel');
     });
   });
 });
