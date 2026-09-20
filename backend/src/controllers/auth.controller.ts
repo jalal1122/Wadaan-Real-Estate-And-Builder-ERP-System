@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
-import { CryptoUtility } from '../utils/crypto.util';
+import { CryptoUtility, SESSION_DURATION_MS } from '../utils/crypto.util';
 import { MailUtility } from '../utils/mail.util';
 import { AppError } from '../middleware/errorHandler';
 
@@ -54,7 +54,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
+      maxAge: SESSION_DURATION_MS
     });
 
     res.status(200).json({

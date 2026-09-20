@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
+export const SESSION_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 export class CryptoUtility {
   static async hashPin(pin: string): Promise<string> {
     return bcrypt.hash(pin, 12);
