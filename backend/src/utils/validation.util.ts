@@ -522,3 +522,48 @@ export const ApplyWalletSchema = z.object({
 
 export type ApplyWalletInput = z.infer<typeof ApplyWalletSchema>;
 
+export const CreatePersonalContactSchema = z.object({
+  name: z.string().min(1, 'Contact name is required'),
+  phone: z.string().optional().nullable(),
+  relation: z.string().optional().nullable(),
+  notes: z.string().optional().nullable()
+});
+
+export type CreatePersonalContactInput = z.infer<typeof CreatePersonalContactSchema>;
+
+export const CreatePersonalLoanSchema = z.object({
+  direction: z.enum(['GIVEN', 'RECEIVED'] as const),
+  principalAmount: z
+    .union([
+      z.number().positive('principalAmount must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'principalAmount must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'principalAmount must be greater than 0'
+    }),
+  description: z.string().min(1, 'Description is required'),
+  loanDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'Invalid loanDate format'
+  })
+});
+
+export type CreatePersonalLoanInput = z.infer<typeof CreatePersonalLoanSchema>;
+
+export const AddPersonalRepaymentSchema = z.object({
+  amount: z
+    .union([
+      z.number().positive('amount must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'amount must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'amount must be greater than 0'
+    }),
+  repaidDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'Invalid repaidDate format'
+  }),
+  notes: z.string().optional().nullable()
+});
+
+export type AddPersonalRepaymentInput = z.infer<typeof AddPersonalRepaymentSchema>;
+
+

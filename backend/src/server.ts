@@ -14,6 +14,7 @@ import paymentRoutes from './routes/payment.routes';
 import inflowRoutes from './routes/inflow.routes';
 import reportRoutes from './routes/report.routes';
 import documentRoutes from './routes/document.routes';
+import personalRoutes from './routes/personal.routes';
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1', inflowRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/documents', documentRoutes);
+app.use('/api/v1/personal', personalRoutes);
 
 // Global Error Handler
 app.use(globalErrorHandler);

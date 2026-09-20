@@ -221,3 +221,50 @@ model SystemSetting {
   isInitialized Boolean   @default(false)
   goLiveDate    DateTime?
 }
+
+enum PersonalTxDirection {
+  GIVEN
+  RECEIVED
+}
+
+enum PersonalLoanStatus {
+  OUTSTANDING
+  PARTIAL
+  SETTLED
+}
+
+model PersonalContact {
+  id        String         @id @default(uuid())
+  name      String
+  phone     String?
+  relation  String?
+  notes     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  loans     PersonalLoan[]
+}
+
+model PersonalLoan {
+  id              String              @id @default(uuid())
+  contactId       String
+  direction       PersonalTxDirection
+  principalAmount Decimal             @db.Decimal(15, 2)
+  amountSettled   Decimal             @default(0.00) @db.Decimal(15, 2)
+  status          PersonalLoanStatus  @default(OUTSTANDING)
+  description     String
+  loanDate        DateTime
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  repayments      PersonalRepayment[]
+  contact         PersonalContact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+model PersonalRepayment {
+  id         String       @id @default(uuid())
+  loanId     String
+  amount     Decimal      @db.Decimal(15, 2)
+  repaidDate DateTime
+  notes      String?
+  createdAt  DateTime     @default(now())
+  loan       PersonalLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+}
