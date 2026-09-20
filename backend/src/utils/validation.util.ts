@@ -305,6 +305,7 @@ export const CreateBillSchema = z
       .default(() => new Date().toISOString()),
     paymentType: z.enum(['ACCOUNTS_PAYABLE', 'DIRECT_CASH']),
     sourceAccountId: z.string().uuid('Invalid source account ID format').optional().nullable(),
+    transactionRef: z.string().optional().nullable(),
     lineItems: z
       .array(CreateBillLineItemSchema)
       .min(1, 'At least one line item is required')

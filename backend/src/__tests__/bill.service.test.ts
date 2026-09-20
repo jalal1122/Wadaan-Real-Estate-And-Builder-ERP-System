@@ -202,4 +202,25 @@ describe('BillService.createBill', () => {
       code: 'VENDOR_NOT_FOUND',
     });
   });
+
+  test('8. transactionRef: appends transaction reference to journal description when provided', async () => {
+    await BillService.createBill({
+      vendorId: 'vend-1',
+      projectId: 'proj-1',
+      invoiceNumber: 'INV-TRX',
+      billDate: '2026-01-01T00:00:00Z',
+      paymentType: 'DIRECT_CASH',
+      sourceAccountId: 'acc-safe',
+      transactionRef: 'UTR-987654',
+      lineItems: [{ description: 'Office Consumables', quantity: 1, unitPrice: 25000 }],
+    });
+
+    expect(JournalService.postEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: expect.stringContaining('[Trx Ref: UTR-987654]'),
+      }),
+      expect.anything(),
+      expect.anything()
+    );
+  });
 });

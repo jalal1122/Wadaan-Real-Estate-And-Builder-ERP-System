@@ -5,6 +5,7 @@ import { DateUtility, MathUtility } from '../utils/aggregation.util';
 import { FiscalYearUtility } from '../utils/fiscal.util';
 
 export interface TrialBalanceLineItem {
+  accountId: string;
   accountCode: string;
   accountName: string;
   category: AccountCategory;
@@ -545,6 +546,7 @@ export class ReportService {
       grandTotalCredit = grandTotalCredit.plus(new Decimal(creditCol));
 
       lines.push({
+        accountId: acc.id,
         accountCode: acc.accountCode,
         accountName: acc.accountName,
         category: acc.category,

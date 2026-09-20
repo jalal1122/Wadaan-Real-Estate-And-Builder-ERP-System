@@ -610,6 +610,304 @@ function generateReceiptHtml(receiptData) {
   </div>
 </body>
 </html>`;
+/**
+ * Generates an A4 dual-copy HTML document for Direct Payment Receipts (Screen 5).
+ * Contains Payee / Vendor Copy (Original) and Wadaan Accounts Copy with perforated divider.
+ */
+function generateDPRHtml(data = {}) {
+  const vendorName = data.vendor?.vendorName || data.vendorName || 'Valued Supplier / Payee';
+  const grandTotalNum = Number(data.grandTotal || 0);
+  const amountStr = isNaN(grandTotalNum) ? '0' : grandTotalNum.toLocaleString('en-PK');
+
+  const rawId = data.billId || data.id || '';
+  const docId = rawId ? `DPR-${rawId.slice(-8).toUpperCase()}` : `DPR-${Date.now().toString().slice(-8)}`;
+
+  const dateStr = data.billDate
+    ? new Date(data.billDate).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+
+  const projectName = data.project?.projectName || data.projectName || 'General Office Overhead';
+  const accountName = data.sourceAccount?.accountName || data.sourceAccountName || 'Cash / Bank Account';
+
+  let paymentRefHtml = '';
+  if (data.transactionRef) {
+    paymentRefHtml = `<span style="color: #1d4ed8; font-weight: 600;">Bank / Online Transfer</span> &bull; <span style="font-family: monospace;">Ref: ${data.transactionRef}</span> <span style="font-size: 10px; color: #16a34a; background: #dcfce7; padding: 1px 5px; border-radius: 4px;">Realized</span>`;
+  } else {
+    paymentRefHtml = `<span style="color: #059669; font-weight: 600;">Direct Payment</span> &bull; <span>${accountName}</span>`;
+  }
+
+  const lineItems = Array.isArray(data.lineItems) ? data.lineItems : [];
+
+  const renderLineItemsTable = () => {
+    if (lineItems.length === 0) {
+      return `
+        <div style="font-size: 11px; color: #64748b; padding: 6px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+          Direct cash expense settlement for invoice <strong>${data.invoiceNumber || 'Direct'}</strong>. Zero-sum balancing entries posted to General Ledger.
+        </div>
+      `;
+    }
+
+    const rows = lineItems.slice(0, 5).map((item) => {
+      const desc = item.description || 'Expense Item';
+      const qty = Number(item.quantity || 1);
+      const unitPrice = Number(item.unitPrice || 0).toLocaleString('en-PK');
+      const total = Number(item.lineTotal || (qty * Number(item.unitPrice || 0))).toLocaleString('en-PK');
+      return `
+        <tr>
+          <td style="padding: 3px 6px;">${desc}</td>
+          <td style="padding: 3px 6px; text-align: center; font-family: monospace;">${qty}</td>
+          <td style="padding: 3px 6px; text-align: right; font-family: monospace;">PKR ${unitPrice}</td>
+          <td style="padding: 3px 6px; text-align: right; font-family: monospace;">PKR ${total}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const extraCount = lineItems.length - 5;
+    const extraRow = extraCount > 0
+      ? `<tr><td colspan="4" style="padding: 2px 6px; font-size: 10px; color: #64748b; text-align: center;">+ ${extraCount} additional line item(s)</td></tr>`
+      : '';
+
+    return `
+      <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; margin: 6px 0;">
+        <thead>
+          <tr style="background: #f8fafc; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; color: #475569; font-size: 10px; text-transform: uppercase;">
+            <th style="padding: 3px 6px; text-align: left;">Item Description</th>
+            <th style="padding: 3px 6px; text-align: center;">Qty</th>
+            <th style="padding: 3px 6px; text-align: right;">Unit Price</th>
+            <th style="padding: 3px 6px; text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody style="border-bottom: 1px solid #e2e8f0;">
+          ${rows}
+          ${extraRow}
+        </tbody>
+      </table>
+    `;
+  };
+
+  const renderVendorCopy = () => `
+    <div class="voucher-copy">
+      <div class="header">
+        <div>
+          <h2>Wadaan Real Estate &amp; Builders</h2>
+          <p class="subtitle">Direct Expense Payment &bull; <strong style="color: #059669;">Payee / Vendor Copy (Original)</strong></p>
+        </div>
+        <div class="header-right">
+          <h1>Expense Receipt</h1>
+          <p class="voucher-id">${docId}</p>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Payee / Vendor:</span> <strong>${vendorName}</strong></div>
+        <div class="meta-item"><span class="meta-label">Date:</span> ${dateStr}</div>
+        <div class="meta-item"><span class="meta-label">Invoice / Bill #:</span> <strong style="font-family: monospace;">${data.invoiceNumber || '—'}</strong></div>
+        <div class="meta-item"><span class="meta-label">Cost Centre:</span> <span>${projectName}</span></div>
+        <div class="meta-item" style="grid-column: span 2;"><span class="meta-label">Payment Channel:</span> ${paymentRefHtml}</div>
+        <div class="meta-item" style="grid-column: span 2; border-top: 1px dashed #cbd5e1; padding-top: 5px;">
+          <span class="meta-label">Grand Total Paid:</span>
+          <strong style="font-size: 16px; color: #0f172a; font-family: monospace;">PKR ${amountStr}</strong>
+        </div>
+      </div>
+
+      ${renderLineItemsTable()}
+
+      <div class="stamp-box">
+        <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a;">
+          Received With Thanks
+        </div>
+        <div style="font-size: 9.5px; color: #64748b; margin-top: 2px;">
+          Received full cash / transfer payment of <strong>PKR ${amountStr}</strong> for Invoice #${data.invoiceNumber || '—'}.
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 10.5px; color: #334155;">
+          <span>Receiver Name: ____________________________</span>
+          <span>Signature &amp; Stamp: ____________________________</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const renderWadaanCopy = () => `
+    <div class="voucher-copy">
+      <div class="header">
+        <div>
+          <h2>Wadaan Real Estate &amp; Builders</h2>
+          <p class="subtitle">Institutional Financial Management &bull; <strong style="color: #0f172a;">Wadaan Accounts Copy</strong></p>
+        </div>
+        <div class="header-right">
+          <h1>Expense Receipt</h1>
+          <p class="voucher-id">${docId}</p>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Payee / Vendor:</span> <strong>${vendorName}</strong></div>
+        <div class="meta-item"><span class="meta-label">Date:</span> ${dateStr}</div>
+        <div class="meta-item"><span class="meta-label">Invoice / Bill #:</span> <strong style="font-family: monospace;">${data.invoiceNumber || '—'}</strong></div>
+        <div class="meta-item"><span class="meta-label">Cost Centre:</span> <span>${projectName}</span></div>
+        <div class="meta-item" style="grid-column: span 2;"><span class="meta-label">Disbursement:</span> ${paymentRefHtml}</div>
+        <div class="meta-item" style="grid-column: span 2; border-top: 1px dashed #cbd5e1; padding-top: 5px;">
+          <span class="meta-label">Amount Debited:</span>
+          <strong style="font-size: 16px; color: #0f172a; font-family: monospace;">PKR ${amountStr}</strong>
+        </div>
+      </div>
+
+      ${renderLineItemsTable()}
+
+      <div class="signatures">
+        <div class="sig-line">Prepared By (Accounts)</div>
+        <div class="sig-line">Audited / Verified</div>
+        <div class="sig-line">Approved By (CFO/Dir)</div>
+        <div class="sig-line">Payee Signature</div>
+      </div>
+    </div>
+  `;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Direct Payment Receipt - ${docId}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page-container {
+      display: flex;
+      flex-direction: column;
+      height: 275mm;
+      justify-content: space-between;
+    }
+    .voucher-copy {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 18px;
+      box-sizing: border-box;
+      height: 130mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 6px;
+    }
+    .header h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #0f172a;
+      letter-spacing: -0.2px;
+    }
+    .subtitle {
+      margin: 2px 0 0 0;
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-right {
+      text-align: right;
+    }
+    .header-right h1 {
+      margin: 0;
+      font-size: 14px;
+      text-transform: uppercase;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+    }
+    .voucher-id {
+      margin: 1px 0 0 0;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: bold;
+      color: #059669;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+      margin: 8px 0;
+      font-size: 11.5px;
+    }
+    .meta-label {
+      color: #64748b;
+      display: inline-block;
+      width: 105px;
+    }
+    .stamp-box {
+      border: 1.5px dashed #94a3b8;
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: #fafafa;
+      margin-top: auto;
+    }
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: auto;
+      padding-top: 10px;
+    }
+    .sig-line {
+      flex: 1;
+      border-top: 1px solid #0f172a;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+      padding-top: 3px;
+      color: #334155;
+    }
+    .perforation {
+      border-top: 1px dashed #94a3b8;
+      position: relative;
+      text-align: center;
+      margin: 3mm 0;
+    }
+    .perforation-text {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 0 10px;
+      font-size: 8.5px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    ${renderVendorCopy()}
+    <div class="perforation">
+      <span class="perforation-text">&mdash;&mdash; Cut or Tear Along Perforation &mdash;&mdash;</span>
+    </div>
+    ${renderWadaanCopy()}
+  </div>
+</body>
+</html>`;
 }
 
 // Register IPC handlers
@@ -715,6 +1013,40 @@ ipcMain.handle('print-receipt', async (event, receiptData) => {
   }
 });
 
+ipcMain.handle('print-direct-payment-receipt', async (event, receiptData) => {
+  try {
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    const html = generateDPRHtml(receiptData);
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    return new Promise((resolve) => {
+      printWin.webContents.print(
+        {
+          silent: false,
+          printBackground: true,
+        },
+        (success, failureReason) => {
+          printWin.close();
+          if (!success) {
+            console.warn('Printing direct payment receipt was cancelled or failed:', failureReason);
+          }
+          resolve({ success, failureReason });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error handling print-direct-payment-receipt IPC:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('export-backup', async () => {
   // Stub for future database backup bridge
   console.log('export-backup called (stub)');
@@ -737,5 +1069,6 @@ app.on('window-all-closed', () => {
   }
 });
 
-module.exports = { generateCPVHtml };
+module.exports = { generateCPVHtml, generateDPRHtml, generateReceiptHtml };
+
 

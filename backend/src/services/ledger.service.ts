@@ -50,14 +50,18 @@ export class LedgerService {
     startDate?: Date,
     endDate?: Date
   ): Promise<LedgerStatement> {
-    // 1. Verify account existence
-    const account = await prisma.account.findUnique({
-      where: { id: accountId }
+    // 1. Verify account existence (supports either UUID id or accountCode)
+    const account = await prisma.account.findFirst({
+      where: {
+        OR: [{ id: accountId }, { accountCode: accountId }]
+      }
     });
 
     if (!account) {
-      throw new AppError(`Account with ID '${accountId}' not found.`, 404, 'ACCOUNT_NOT_FOUND');
+      throw new AppError(`Account '${accountId}' not found.`, 404, 'ACCOUNT_NOT_FOUND');
     }
+
+    const resolvedAccountId = account.id;
 
     // Default dates: current active fiscal year boundary
     const defaultBoundaries = FiscalYearUtility.getCurrentBoundary();
@@ -71,7 +75,7 @@ export class LedgerService {
     // 2. Step 1: Calculate Opening Balance (all transactions strictly before startDate)
     const priorLines = await prisma.journalLine.findMany({
       where: {
-        accountId,
+        accountId: resolvedAccountId,
         journal: {
           entryDate: {
             lt: effectiveStartDate
@@ -99,7 +103,7 @@ export class LedgerService {
     // 3. Step 2: Fetch transactions within the specified date range
     const periodLines = await prisma.journalLine.findMany({
       where: {
-        accountId,
+        accountId: resolvedAccountId,
         journal: {
           entryDate: {
             gte: effectiveStartDate,

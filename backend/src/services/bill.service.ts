@@ -173,9 +173,13 @@ export class BillService {
       });
 
       // Post double-entry journal entry with skipLockCheck: true
-      const journalDescription = data.projectId
+      let journalDescription = data.projectId
         ? `Expense for Project: ${project?.projectName} (Invoice: ${data.invoiceNumber})`
         : `Office Overhead Expense (Invoice: ${data.invoiceNumber})`;
+
+      if (data.transactionRef) {
+        journalDescription += ` [Trx Ref: ${data.transactionRef}]`;
+      }
 
       const journalEntry = await JournalService.postEntry(
         {

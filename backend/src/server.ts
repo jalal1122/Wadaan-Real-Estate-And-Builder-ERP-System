@@ -13,6 +13,7 @@ import billRoutes from './routes/bill.routes';
 import paymentRoutes from './routes/payment.routes';
 import inflowRoutes from './routes/inflow.routes';
 import reportRoutes from './routes/report.routes';
+import documentRoutes from './routes/document.routes';
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,7 @@ app.use('/api/v1/bills', billRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1', inflowRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/documents', documentRoutes);
 
 // Global Error Handler
 app.use(globalErrorHandler);
