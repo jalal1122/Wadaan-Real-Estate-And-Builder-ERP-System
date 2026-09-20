@@ -36,7 +36,7 @@ Screen 8 perfectly organizes all your revenue streams, client debt, and middlema
   - `DealKPIStrip.tsx`: Aggregates active receivables, client mobilization advances in escrow, construction project volume, and brokerage escrow vs. earned commissions.
   - `DealTable.tsx`: Full-featured data table with route filtering (Sales, Construction, Brokerage), status filtering (Active vs Settled), real-time search, and milestone progress bars.
   - `CreateDealModal.tsx`: 3-step wizard with fast client onboarding, multi-route selection, project linking for WIP attribution, and dynamic milestone builder with zero-sum mathematical validation (`sum(invoices) === totalValue`).
-  - `CustomerKhaataDrawer.tsx`: Slide-over drawer presenting complete client ledger portfolio (advance wallet balance, active contracts, milestone schedules, chronological receipts history, and 1-click advance allocation to unpaid installments).
+  - `CustomerKhaataDrawer.tsx`: Slide-over drawer presenting complete client ledger portfolio (always-visible mobilization advance wallet card with zero-balance guidance notice, conditional advance allocation form when balance > 0, active contracts, milestone schedules, chronological receipts history, client switch state resets, and animated pulsing skeleton loader).
   - `TransferFileModal.tsx`: Assigns contract ownership to a new client with automated transfer fee assessment credited to Revenue (4000).
 
 ### Backend REST API Contracts

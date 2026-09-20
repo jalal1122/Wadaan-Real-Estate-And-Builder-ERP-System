@@ -997,6 +997,10 @@ GET /api/v1/projects/:id
 
 Purpose: Fetches detailed project metrics including associated bills, spentToDate, budgetVariance, isOverBudget, and budgetBurnPercentage.
 
+GET /api/v1/projects/:id/transactions
+
+Purpose: Fetches all double-entry general ledger journal transactions (`JournalLine` records tagged with `projectId`), ordered chronologically descending, along with summary totals (totalDebits, totalCredits, netCost) and related account/journal references.
+
 PATCH /api/v1/projects/:id/status
 
 Purpose: Updates project status (e.g. changes status to ACTIVE, COMPLETED, or ON_HOLD).
@@ -1771,4 +1775,78 @@ Guardrail: Because Module 3 forces the extra Rs. 500k into the Customer Wallet l
 
 
 
+---
 
+## Module 11: Personal Finance Ledger (Off-Balance-Sheet Principal Money Management)
+
+### 1. Architectural Guardrail (Zero GL Contamination)
+The Personal Finance module operates as an independent off-balance-sheet tracking engine for company principals (e.g., Arshad Sir, Zeeshan Sir). It provides bidirectional tracking of informal personal loans given (money we lent to friends/relatives) and received (money borrowed from friends/family), without creating any `JournalEntry` or `JournalLine` records. Company Chart of Accounts, Trial Balance, Balance Sheet, and Tax P&L remain 100% clean and isolated.
+
+### 2. API Routes Blueprint
+Protected under `authGuard`.
+
+#### Contacts Management
+- **`POST /api/v1/personal/contacts`**
+  - **Purpose**: Registers a new personal contact/counterparty.
+  - **Payload**: `{ "name": "Ali Raza", "phone": "03001234567", "relation": "Friend", "notes": "Childhood friend" }`
+  - **Response (201 Created)**: Returns the created contact record.
+
+- **`GET /api/v1/personal/contacts`**
+  - **Purpose**: Lists all personal contacts with live aggregated net balances, total loans given/received, and active loan counts.
+  - **Query Params**: `?search=Ali` (optional text search against name, phone, or relation).
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": [
+        {
+          "id": "uuid",
+          "name": "Ali Raza",
+          "phone": "03001234567",
+          "relation": "Friend",
+          "totalGiven": "500000.00",
+          "totalReceived": "0.00",
+          "netBalance": "500000.00",
+          "activeLoansCount": 1,
+          "createdAt": "2026-09-20T10:00:00.000Z"
+        }
+      ]
+    }
+    ```
+
+- **`GET /api/v1/personal/contacts/:id`**
+  - **Purpose**: Returns complete contact profile, chronological loan ledger, repayment timeline, and net balance summary.
+  - **Response (200 OK)**: Contact object with nested `loans` (and their `repayments`), plus calculated `summary: { totalGiven, totalReceived, netBalance, activeLoansCount }`.
+
+#### Loans & Repayments Management
+- **`POST /api/v1/personal/loans`**
+  - **Purpose**: Records a new personal loan (either money given or money received).
+  - **Payload**:
+    ```json
+    {
+      "contactId": "uuid",
+      "direction": "GIVEN", // "GIVEN" | "RECEIVED"
+      "principalAmount": 500000,
+      "description": "Short-term plot purchase assistance",
+      "dueDate": "2026-12-31T00:00:00.000Z",
+      "paymentMode": "CASH" // "CASH" | "BANK_TRANSFER" | "CHEQUE"
+    }
+    ```
+  - **Behavior**: Initializes `remainingAmount = principalAmount` and `status = "PENDING"`. Returns 201 Created.
+
+- **`POST /api/v1/personal/loans/:id/repayments`**
+  - **Purpose**: Records a partial or full repayment against an existing loan.
+  - **Payload**:
+    ```json
+    {
+      "amount": 200000,
+      "repaymentDate": "2026-10-15T00:00:00.000Z",
+      "paymentMode": "BANK_TRANSFER",
+      "notes": "First partial installment returned via Meezan"
+    }
+    ```
+  - **Behavior**: Runs in a transaction:
+    - Verifies repayment amount does not exceed `remainingAmount`.
+    - Decrements `remainingAmount`.
+    - Updates `status` to `SETTLED` if `remainingAmount == 0`, otherwise `PARTIALLY_PAID`.
+    - Returns 201 Created with repayment and updated loan state.

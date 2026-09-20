@@ -1,36 +1,6 @@
-Searched for "seed"
-Listed directory scripts
-Viewed seed-module1.ts:1-100
-Viewed system.service.ts:1-110
-Viewed system.service.ts:110-145
-Ran command: `npx ts-node -e "import { prisma } from './src/config/db'; async function test() { const user = await prisma.user.findFirst(); const accounts = await prisma.account.count(); const projects = await prisma.project.count(); const vendors = await prisma.vendor.count(); const customers = await prisma.customer.count(); const deals = await prisma.deal.count(); const receipts = await prisma.receipt.count(); const bills = await prisma.expenseBill.count(); const payments = await prisma.vendorPayment.count(); const journals = await prisma.journalEntry.count(); console.log({ user: user ? { email: user.email, fullName: user.fullName } : null, accounts, projects, vendors, customers, deals, receipts, bills, payments, journals }); } test().finally(() => prisma.\$disconnect());"`
-Ran command: `npx ts-node -e 'import { prisma } from "./src/config/db"; prisma.user.findFirst().then(async u => { const [a, p, v, c, d, r, b, vp, j, s] = await Promise.all([prisma.account.count(), prisma.project.count(), prisma.vendor.count(), prisma.customer.count(), prisma.deal.count(), prisma.receipt.count(), prisma.expenseBill.count(), prisma.vendorPayment.count(), prisma.journalEntry.count(), prisma.systemSetting.findFirst()]); console.log("DB_SUMMARY:", JSON.stringify({ user: u ? { email: u.email, fullName: u.fullName } : null, accounts: a, projects: p, vendors: v, customers: c, deals: d, receipts: r, bills: b, payments: vp, journals: j, system: s })); process.exit(0); });'`
-Used tool: manage_task
-Created check_db.ts
-Ran command: `npx ts-node scratch/check_db.ts`
-Used tool: manage_task
-Viewed .env:1-16
-Searched for "1234"
-Ran command: `npx ts-node -e 'import { prisma } from "./src/config/db"; import { CryptoUtility } from "./src/utils/crypto.util"; prisma.user.findFirst().then(async u => { if (!u) return console.log("No user"); const matches = await CryptoUtility.verifyPin("1234", u.pinHash); console.log("PIN 1234 MATCHES:", matches); process.exit(0); });'`
-Edited check_db.ts
-Edited check_db.ts
-Ran command: `npx ts-node scratch/check_db.ts`
-Viewed crypto.util.ts:1-32
-Edited check_db.ts
-Ran command: `npx ts-node scratch/check_db.ts`
-Used tool: manage_task
-Used tool: manage_task
-Searched for "admin@wadaan.com.pk"
-Edited check_db.ts
-Edited check_db.ts
-Ran command: `npx ts-node scratch/check_db.ts`
-Used tool: manage_task
-Used tool: manage_task
-Used tool: manage_task
-Ran command: `git status -s`
-Ran command: `Remove-Item -Recurse -Force scratch`
+# Wadaan ERP System Test Data, Master Credentials & Testing Guide
 
-Here is the complete **Test Data, Master Credentials, and Workflow Testing Guide** covering everything built in the system to date (Modules 0 through 3 — Screens 0 to 9).
+This guide covers end-to-end verification and testing workflows for Modules 0 through 4 (Screens 0 through 11).
 
 ---
 
@@ -252,14 +222,120 @@ Navigate to `/receipts`.
 
 ---
 
+### Test Scenario G: Sliding Session Window & Active Work Verification
+- **Feature**: Automatic 15-minute JWT sliding session window.
+- **Workflow**:
+  1. Log in with PIN `5555`.
+  2. Inspect browser Application cookies: `token` cookie has a 15-minute expiration timestamp (`maxAge = 900,000ms`).
+  3. Perform regular tasks (e.g. browsing accounts, filtering deals, posting a journal entry).
+  4. With each authenticated API request, observe the `Set-Cookie` header in the response refreshing the cookie with a fresh 15-minute window.
+  5. The session remains active indefinitely as long as requests are dispatched within 15 minutes of each other.
+  6. Leaving the browser untouched and idle for 15+ minutes expires the token, and the next API action redirects to `/login`.
+
+---
+
+### Test Scenario H: Customer Khaata Advance Wallet Zero-Balance State & Skeleton Loading
+Navigate to Screen 8 (`/deals`).
+1. Find any customer with a zero advance balance (e.g., a newly registered customer or client without unallocated receipts).
+2. Click **"Khaata"** to open `CustomerKhaataDrawer`.
+3. **Verify Loading State**: Observe the animated pulsing skeleton loader displayed while fetching the portfolio (instead of plain text).
+4. **Verify Wallet Summary Card**:
+   - The **Mobilization Advance Wallet** card is prominently rendered in institutional dark gradient.
+   - Balance displays `PKR 0`.
+   - Explanatory notice displays: *"No advance balance. Mobilization receipts and overpayments will appear here."*
+   - The "Apply Advance" form remains hidden cleanly.
+5. If the customer has an advance balance (`walletBalance > 0`), the apply advance milestone selector is visible and allows allocating funds.
+
+---
+
+### Test Scenario I: Construction Project GL Transaction Drill-Down
+Navigate to Screen 4 (`/projects`).
+1. Observe the project cards for **Wadaan Heights** (`WH`) and other sites.
+2. At the bottom of each project card, observe the action: **"View GL Entries →"**.
+3. Click **"View GL Entries →"** on **Wadaan Heights**:
+   - The slide-over drawer **`ProjectTransactionDrawer`** slides in smoothly from the right.
+   - **Cost Summary Strip**: Displays Total Debits (costs added to project), Total Credits (offsets/adjustments), and Net Project WIP Balance.
+   - **GL Journal Entries Table**: Shows all journal lines linked to `WH` with:
+     - Date
+     - JV Number (e.g. `JV-0001`)
+     - Account Code & Name (e.g. `1200 Work In Progress`)
+     - Description / Memo
+     - Associated Party (e.g. Vendor Name or Subcontractor)
+     - Debit Amount & Credit Amount
+     - Running Balance calculated dynamically row-by-row.
+4. Click the close button (`X`) or click outside to dismiss the drawer.
+
+---
+
+### Test Scenario J: Personal Finance Ledger Module (Screen 11 — `/personal`)
+Navigate to `/personal` via the sidebar navigation link **"Personal Ledger"**.
+
+#### Case 1: Overview & KPI Strip
+- Observe the 4 KPI cards:
+  - **Total Lent (Given)**: Total outstanding money friends/partners owe us.
+  - **Total Borrowed (Received)**: Total outstanding money we owe to lenders.
+  - **Net Balance Position**: Color-coded net position (+ emerald if net receivable, red if net payable).
+  - **Ledger Accounts**: Total count of registered contacts and active loans.
+
+#### Case 2: Register a Personal Contact
+1. Click **"+ Register Contact"**.
+2. Fill in:
+   - Full Name: `Arshad Sir`
+   - Phone: `0300-1122334`
+   - Relationship: `Partner / Director`
+   - Private Notes: `Company Co-Founder Personal Ledger`
+3. Click **"Register Contact"**.
+4. *Verification*: Contact card appears in the grid with `0 active` loans and `Settled` net balance.
+
+#### Case 3: Record a Loan Given (We Lent Money)
+1. On the `Arshad Sir` card, click **"Open Ledger"** to navigate to `/personal/[id]`.
+2. Click **"+ Record New Loan"**.
+3. Fill in:
+   - Direction: Select **GIVEN (We Lent)**
+   - Principal Amount: `PKR 500,000`
+   - Transaction Date: Today's date
+   - Purpose / Description: `Emergency personal bridge advance`
+4. Click **"Record Loan"**.
+5. *Verification*:
+   - Loan is added with an Amber **`GIVEN`** badge, Red **`OUTSTANDING`** status, Principal `PKR 500,000`, and Remaining `PKR 500,000`.
+   - Contact Net Position updates to `+PKR 500,000 (Owes Us)`.
+   - Note: Absolutely zero General Ledger journal entries are posted (completely off-balance-sheet).
+
+#### Case 4: Record a Partial Repayment
+1. On the loan entry, click **"+ Repayment"**.
+2. The Repayment Modal opens:
+   - Remaining balance is displayed (`PKR 500,000`).
+   - Enter Repayment Amount: `PKR 200,000`
+   - Repayment Date: Today
+   - Notes: `Cash repayment returned at office`
+3. Click **"Apply Repayment"**.
+4. *Verification*:
+   - Loan status updates to Amber **`PARTIAL`**.
+   - Remaining balance decrements to `PKR 300,000`.
+   - Expand the loan row: Repayment history displays `PKR 200,000` with the date and note.
+   - Contact Net Position updates to `+PKR 300,000 (Owes Us)`.
+
+#### Case 5: Record Full Settlement
+1. Click **"+ Repayment"** on the same loan.
+2. Click **"Pay Full Remaining"** (auto-fills `PKR 300,000`).
+3. Enter Notes: `Bank transfer to personal account`.
+4. Click **"Apply Repayment"**.
+5. *Verification*:
+   - Loan status updates to Emerald **`SETTLED`**.
+   - Remaining balance is `PKR 0`.
+   - "+ Repayment" button disappears for the settled loan.
+   - Contact Net Position displays `Settled`.
+
+---
+
 ## ⚡ 5. Terminal Automated Test Commands
 
-To re-verify all 139 tests across the entire application:
+To re-verify all 189 tests across the entire application:
 
 ```powershell
-# Run backend test suite (31 tests in 6 suites)
+# Run backend test suite (52 tests in 9 suites)
 npm test --prefix backend
 
-# Run frontend test suite (108 tests in 16 suites)
+# Run frontend test suite (137 tests in 21 suites)
 npm test --prefix frontend
 ```

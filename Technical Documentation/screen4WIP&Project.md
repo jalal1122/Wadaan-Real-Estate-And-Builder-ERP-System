@@ -23,3 +23,26 @@ It does not block the bill. In the real world, if the steel is delivered, you ha
 Instead, it throws a massive Red Warning Flag on the project card. It allows the business to keep moving but screams at you that your profit margin on this deal is shrinking.
 The WIP Accounting Magic (Invisible Guardrail): Every rupee tracked on this screen is categorized by the system as "Work In Progress Inventory" (An Asset). This guarantees that spending heavy cash on a site never accidentally makes Wadaan look bankrupt on the Income Statement (Screen 3). The costs sit safely here until the property is officially sold or billed to the client on Screen 8.
 Screen 4 tells you exactly how much your physical sites are costing you in real-time, warning you before a budget blows up.
+
+---
+
+### 5. General Ledger Transaction Drill-Down (`ProjectTransactionDrawer`)
+
+In addition to project cards and budget burn indicators, Screen 4 provides a granular **General Ledger Transaction Audit Drawer**:
+
+- **Trigger**: Every project card includes a **"View GL Entries →"** link at the bottom.
+- **Drawer Interface**: A right slide-over drawer displays the complete chronological list of double-entry ledger lines linked to that project (`JournalLine.projectId`):
+  - **Project Header & Cost Center**: Name, prefix code, operational status.
+  - **Financial Summary Strip**: Total Debits (costs capitalized), Total Credits (returns/adjustments), and Net Project WIP Balance.
+  - **Audit Table**:
+    - **Date**: Chronological journal date.
+    - **JV Number**: General Ledger Journal Voucher number (e.g. `JV-0001`).
+    - **Account**: Code and name (e.g. `1200 - Work In Progress`).
+    - **Description / Memo**: Bill invoice reference or journal explanation.
+    - **Party**: Vendor or subcontractor associated with the line item.
+    - **Debit & Credit Amounts**: PKR currency values.
+    - **Running Balance**: Dynamically calculated line-by-line running cost balance.
+- **Backend API Contract**:
+  - `GET /api/v1/projects/:id/transactions`
+  - Queries `JournalLine` records where `projectId = id`, including `journal`, `account`, and `vendor`/`customer` relations, sorted by `journal.entryDate ASC`.
+

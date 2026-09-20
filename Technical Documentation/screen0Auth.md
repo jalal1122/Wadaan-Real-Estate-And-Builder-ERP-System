@@ -28,8 +28,8 @@ The Progressive Anti-Brute-Force Engine: Because a 4-digit PIN has 10,000 combin
   The attempt counter resets to 0 after each lockout expiry; the next cycle
   uses 4 attempts max (not 5). On page refresh during a lockout, the
   countdown and tier are restored from the server via GET /api/v1/auth/lockout-status.
-The 15-Minute Auto-Logout Rule (Session Expiry): Following high-security banking standards, the authentication token is stored inside an HttpOnly, SameSite=Strict cookie with a **15-minute** lifespan. If left idle at the desk, the session expires cleanly and locks the ERP.
-The Invisible Bouncer (authGuard): Route protection middleware intercepts all private endpoints (`/api/v1/*`). If an unauthorized user or expired session tries to access Screen 4 (Projects) or Screen 7 (Payments), the API returns 401 and the frontend redirects to the PIN screen.
+The 15-Minute Sliding Session Window (Session Expiry & Idle Protection): Following high-security banking standards, the authentication token is stored inside an HttpOnly, SameSite=Strict cookie with a **15-minute** lifespan (`SESSION_DURATION_MS = 15 * 60 * 1000`). To prevent disruptive logouts while working, the system implements an active **sliding session**: every successful authenticated request processed by `authGuard` re-signs the JWT and extends the cookie expiration by another 15 minutes. The user will only be logged out if they remain completely idle with no network activity for the full 15-minute duration.
+The Invisible Bouncer (authGuard): Route protection middleware intercepts all private endpoints (`/api/v1/*`). It verifies the JWT signature, re-issues the sliding session token cookie on every valid interaction, and returns HTTP 401 Unauthorized if the token is missing, expired, or tampered with, causing the frontend client to redirect safely back to the PIN screen.
 
 4. Forgot PIN & Recovery Flow
 When the 4-digit PIN is forgotten, the system supports a dual-channel recovery mechanism:

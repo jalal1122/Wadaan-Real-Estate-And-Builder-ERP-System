@@ -36,6 +36,17 @@ enum DealType {
   BROKERAGE
 }
 
+enum PersonalTxDirection {
+  GIVEN
+  RECEIVED
+}
+
+enum PersonalLoanStatus {
+  PENDING
+  PARTIALLY_PAID
+  SETTLED
+}
+
 2. Security & Core Accounting (Screens 0, 1, 2)
 This forms the vault. The Account table holds the buckets, and the Journal tables record the atomic double-entry math.
 model User {
@@ -265,3 +276,48 @@ In v1.5.0, the double-entry accounting engine was expanded to support manual Gen
 - `JournalLine.vendorId`: Optional UUID nullable foreign key referencing `Vendor(id) ON DELETE SET NULL` for vendor sub-ledger tracking.
 - `JournalLine.projectId`: Optional UUID nullable foreign key referencing `Project(id) ON DELETE SET NULL` for WIP cost center tagging.
 - Reverse relations: `customer.journalLines`, `vendor.journalLines`, and `project.journalLines` established for full bi-directional querying.
+
+9. Module 11: Personal Finance Models (Off-Balance-Sheet Principal Ledger)
+These models maintain completely isolated records for company principals (e.g., Arshad Sir, Zeeshan Sir) to track informal money given/taken with zero impact on the corporate General Ledger:
+
+model PersonalContact {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  relation  String?  // e.g. "Friend", "Brother", "Associate"
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loans     PersonalLoan[]
+}
+
+model PersonalLoan {
+  id              String              @id @default(uuid())
+  contactId       String
+  direction       PersonalTxDirection // GIVEN (we lent) or RECEIVED (we borrowed)
+  principalAmount Decimal             @db.Decimal(15, 2)
+  remainingAmount Decimal             @db.Decimal(15, 2)
+  description     String?
+  dueDate         DateTime?
+  status          PersonalLoanStatus  @default(PENDING)
+  paymentMode     String              @default("CASH") // CASH, BANK_TRANSFER, CHEQUE
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  contact         PersonalContact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  repayments      PersonalRepayment[]
+}
+
+model PersonalRepayment {
+  id            String       @id @default(uuid())
+  loanId        String
+  amount        Decimal      @db.Decimal(15, 2)
+  repaymentDate DateTime     @default(now())
+  paymentMode   String       @default("CASH") // CASH, BANK_TRANSFER, CHEQUE
+  notes         String?
+  createdAt     DateTime     @default(now())
+
+  loan          PersonalLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+}
+
