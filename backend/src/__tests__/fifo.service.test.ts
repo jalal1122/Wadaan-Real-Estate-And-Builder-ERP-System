@@ -7,7 +7,7 @@ jest.mock('../config/db', () => {
   const mockClient: any = {
     vendor: { findUnique: jest.fn() },
     account: { findUnique: jest.fn() },
-    expenseBill: { findMany: jest.fn(), update: jest.fn() },
+    expenseBill: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     vendorPayment: { create: jest.fn() },
     $transaction: jest.fn((cb) => cb(mockClient)),
   };
@@ -214,5 +214,120 @@ describe('FifoService.processPaymentRun', () => {
       expect.anything(),
       { skipLockCheck: true }
     );
+  });
+
+  test('6. selective invoice allocation: clears selected bill, skips unselected bill', async () => {
+    const billA = {
+      id: 'bill-a',
+      vendorId: 'vend-1',
+      invoiceNumber: 'INV-A',
+      grandTotal: new Decimal(200000),
+      pendingAmount: new Decimal(200000),
+    };
+    const billB = {
+      id: 'bill-b',
+      vendorId: 'vend-1',
+      invoiceNumber: 'INV-B',
+      grandTotal: new Decimal(300000),
+      pendingAmount: new Decimal(300000),
+    };
+
+    (mockPrisma.expenseBill.findUnique as jest.Mock).mockImplementation(({ where }) => {
+      if (where.id === 'bill-b') return Promise.resolve(billB);
+      if (where.id === 'bill-a') return Promise.resolve(billA);
+      return Promise.resolve(null);
+    });
+
+    // When remaining unpaids are queried after settlement
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([billA]);
+
+    const result = await FifoService.processPaymentRun({
+      vendorId: 'vend-1',
+      sourceAccountId: 'acc-bank',
+      invoiceAllocations: [{ billId: 'bill-b', amount: 300000 }],
+      chequeRef: 'CHQ-SEL-1',
+      paymentDate: '2026-03-01T00:00:00Z',
+    });
+
+    expect(result.settledBills).toHaveLength(1);
+    expect(result.settledBills[0].billId).toBe('bill-b');
+    expect(result.settledBills[0].amountApplied.toString()).toBe('300000');
+    expect(result.settledBills[0].status).toBe('PAID');
+    expect(result.settledBills[0].newPending.toString()).toBe('0');
+
+    // Total settled is 300,000, remaining debt is Bill A's 200,000
+    expect(result.totalSettled.toString()).toBe('300000');
+    expect(result.remainingVendorOutstanding.toString()).toBe('200000');
+
+    // Journal Entry posted: Debit AP (2000), Credit Bank (1002) for 300k
+    expect(JournalService.postEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lines: [
+          expect.objectContaining({
+            accountId: 'acc-2000',
+            debitAmount: new Decimal(300000),
+          }),
+          expect.objectContaining({
+            accountId: 'acc-bank',
+            creditAmount: new Decimal(300000),
+          }),
+        ],
+      }),
+      expect.anything(),
+      { skipLockCheck: true }
+    );
+  });
+
+  test('7. selective partial allocation: partially clears selected bill with custom amount', async () => {
+    const billB = {
+      id: 'bill-b',
+      vendorId: 'vend-1',
+      invoiceNumber: 'INV-B',
+      grandTotal: new Decimal(300000),
+      pendingAmount: new Decimal(300000),
+    };
+
+    (mockPrisma.expenseBill.findUnique as jest.Mock).mockResolvedValue(billB);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([
+      { ...billB, pendingAmount: new Decimal(175000) },
+    ]);
+
+    const result = await FifoService.processPaymentRun({
+      vendorId: 'vend-1',
+      sourceAccountId: 'acc-bank',
+      invoiceAllocations: [{ billId: 'bill-b', amount: 125000 }],
+      paymentDate: '2026-03-01T00:00:00Z',
+    });
+
+    expect(result.settledBills).toHaveLength(1);
+    expect(result.settledBills[0].billId).toBe('bill-b');
+    expect(result.settledBills[0].amountApplied.toString()).toBe('125000');
+    expect(result.settledBills[0].newPending.toString()).toBe('175000');
+    expect(result.settledBills[0].status).toBe('PARTIAL');
+    expect(result.totalSettled.toString()).toBe('125000');
+  });
+
+  test('8. throws ALLOCATION_EXCEEDS_BILL_PENDING if allocation exceeds pending debt of specific bill', async () => {
+    const billB = {
+      id: 'bill-b',
+      vendorId: 'vend-1',
+      invoiceNumber: 'INV-B',
+      grandTotal: new Decimal(100000),
+      pendingAmount: new Decimal(100000),
+    };
+
+    (mockPrisma.expenseBill.findUnique as jest.Mock).mockResolvedValue(billB);
+
+    await expect(
+      FifoService.processPaymentRun({
+        vendorId: 'vend-1',
+        sourceAccountId: 'acc-bank',
+        invoiceAllocations: [{ billId: 'bill-b', amount: 150000 }],
+        paymentDate: '2026-03-01T00:00:00Z',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'ALLOCATION_EXCEEDS_BILL_PENDING',
+    });
   });
 });

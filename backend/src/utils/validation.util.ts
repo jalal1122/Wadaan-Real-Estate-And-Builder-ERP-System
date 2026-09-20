@@ -324,27 +324,53 @@ export const CreateBillSchema = z
 
 export type CreateBillInput = z.infer<typeof CreateBillSchema>;
 
-export const CreatePaymentSchema = z.object({
-  vendorId: z.string().uuid('Invalid vendor ID format'),
-  sourceAccountId: z.string().uuid('Invalid source account ID format'),
-  amountPaid: z
+export const InvoiceAllocationItemSchema = z.object({
+  billId: z.string().uuid('Invalid bill ID format'),
+  amount: z
     .union([
-      z.number().positive('amountPaid must be greater than 0'),
-      z.string().regex(/^\d+(\.\d+)?$/, 'amountPaid must be a positive number')
+      z.number().positive('Allocation amount must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'Allocation amount must be a positive number')
     ])
     .refine((val) => new Decimal(val).gt(0), {
-      message: 'amountPaid must be greater than 0'
-    }),
-  chequeRef: z.string().optional().nullable(),
-  transactionId: z.string().optional().nullable(),
-  paymentDate: z
-    .string()
-    .refine((val) => !isNaN(Date.parse(val)), {
-      message: 'paymentDate must be a valid date'
+      message: 'Allocation amount must be greater than 0'
     })
-    .optional()
-    .default(() => new Date().toISOString())
 });
+
+export const CreatePaymentSchema = z
+  .object({
+    vendorId: z.string().uuid('Invalid vendor ID format'),
+    sourceAccountId: z.string().uuid('Invalid source account ID format'),
+    amountPaid: z
+      .union([
+        z.number().positive('amountPaid must be greater than 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'amountPaid must be a positive number')
+      ])
+      .refine((val) => new Decimal(val).gt(0), {
+        message: 'amountPaid must be greater than 0'
+      })
+      .optional(),
+    invoiceAllocations: z.array(InvoiceAllocationItemSchema).optional(),
+    chequeRef: z.string().optional().nullable(),
+    transactionId: z.string().optional().nullable(),
+    paymentDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'paymentDate must be a valid date'
+      })
+      .optional()
+      .default(() => new Date().toISOString())
+  })
+  .refine(
+    (data) => {
+      if (data.amountPaid !== undefined) return true;
+      if (data.invoiceAllocations && data.invoiceAllocations.length > 0) return true;
+      return false;
+    },
+    {
+      message: 'Either amountPaid or invoiceAllocations must be provided',
+      path: ['amountPaid']
+    }
+  );
 
 export type CreatePaymentInput = z.infer<typeof CreatePaymentSchema>;
 

@@ -21,7 +21,13 @@ export class FifoService {
    * and posts balancing double-entry journal (Debit AP 2000, Credit Source Bank/Cash).
    */
   static async processPaymentRun(data: CreatePaymentInput) {
-    const totalPayment = new Decimal(data.amountPaid);
+    const isSelective = !!(data.invoiceAllocations && data.invoiceAllocations.length > 0);
+    const totalPayment = isSelective
+      ? data.invoiceAllocations!.reduce(
+          (sum, item) => sum.plus(new Decimal(item.amount)),
+          new Decimal(0)
+        )
+      : new Decimal(data.amountPaid!);
 
     if (totalPayment.lte(0)) {
       throw new AppError(
@@ -53,7 +59,7 @@ export class FifoService {
       );
     }
 
-    // 3. Execute atomic FIFO waterfall in a transaction
+    // 3. Execute atomic payment run in a transaction
     return await prisma.$transaction(async (tx) => {
       // Find AP account (2000)
       const apAccount = await tx.account.findUnique({
@@ -68,65 +74,132 @@ export class FifoService {
         );
       }
 
-      // Fetch all unpaid/partially paid bills for this vendor in FIFO order
-      const unpaidBills = await tx.expenseBill.findMany({
-        where: {
-          vendorId: data.vendorId,
-          paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
-          pendingAmount: { gt: 0 }
-        },
-        orderBy: [
-          { billDate: 'asc' },
-          { id: 'asc' }
-        ]
-      });
-
-      const totalOutstanding = unpaidBills.reduce(
-        (sum, b) => sum.plus(new Decimal(b.pendingAmount)),
-        new Decimal(0)
-      );
-
-      // Overpayment guard
-      if (totalPayment.gt(totalOutstanding)) {
-        throw new AppError(
-          `Payment amount (${totalPayment.toFixed(2)}) exceeds total outstanding payable balance (${totalOutstanding.toFixed(2)}) for this vendor`,
-          400,
-          'PAYMENT_EXCEEDS_OUTSTANDING'
-        );
-      }
-
-      // FIFO Waterfall allocation
-      let remainingPool = new Decimal(totalPayment);
       const settledBills: SettledBillReport[] = [];
+      let totalRemainingOutstanding = new Decimal(0);
 
-      for (const bill of unpaidBills) {
-        if (remainingPool.isZero()) break;
+      if (isSelective) {
+        // Selective invoice settlement
+        for (const allocation of data.invoiceAllocations!) {
+          const allocAmt = new Decimal(allocation.amount);
+          if (allocAmt.lte(0)) continue;
 
-        const billPending = new Decimal(bill.pendingAmount);
-        const deduct = Decimal.min(remainingPool, billPending);
-        const newPending = billPending.minus(deduct);
-        const newStatus: PaymentStatus = newPending.isZero()
-          ? PaymentStatus.PAID
-          : PaymentStatus.PARTIAL;
+          const bill = await tx.expenseBill.findUnique({
+            where: { id: allocation.billId }
+          });
 
-        await tx.expenseBill.update({
-          where: { id: bill.id },
-          data: {
-            pendingAmount: newPending,
-            paymentStatus: newStatus
+          if (!bill || bill.vendorId !== data.vendorId) {
+            throw new AppError(
+              `Bill ${allocation.billId} not found or does not belong to this vendor`,
+              400,
+              'BILL_NOT_FOUND'
+            );
+          }
+
+          const billPending = new Decimal(bill.pendingAmount);
+          if (allocAmt.gt(billPending)) {
+            throw new AppError(
+              `Allocation amount (${allocAmt.toFixed(2)}) exceeds pending amount (${billPending.toFixed(2)}) for invoice ${bill.invoiceNumber}`,
+              400,
+              'ALLOCATION_EXCEEDS_BILL_PENDING'
+            );
+          }
+
+          const newPending = billPending.minus(allocAmt);
+          const newStatus: PaymentStatus = newPending.isZero()
+            ? PaymentStatus.PAID
+            : PaymentStatus.PARTIAL;
+
+          await tx.expenseBill.update({
+            where: { id: bill.id },
+            data: {
+              pendingAmount: newPending,
+              paymentStatus: newStatus
+            }
+          });
+
+          settledBills.push({
+            billId: bill.id,
+            invoiceNumber: bill.invoiceNumber,
+            amountApplied: allocAmt,
+            previousPending: billPending,
+            newPending,
+            status: newStatus
+          });
+        }
+
+        const remainingUnpaidBills = await tx.expenseBill.findMany({
+          where: {
+            vendorId: data.vendorId,
+            paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+            pendingAmount: { gt: 0 }
           }
         });
 
-        settledBills.push({
-          billId: bill.id,
-          invoiceNumber: bill.invoiceNumber,
-          amountApplied: deduct,
-          previousPending: billPending,
-          newPending,
-          status: newStatus
+        totalRemainingOutstanding = remainingUnpaidBills.reduce(
+          (sum, b) => sum.plus(new Decimal(b.pendingAmount)),
+          new Decimal(0)
+        );
+      } else {
+        // Strict FIFO waterfall allocation across all unpaid bills
+        const unpaidBills = await tx.expenseBill.findMany({
+          where: {
+            vendorId: data.vendorId,
+            paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+            pendingAmount: { gt: 0 }
+          },
+          orderBy: [
+            { billDate: 'asc' },
+            { id: 'asc' }
+          ]
         });
 
-        remainingPool = remainingPool.minus(deduct);
+        const totalOutstanding = unpaidBills.reduce(
+          (sum, b) => sum.plus(new Decimal(b.pendingAmount)),
+          new Decimal(0)
+        );
+
+        // Overpayment guard
+        if (totalPayment.gt(totalOutstanding)) {
+          throw new AppError(
+            `Payment amount (${totalPayment.toFixed(2)}) exceeds total outstanding payable balance (${totalOutstanding.toFixed(2)}) for this vendor`,
+            400,
+            'PAYMENT_EXCEEDS_OUTSTANDING'
+          );
+        }
+
+        let remainingPool = new Decimal(totalPayment);
+
+        for (const bill of unpaidBills) {
+          if (remainingPool.isZero()) break;
+
+          const billPending = new Decimal(bill.pendingAmount);
+          const deduct = Decimal.min(remainingPool, billPending);
+          const newPending = billPending.minus(deduct);
+          const newStatus: PaymentStatus = newPending.isZero()
+            ? PaymentStatus.PAID
+            : PaymentStatus.PARTIAL;
+
+          await tx.expenseBill.update({
+            where: { id: bill.id },
+            data: {
+              pendingAmount: newPending,
+              paymentStatus: newStatus
+            }
+          });
+
+          settledBills.push({
+            billId: bill.id,
+            invoiceNumber: bill.invoiceNumber,
+            amountApplied: deduct,
+            previousPending: billPending,
+            newPending,
+            status: newStatus
+          });
+
+          remainingPool = remainingPool.minus(deduct);
+        }
+
+        totalRemainingOutstanding = totalOutstanding.minus(totalPayment);
       }
 
       const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
@@ -180,7 +253,7 @@ export class FifoService {
         settledBills,
         journalEntry,
         totalSettled: totalPayment,
-        remainingVendorOutstanding: totalOutstanding.minus(totalPayment)
+        remainingVendorOutstanding: totalRemainingOutstanding
       };
     }, { maxWait: 10000, timeout: 30000 });
   }
