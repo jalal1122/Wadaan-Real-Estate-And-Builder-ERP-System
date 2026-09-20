@@ -647,6 +647,40 @@ ipcMain.handle('print-voucher', async (event, paymentData) => {
   }
 });
 
+ipcMain.handle('print-payment-receipt', async (event, paymentData) => {
+  try {
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    const html = generateCPVHtml(paymentData);
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    return new Promise((resolve) => {
+      printWin.webContents.print(
+        {
+          silent: false,
+          printBackground: true,
+        },
+        (success, failureReason) => {
+          printWin.close();
+          if (!success) {
+            console.warn('Printing payment receipt was cancelled or failed:', failureReason);
+          }
+          resolve({ success, failureReason });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error handling print-payment-receipt IPC:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('print-receipt', async (event, receiptData) => {
   try {
     const printWin = new BrowserWindow({

@@ -8,6 +8,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printVoucher: (paymentData) => ipcRenderer.invoke('print-voucher', paymentData),
 
   /**
+   * Triggers native Windows print dialog with dual-copy Official Payment Voucher/Receipt (Screen 7).
+   * @param {Object} paymentData - PaymentRunResponse with settled bills and vendor breakdown
+   */
+  printPaymentReceipt: (paymentData) => ipcRenderer.invoke('print-payment-receipt', paymentData),
+
+  /**
    * Triggers native Windows print dialog with dual-copy Official Inflow Receipt (Screen 9).
    * @param {Object} receiptData - Receipt payload with customer and invoice breakdown
    */
