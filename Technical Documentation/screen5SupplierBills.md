@@ -61,3 +61,7 @@ The screen uses a split-panel architecture matching the institutional design sys
    - An amber warning banner appears alerting the operator: *"Bill saved! Project exceeds approved BOQ by Rs. X."*
    - The project card on Screen 4 turns red with an `Over Budget` alert badge.
 3. **Atomic Cache Sync**: On successful bill creation, TanStack Query invalidates `['projects']`, `['vendors']`, `['accounts']`, and `['bills']` so that Screen 4 health bars, Screen 7 outstanding debt balances, and Screen 1 GL balances refresh instantly.
+4. **Direct Payment Receipt (DPR) Generation (v3.2.0)**:
+   - When a bill is recorded with `DIRECT_CASH`, the system automatically generates an official dual-copy Direct Payment Receipt (`DPR-XXXXXXXX`).
+   - If the selected Asset Account is a bank account (`accountName` contains "bank"), a **Bank Transaction / Online Ref** field is dynamically exposed. When provided, this reference (`UTR`, `IBFT`, or Cheque #) is recorded in the General Ledger journal entry description (`[Trx Ref: ...]`) and prominently rendered on the printed expense receipt.
+   - **Print-Then-Download Guarantee**: Triggers the print dialog first via a dedicated hidden iframe. When printing concludes or is dismissed (`onafterprint`), an HTML copy (`DPR-XXXXXXXX.html`) is automatically downloaded to the user's computer. In Electron, the native Windows print dialog is invoked directly via `electronAPI.printDirectPaymentReceipt`.

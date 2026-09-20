@@ -77,3 +77,26 @@ To guarantee accounting accuracy, the backend endpoint (`GET /api/v1/reports/tri
 1. **Strict Read-Only Enforcement**: You cannot edit, create, or delete numbers on this screen. If a balance requires adjustment, it must be adjusted at the source (via a Journal Voucher on Screen 2, or an Expense Bill / Receipt).
 2. **Zero-Balance Filtering**: Accounts with Rs. 0.00 net balance are automatically filtered out of the report to eliminate noise and keep reports concise for management review.
 3. **Double-Entry Mathematical Guarantee**: Every transaction in Wadaan is posted as an atomic balanced journal entry; thus, the Grand Total Debit must always equal the Grand Total Credit.
+
+---
+
+## 4. Interactive Account Ledger Drill-Down (`<AccountLedgerPanel />`) [Added v3.2.0]
+
+To enable instant financial audits and forensic transaction tracing directly from the Trial Balance:
+- **Interactive Row Selection**: Every non-zero account row in the Trial Balance table is clickable with an interactive hover effect and navigation chevron indicator.
+- **Slide-Over Drawer**: Clicking any account row slides open the `<AccountLedgerPanel />` drawer from the right screen margin.
+- **Audit Header & Key Metrics**:
+  - Account Code, Official Name, and Category badge.
+  - Active Date Range (synchronized with the Trial Balance filter).
+  - 4 KPI cards: **Opening Balance**, **Period Debits**, **Period Credits**, and **Closing Balance**.
+- **Chronological Transaction Ledger**:
+  - Displays each underlying journal line item that contributed to the account's balance.
+  - Columns: **Date**, **Entry #** (Voucher reference), **Description**, **Debit (PKR)**, **Credit (PKR)**, and **Running Balance**.
+  - Automatic running balance calculation based on account normal balance side (Debit-normal for Assets/Expenses, Credit-normal for Liabilities/Equity/Revenue).
+- **Backend Service & Route**:
+  - `GET /api/v1/journals/ledger/:accountId?startDate=...&endDate=...`
+  - Flexible lookup supporting either account UUID or standard Account Code (e.g., `1001`, `1010`, `5010`).
+- **User Experience Safeguards**:
+  - Keyboard accessible: Closes on `Escape` key press.
+  - Closes on backdrop click or close button `(×)`.
+  - Built-in pulse skeleton loaders during data retrieval.

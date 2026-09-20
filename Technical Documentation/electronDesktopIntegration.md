@@ -60,13 +60,14 @@ window.electronAPI.printVoucher(paymentData);
 
 Electron receives this in main.js, generates the perforated A4 CPV layout locally, and sends it to the default Windows printer.
 
-### IPC Bridge Contract (v3.1.0)
+### IPC Bridge Contract (v3.2.0)
 
 Documented in `electron/preload.js` and `electron/main.js`:
 ```typescript
 interface ElectronAPI {
   printVoucher: (paymentData: any) => Promise<{ success: boolean; failureReason?: string }>;
   printPaymentReceipt: (paymentData: any) => Promise<{ success: boolean; failureReason?: string }>;
+  printDirectPaymentReceipt: (receiptData: any) => Promise<{ success: boolean; failureReason?: string }>;
   printReceipt: (receiptData: any) => Promise<{ success: boolean; failureReason?: string }>;
   exportBackup: () => Promise<{ success: boolean; message: string }>;
 }
@@ -78,11 +79,16 @@ declare global {
 ```
 - `printPaymentReceipt(paymentData)` / `printVoucher(paymentData)`:
   Generates an A4 printable HTML Cash/Cheque Payment Voucher (CPV) with midpoint perforation (top: Vendor/Payee Receipt Original, bottom: Wadaan Accounts & Audit Record), matching Stitch design `4d29bb1b44f84bb7ba531ddc6b2da313`, and invokes native Windows print dialog.
-  **Dev/Prod Parity**: In web/browser dev mode (`npm run dev`), the frontend helper `printPaymentReceiptDocument` generates the identical A4 dual-copy HTML document in a dedicated hidden iframe, triggering the browser's print dialog to produce the exact same high-fidelity PDF without printing browser UI elements.
+- `printDirectPaymentReceipt(receiptData)` [Added v3.2.0]:
+  Generates an A4 printable HTML Direct Payment Receipt (DPR) / Direct Expense Voucher with dual-copy perforation layout (top: Payee / Vendor Receipt Copy, bottom: Wadaan Internal Accounts & Audit Voucher). Includes itemized line items table, optional Bank/Online Transaction Ref (`transactionRef`), expense account coding, and dual signature blocks.
 - `printReceipt(receiptData)`:
   Generates an A4 printable HTML Official Inflow Receipt (Screen 9) with dual-copy layout (top: Customer Copy Original, bottom: Wadaan Accounts & Audit Copy) and perforated divider, showing customer details, instrument reference, milestone allocations or advance escrow, and cashier signatures.
 - `exportBackup()`:
   Exports encrypted database backup to local file system (Phase 5 execution stub).
+
+### Print-First Then Download Architecture (Universal Web & Desktop)
+- **Electron (Desktop)**: Invokes native Windows OS print directly via hidden `BrowserWindow`.
+- **Web Browser (Dev / Web Client)**: Renders the identical high-fidelity HTML into a hidden `<iframe>`. Invokes `iframe.contentWindow.print()` first. Upon printing or dialog dismissal (`onafterprint`, reinforced by a 1500ms safety timeout), automatically triggers an HTML file download (`Wadaan-Receipt-*.html`). This guarantees the user has a saved offline record regardless of whether printing succeeded or was cancelled.
 
 
 Step 4: Compiling the .exe

@@ -20,6 +20,7 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 | **2 - Outflow Engine** | Screen 7: Payment Run (`/payables` Tab 2) | `src/app/(dashboard)/payables/page.tsx` | ✅ Implemented (v3.1.0) |
 | **3 - Inflow** | Screen 8: Deals & Customer Hub (`/deals`) | `src/app/(dashboard)/deals/page.tsx` | ✅ Implemented (v3.0.0) |
 | **3 - Inflow** | Screen 9: Receipts & Cheque Room (`/receipts`) | `src/app/(dashboard)/receipts/page.tsx` | ✅ Implemented (v3.0.0) |
+| **Cross-Module** | Document Archive (`/documents`) | `src/app/(dashboard)/documents/page.tsx` | ✅ Implemented (v3.2.0) |
 | **4 - Analytics** | Screen 10: Executive Intelligence (`/reports`) | `src/app/(dashboard)/reports/page.tsx` | 🔲 Scheduled (Module 4) |
 
 ---
@@ -1471,4 +1472,75 @@ export const useNetIncome = (startDate?: string, endDate?: string) => {
 | **Deal Margins** | `GET /api/v1/reports/deal-margins` | Safe percentage: Unsold construction projects (`revenueCollected == 0`) are flagged as `isWipAsset = true` with `0.00%` margin, preventing `NaN` crashes. |
 | **Aging Radar** | `GET /api/v1/reports/aging-radar` | Priority ordering: Overdue receivables and payables are dynamically sorted by `daysOverdue DESC` using real-time date math. |
 | **True Net Income** | `GET /api/v1/reports/net-income` | Accrual matching: WIP projects with zero revenue are excluded from P&L deduction, ensuring unearned expenses stay on the balance sheet. |
+
+---
+
+## 11. Cross-Module: Document Archive API Integration (`/api/v1/documents`) [v3.2.0]
+
+The Document Archive (`/documents`) provides an institutional repository consolidating all financial payment vouchers, expense receipts, and customer inflows in a single searchable register.
+
+### 11.1 Document Archive Search & Retrieval Endpoint
+
+- **Route**: `GET /api/v1/documents/archive`
+- **Query Parameters**:
+  - `type` (optional): Filter by document category (`ALL`, `PAYMENT_VOUCHER`, `DIRECT_PAYMENT_RECEIPT`, `INFLOW_RECEIPT`).
+  - `search` (optional): Multi-column search matching document number, party/payee/customer name, payment method, reference, or description.
+  - `startDate` / `endDate` (optional): ISO date range bounding document date.
+  - `page` (default: 1): 1-indexed pagination.
+  - `limit` (default: 20): Page size (max: 100).
+
+### 11.2 Response Data Contracts (`frontend/src/features/documents/types/index.ts`)
+
+```typescript
+export type DocumentType = 'PAYMENT_VOUCHER' | 'DIRECT_PAYMENT_RECEIPT' | 'INFLOW_RECEIPT';
+
+export interface ArchivedDocumentItem {
+  id: string;
+  documentType: DocumentType;
+  documentNumber: string;
+  date: string;
+  partyName: string;
+  amount: number;
+  paymentMethod: string;
+  referenceNumber?: string;
+  notes?: string;
+  printPayload: Record<string, any>; // Self-contained payload ready for instant re-printing
+}
+
+export interface DocumentArchiveResponse {
+  items: ArchivedDocumentItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+```
+
+### 11.3 React Query Hook Example (`src/features/documents/hooks/useDocuments.ts`)
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { fetchDocumentArchive } from '../api/documentApi';
+import { DocumentArchiveFilter } from '../types';
+
+export const useDocumentArchive = (filter: DocumentArchiveFilter) => {
+  return useQuery({
+    queryKey: ['documents', 'archive', filter],
+    queryFn: () => fetchDocumentArchive(filter),
+    staleTime: 1000 * 60, // 1 minute
+  });
+};
+```
+
+### 11.4 Re-Print Dispatch Workflow
+
+Every record in the archive provides a one-click **"Print Receipt"** button:
+- Inspects `item.documentType`.
+- Dispatches to the corresponding printer function:
+  - `PAYMENT_VOUCHER` -> `printPaymentReceiptDocument(item.printPayload)`
+  - `DIRECT_PAYMENT_RECEIPT` -> `printDirectPaymentReceiptDocument(item.printPayload)`
+  - `INFLOW_RECEIPT` -> `printInflowReceiptDocument(item.printPayload)`
+- Executes the universal **Print-First then Download** workflow (or native OS print in Electron).
 
