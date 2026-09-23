@@ -36,7 +36,13 @@ export class ProjectService {
   static async getAllProjects() {
     const projects = await prisma.project.findMany({
       include: {
-        expenseBills: true
+        expenseBills: true,
+        deals: {
+          include: {
+            customer: true,
+            invoices: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -53,12 +59,41 @@ export class ProjectService {
         ? spentToDate.dividedBy(masterBOQ).times(100).toDecimalPlaces(2).toNumber()
         : 0;
 
+      let clientInfo = null;
+      if (project.deals && project.deals.length > 0) {
+        const primaryDeal = project.deals[0];
+        const contractValue = project.deals.reduce(
+          (sum, d) => sum.plus(new Decimal(d.totalValue)),
+          new Decimal(0)
+        );
+        const totalCollected = project.deals.reduce((dealSum, d) => {
+          const invCollected = d.invoices.reduce((sum, inv) => {
+            const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+            return sum.plus(paid);
+          }, new Decimal(0));
+          return dealSum.plus(invCollected);
+        }, new Decimal(0));
+
+        const pendingReceivable = contractValue.minus(totalCollected);
+
+        clientInfo = {
+          customerName: primaryDeal.customer?.fullName || 'Client',
+          customerPhone: primaryDeal.customer?.phone || null,
+          dealType: primaryDeal.dealType,
+          contractValue,
+          totalCollected,
+          pendingReceivable,
+          netCashMargin: totalCollected.minus(spentToDate)
+        };
+      }
+
       return {
         ...project,
         spentToDate,
         budgetVariance,
         isOverBudget,
-        budgetBurnPercentage
+        budgetBurnPercentage,
+        clientInfo
       };
     });
   }
@@ -76,6 +111,12 @@ export class ProjectService {
             vendor: true
           },
           orderBy: { billDate: 'desc' }
+        },
+        deals: {
+          include: {
+            customer: true,
+            invoices: true
+          }
         }
       }
     });
@@ -95,12 +136,41 @@ export class ProjectService {
       ? spentToDate.dividedBy(masterBOQ).times(100).toDecimalPlaces(2).toNumber()
       : 0;
 
+    let clientInfo = null;
+    if (project.deals && project.deals.length > 0) {
+      const primaryDeal = project.deals[0];
+      const contractValue = project.deals.reduce(
+        (sum, d) => sum.plus(new Decimal(d.totalValue)),
+        new Decimal(0)
+      );
+      const totalCollected = project.deals.reduce((dealSum, d) => {
+        const invCollected = d.invoices.reduce((sum, inv) => {
+          const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+          return sum.plus(paid);
+        }, new Decimal(0));
+        return dealSum.plus(invCollected);
+      }, new Decimal(0));
+
+      const pendingReceivable = contractValue.minus(totalCollected);
+
+      clientInfo = {
+        customerName: primaryDeal.customer?.fullName || 'Client',
+        customerPhone: primaryDeal.customer?.phone || null,
+        dealType: primaryDeal.dealType,
+        contractValue,
+        totalCollected,
+        pendingReceivable,
+        netCashMargin: totalCollected.minus(spentToDate)
+      };
+    }
+
     return {
       ...project,
       spentToDate,
       budgetVariance,
       isOverBudget,
-      budgetBurnPercentage
+      budgetBurnPercentage,
+      clientInfo
     };
   }
 

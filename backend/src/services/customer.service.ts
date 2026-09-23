@@ -34,7 +34,11 @@ export class CustomerService {
             invoices: {
               orderBy: { dueDate: 'asc' }
             },
-            project: true
+            project: {
+              include: {
+                expenseBills: true
+              }
+            }
           },
           orderBy: { createdAt: 'desc' }
         },
@@ -60,9 +64,27 @@ export class CustomerService {
           return sum.plus(remaining.greaterThan(0) ? remaining : 0);
         }, new Decimal(0));
 
+      const totalCollected = deal.invoices.reduce((sum, inv) => {
+        const invPaid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+        return sum.plus(invPaid);
+      }, new Decimal(0));
+
+      let spentOnSite = new Decimal(0);
+      if (deal.project && deal.project.expenseBills) {
+        spentOnSite = deal.project.expenseBills.reduce(
+          (sum, b) => sum.plus(new Decimal(b.grandTotal)),
+          new Decimal(0)
+        );
+      }
+
+      const netMargin = totalCollected.minus(spentOnSite);
+
       return {
         ...deal,
-        pendingBalance
+        pendingBalance,
+        totalCollected,
+        spentOnSite,
+        netMargin
       };
     });
 

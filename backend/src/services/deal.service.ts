@@ -171,7 +171,11 @@ export class DealService {
     const deals = await prisma.deal.findMany({
       include: {
         customer: true,
-        project: true,
+        project: {
+          include: {
+            expenseBills: true
+          }
+        },
         invoices: {
           include: {
             receipt: true
@@ -191,9 +195,27 @@ export class DealService {
           return sum.plus(remaining.greaterThan(0) ? remaining : 0);
         }, new Decimal(0));
 
+      const totalCollected = deal.invoices.reduce((sum, inv) => {
+        const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+        return sum.plus(paid);
+      }, new Decimal(0));
+
+      let spentOnSite = new Decimal(0);
+      if (deal.project && (deal.project as any).expenseBills) {
+        spentOnSite = (deal.project as any).expenseBills.reduce(
+          (sum: Decimal, b: any) => sum.plus(new Decimal(b.grandTotal)),
+          new Decimal(0)
+        );
+      }
+
+      const netMargin = totalCollected.minus(spentOnSite);
+
       return {
         ...deal,
-        pendingBalance
+        pendingBalance,
+        totalCollected,
+        spentOnSite,
+        netMargin
       };
     });
   }
@@ -206,7 +228,11 @@ export class DealService {
       where: { id },
       include: {
         customer: true,
-        project: true,
+        project: {
+          include: {
+            expenseBills: true
+          }
+        },
         invoices: {
           include: {
             receipt: true
@@ -228,9 +254,27 @@ export class DealService {
         return sum.plus(remaining.greaterThan(0) ? remaining : 0);
       }, new Decimal(0));
 
+    const totalCollected = deal.invoices.reduce((sum, inv) => {
+      const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+      return sum.plus(paid);
+    }, new Decimal(0));
+
+    let spentOnSite = new Decimal(0);
+    if (deal.project && (deal.project as any).expenseBills) {
+      spentOnSite = (deal.project as any).expenseBills.reduce(
+        (sum: Decimal, b: any) => sum.plus(new Decimal(b.grandTotal)),
+        new Decimal(0)
+      );
+    }
+
+    const netMargin = totalCollected.minus(spentOnSite);
+
     return {
       ...deal,
-      pendingBalance
+      pendingBalance,
+      totalCollected,
+      spentOnSite,
+      netMargin
     };
   }
 
