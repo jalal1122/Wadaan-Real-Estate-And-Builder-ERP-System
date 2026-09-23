@@ -102,3 +102,86 @@ export const getTrialBalance = async (req: Request, res: Response, next: NextFun
   }
 };
 
+/**
+ * Controller to fetch line-by-line project construction costs.
+ * GET /api/v1/reports/project-ledger/:projectId?startDate=...&endDate=...
+ */
+export const getProjectLedger = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const projectId = String(req.params.projectId);
+    if (!projectId || projectId === 'undefined') {
+      throw new AppError('projectId route parameter is required.', 400, 'VALIDATION_ERROR');
+    }
+
+    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
+    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
+
+    if (startDate && isNaN(startDate.getTime())) {
+      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+    if (endDate && isNaN(endDate.getTime())) {
+      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+
+    const data = await ReportService.getProjectLedger(projectId, startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Controller to fetch non-project office overhead expenses.
+ * GET /api/v1/reports/overhead-ledger?startDate=...&endDate=...
+ */
+export const getOverheadLedger = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
+    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
+
+    if (startDate && isNaN(startDate.getTime())) {
+      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+    if (endDate && isNaN(endDate.getTime())) {
+      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+
+    const data = await ReportService.getOverheadLedger(startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Controller to fetch partner equity drawings.
+ * GET /api/v1/reports/equity-drawings?startDate=...&endDate=...
+ */
+export const getEquityLedger = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
+    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
+
+    if (startDate && isNaN(startDate.getTime())) {
+      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+    if (endDate && isNaN(endDate.getTime())) {
+      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
+    }
+
+    const data = await ReportService.getEquityLedger(startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

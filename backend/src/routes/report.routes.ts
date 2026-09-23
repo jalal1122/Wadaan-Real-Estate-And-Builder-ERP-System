@@ -4,7 +4,10 @@ import {
   getDealMargins,
   getAgingRadar,
   getNetIncome,
-  getTrialBalance
+  getTrialBalance,
+  getProjectLedger,
+  getOverheadLedger,
+  getEquityLedger
 } from '../controllers/report.controller';
 import { authGuard } from '../middleware/authGuard';
 
@@ -18,5 +21,8 @@ router.get('/deal-margins', getDealMargins);
 router.get('/aging-radar', getAgingRadar);
 router.get('/net-income', getNetIncome);
 router.get('/trial-balance', getTrialBalance); // Screen 3: Trial Balance with date filtering
+router.get('/project-ledger/:projectId', getProjectLedger);
+router.get('/overhead-ledger', getOverheadLedger);
+router.get('/equity-drawings', getEquityLedger);
 
 export default router;

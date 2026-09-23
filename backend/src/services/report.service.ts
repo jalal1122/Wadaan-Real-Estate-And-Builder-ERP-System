@@ -78,6 +78,77 @@ export interface NetIncomeReport {
   netIncome: string;
 }
 
+export interface ProjectLedgerLineItem {
+  billId: string;
+  lineItemId: string;
+  billDate: string;
+  vendorName: string;
+  invoiceNumber: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  lineTotal: string;
+}
+
+export interface ProjectLedgerReport {
+  project: {
+    id: string;
+    projectName: string;
+    projectPrefix?: string;
+  };
+  period?: {
+    startDate?: string;
+    endDate?: string;
+  };
+  lineItems: ProjectLedgerLineItem[];
+  totalProjectCost: string;
+}
+
+export interface OverheadLedgerItem {
+  billId: string;
+  billDate: string;
+  vendorName: string;
+  invoiceNumber: string;
+  grandTotal: string;
+  paymentStatus: PaymentStatus;
+}
+
+export interface OverheadLedgerReport {
+  period?: {
+    startDate?: string;
+    endDate?: string;
+  };
+  bills: OverheadLedgerItem[];
+  totalOverhead: string;
+}
+
+export interface EquityDrawingLineItem {
+  id: string;
+  date: string;
+  reference: string;
+  memo: string;
+  accountCode: string;
+  amount: string;
+}
+
+export interface PartnerDrawingSummary {
+  partnerName: string;
+  accountCode: string;
+  accountName: string;
+  lines: EquityDrawingLineItem[];
+  totalDrawings: string;
+}
+
+export interface EquityLedgerReport {
+  period?: {
+    startDate?: string;
+    endDate?: string;
+  };
+  arshad: PartnerDrawingSummary;
+  zeeshan: PartnerDrawingSummary;
+  grandTotal: string;
+}
+
 interface RawDealMarginRow {
   dealId: string;
   dealType: DealType;
@@ -555,7 +626,7 @@ export class ReportService {
       });
     }
 
-    return {
+      return {
       period: {
         startDate: periodStart.toISOString(),
         endDate: periodEnd.toISOString()
@@ -564,6 +635,250 @@ export class ReportService {
       grandTotalDebit: grandTotalDebit.toFixed(2),
       grandTotalCredit: grandTotalCredit.toFixed(2),
       isBalanced: grandTotalDebit.equals(grandTotalCredit)
+    };
+  }
+
+  /**
+   * 6. Project Cost Ledger (Line-by-line Construction Costs)
+   * Fetches all ExpenseBill items associated with a project, flattened to line items.
+   */
+  static async getProjectLedger(
+    projectId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<ProjectLedgerReport> {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, projectName: true, projectPrefix: true }
+    });
+
+    if (!project) {
+      throw new Error(`Project with ID ${projectId} not found`);
+    }
+
+    const where: Prisma.ExpenseBillWhereInput = {
+      projectId
+    };
+
+    if (startDate || endDate) {
+      where.billDate = {};
+      if (startDate) where.billDate.gte = startDate;
+      if (endDate) where.billDate.lte = endDate;
+    }
+
+    const bills = await prisma.expenseBill.findMany({
+      where,
+      include: {
+        vendor: { select: { vendorName: true } },
+        lineItems: true
+      },
+      orderBy: { billDate: 'desc' }
+    });
+
+    let totalCost = new Decimal(0);
+    const lineItems: ProjectLedgerLineItem[] = [];
+
+    for (const bill of bills) {
+      const vendorName = bill.vendor?.vendorName || 'Direct Vendor';
+      const billDateStr = bill.billDate.toISOString();
+
+      for (const line of bill.lineItems) {
+        const lineTotalDec = new Decimal(line.lineTotal.toString());
+        totalCost = totalCost.plus(lineTotalDec);
+
+        lineItems.push({
+          billId: bill.id,
+          lineItemId: line.id,
+          billDate: billDateStr,
+          vendorName,
+          invoiceNumber: bill.invoiceNumber,
+          description: line.description,
+          quantity: line.quantity.toString(),
+          unitPrice: line.unitPrice.toString(),
+          lineTotal: lineTotalDec.toFixed(2)
+        });
+      }
+    }
+
+    return {
+      project: {
+        id: project.id,
+        projectName: project.projectName,
+        projectPrefix: project.projectPrefix
+      },
+      period: {
+        startDate: startDate ? startDate.toISOString() : undefined,
+        endDate: endDate ? endDate.toISOString() : undefined
+      },
+      lineItems,
+      totalProjectCost: totalCost.toFixed(2)
+    };
+  }
+
+  /**
+   * 7. Office Overhead Ledger
+   * Non-project operational expenses (ExpenseBill WHERE projectId IS NULL).
+   */
+  static async getOverheadLedger(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<OverheadLedgerReport> {
+    const where: Prisma.ExpenseBillWhereInput = {
+      projectId: null
+    };
+
+    if (startDate || endDate) {
+      where.billDate = {};
+      if (startDate) where.billDate.gte = startDate;
+      if (endDate) where.billDate.lte = endDate;
+    }
+
+    const bills = await prisma.expenseBill.findMany({
+      where,
+      include: {
+        vendor: { select: { vendorName: true } }
+      },
+      orderBy: { billDate: 'desc' }
+    });
+
+    let totalOverhead = new Decimal(0);
+    const ledgerItems: OverheadLedgerItem[] = [];
+
+    for (const bill of bills) {
+      const grandTotalDec = new Decimal(bill.grandTotal.toString());
+      totalOverhead = totalOverhead.plus(grandTotalDec);
+
+      ledgerItems.push({
+        billId: bill.id,
+        billDate: bill.billDate.toISOString(),
+        vendorName: bill.vendor?.vendorName || 'General Supplier',
+        invoiceNumber: bill.invoiceNumber,
+        grandTotal: grandTotalDec.toFixed(2),
+        paymentStatus: bill.paymentStatus
+      });
+    }
+
+    return {
+      period: {
+        startDate: startDate ? startDate.toISOString() : undefined,
+        endDate: endDate ? endDate.toISOString() : undefined
+      },
+      bills: ledgerItems,
+      totalOverhead: totalOverhead.toFixed(2)
+    };
+  }
+
+  /**
+   * 8. Partner Drawings (Equity Ledger)
+   * Tracks drawings debited against partner equity accounts (Account 3010 for Arshad, Account 3020 for Zeeshan).
+   * Gracefully returns empty arrays if specific partner accounts have not been provisioned yet.
+   */
+  static async getEquityLedger(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<EquityLedgerReport> {
+    const equityAccounts = await prisma.account.findMany({
+      where: {
+        category: AccountCategory.EQUITY
+      }
+    });
+
+    // Find Arshad account: '3010', '3010-01', or name matching 'Arshad' or general 'Owner Drawings'
+    const arshadAcc = equityAccounts.find(
+      (a) =>
+        a.accountCode === '3010' ||
+        a.accountCode.startsWith('3010') ||
+        a.accountName.toLowerCase().includes('arshad')
+    ) || equityAccounts.find((a) => a.accountName.toLowerCase().includes('drawings'));
+
+    // Find Zeeshan account: '3020', '3020-01', or name matching 'Zeeshan'
+    const zeeshanAcc = equityAccounts.find(
+      (a) =>
+        a.accountCode === '3020' ||
+        a.accountCode.startsWith('3020') ||
+        a.accountName.toLowerCase().includes('zeeshan')
+    );
+
+    const fetchPartnerLines = async (
+      partnerName: string,
+      targetCode: string,
+      account?: typeof equityAccounts[0]
+    ): Promise<PartnerDrawingSummary> => {
+      if (!account) {
+        return {
+          partnerName,
+          accountCode: targetCode,
+          accountName: `${partnerName} Drawings (${targetCode})`,
+          lines: [],
+          totalDrawings: '0.00'
+        };
+      }
+
+      const journalDateFilter: Prisma.JournalEntryWhereInput = {};
+      if (startDate || endDate) {
+        journalDateFilter.entryDate = {};
+        if (startDate) journalDateFilter.entryDate.gte = startDate;
+        if (endDate) journalDateFilter.entryDate.lte = endDate;
+      }
+
+      const lines = await prisma.journalLine.findMany({
+        where: {
+          accountId: account.id,
+          debitAmount: { gt: 0 },
+          journal: journalDateFilter
+        },
+        include: {
+          journal: {
+            select: {
+              entryNumber: true,
+              entryDate: true,
+              description: true
+            }
+          }
+        },
+        orderBy: {
+          journal: { entryDate: 'desc' }
+        }
+      });
+
+      let total = new Decimal(0);
+      const items: EquityDrawingLineItem[] = lines.map((line) => {
+        const debitDec = new Decimal(line.debitAmount.toString());
+        total = total.plus(debitDec);
+        return {
+          id: line.id,
+          date: line.journal.entryDate.toISOString(),
+          reference: line.journal.entryNumber,
+          memo: line.memo || line.journal.description,
+          accountCode: account.accountCode,
+          amount: debitDec.toFixed(2)
+        };
+      });
+
+      return {
+        partnerName,
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        lines: items,
+        totalDrawings: total.toFixed(2)
+      };
+    };
+
+    const arshadSummary = await fetchPartnerLines('Arshad Khalil', '3010', arshadAcc);
+    const zeeshanSummary = await fetchPartnerLines('Zeeshan Yousafzai', '3020', zeeshanAcc);
+
+    const grandTotal = new Decimal(arshadSummary.totalDrawings)
+      .plus(new Decimal(zeeshanSummary.totalDrawings))
+      .toFixed(2);
+
+    return {
+      period: {
+        startDate: startDate ? startDate.toISOString() : undefined,
+        endDate: endDate ? endDate.toISOString() : undefined
+      },
+      arshad: arshadSummary,
+      zeeshan: zeeshanSummary,
+      grandTotal
     };
   }
 }
