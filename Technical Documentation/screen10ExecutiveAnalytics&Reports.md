@@ -1,27 +1,56 @@
-The final piece of the Wadaan ERP translates every bill, receipt, and project into pure executive intelligence. Standard accounting software fails real estate developers because it lumps all expenses together, making it impossible to see if a specific plaza or plot flip was actually profitable. Screen 10 cuts through the jargon and shows you exactly how much money the business is making.
-1. What You See (The Survival Snapshot)
-This is the top banner of your dashboard, designed to be checked every morning over tea. It gives you the immediate financial pulse of the company without requiring you to run a single report.
-Total Liquid Cash: The real-time sum of your Meezan Bank account and the physical Office Safe.
-Client Funds Held (Escrow/Wallet): The massive red number reminding you how much of that liquid cash actually belongs to clients (Mobilization Advances or Seller Escrow).
-Total Receivables: The exact amount of money clients owe Wadaan right now.
-Total Payables: The exact amount of money Wadaan owes to suppliers and contractors, ready for the Screen 7 Thursday payment run.
-2. The Deal-by-Deal Profit Ledger
-Instead of a massive, confusing company-wide Profit & Loss sheet, the system automatically builds a mini-P&L for every single deal.
-The Grid: You see a clean table listing every active and completed project (e.g., "Mr. Ali's Plaza", "Sector C Plot Flip").
-The Math: For each row, the system pulls the total money billed to the client (from Screen 8) and subtracts the exact construction or purchase costs (from Screen 4).
-The Result: You instantly see the exact Gross Profit and Margin percentage for that specific deal. If you thought you made 30% on a villa, but steel prices pushed it down to 18%, this dashboard shows you the truth instantly.
-The Drill-Down: Clicking on the "18%" instantly opens a side panel showing the exact cement, labor, and steel bills that ate into your profit.
-3. The Aging Radar (The "Who is Late?" Tracker)
-Profit on paper means nothing if the clients haven't actually handed you the cash.
-Money In (Receivables): A prioritized list of every client who is behind on an installment or milestone. The system calculates exactly how many days late they are. If Zain owes Rs. 500,000 and is 15 days late, his name sits at the very top in red.
-Money Out (Payables): A reverse list showing which vendors have been waiting the longest for Wadaan to pay them, helping you strategically decide who gets a cheque this week and who waits until next week.
-4. The Global Overhead & True Net Income
-While projects are the main focus, you still have to keep the lights on in the Wadaan office.
-The Deduction: Below the project profits, the system lists your "General Overhead" (office rent, K-Electric, salaries, tea) pulled straight from Screen 5.
-The Final Number: It takes the total profit from all your deals, subtracts your office overhead, and gives you Wadaan’s True Net Income—the actual amount of wealth the business generated this month.
-5. 1-Click Export Engine
-Because you are running the show, you occasionally need physical reports to hand to a tax consultant, a bank, or a business partner.
-The Feature: A prominent "Generate PDF" button sits at the top right of the dashboard.
-The Output: It strips away all the software buttons and menus, leaving only clean, branded Wadaan financial tables. The PDF is instantly ready to be printed or forwarded on WhatsApp.
-Business Rules & Guardrails
-The Read-Only Absolute: Like Screen 3, it is physically impossible to type or change a number on this dashboard. If a profit margin looks wrong here, it means a bill was entered incorrectly on Screen 5 or an invoice was priced wrong on Screen 8. You must fix the root cause, ensuring your reports are never manipulated.
+# Screen 10: Master Reports Hub (Executive Financial Intelligence)
+
+The final, capstone piece of the Wadaan ERP translates every bill, receipt, project, and journal into institutional executive intelligence. Standard accounting software fails real estate developers and construction firms because it lumps all expenses together, making it impossible to see if a specific plaza or plot flip was actually profitable. 
+
+Screen 10 operates as a comprehensive **Master Reports Hub** with five forensic sub-tabs, a global date range selector, and print/PDF export capabilities.
+
+---
+
+## 1. Global Header & Controls
+- **Global Date Range Selector**: Includes quick presets (`This Month`, `Last Month`, `This Fiscal Year`, `All Time`, `Custom Range`) alongside dual HTML5 date inputs (`startDate`, `endDate`). Date filters propagate across all analytical ledgers.
+- **Export to PDF / Print Engine**: Prominent button invoking browser print preview (`window.print()`). Uses `@media print` styling to isolate the currently active sub-tab, hide navigation bars/buttons, and render high-resolution executive print headers with dates and timestamps.
+- **Refresh All**: Synchronously re-triggers all active queries across all report domains.
+
+---
+
+## 2. Sub-Tab Architecture
+
+### Sub-Tab 1: Executive Snapshot
+Provides the immediate financial pulse of the company:
+1. **Total Liquid Cash**: Real-time sum of liquid bank accounts (Meezan Bank, HBL) and physical cash safes (debits minus credits on GL accounts `10xx`).
+2. **Client Funds Held (Escrow / Advances)**: Liability balance representing mobilization advances and client escrow holdings (Account `2100` & customer wallets) that must not be spent on general overhead.
+3. **Total Receivables (AR)**: Cumulative unpaid balance owed by clients across active contracts and deals.
+4. **Total Payables (AP)**: Pending vendor obligations awaiting payment runs.
+5. **Corporate Profitability & True Net Income**: Gross deal profit + brokerage commission fees minus general office overhead.
+6. **The Aging Radar**: Priority lists of overdue receivables (Money In) and pending vendor payables (Money Out) sorted by days overdue.
+
+### Sub-Tab 2: Deal-by-Deal Margin Matrix
+Automatic per-deal mini-P&L statements:
+- **Matrix Columns**: Deal #, Deal Type (Wadaan Sale, Construction, Brokerage), Customer Name, Project, Total Contract Value, Revenue Collected, Total Project Cost, Gross Profit, and Margin Percentage.
+- **WIP Asset Protection**: Unsettled construction deals flag costs as Work-in-Progress asset transfers.
+- **Drill-Down Side Drawer**: Clicking any deal row opens a slide-over panel detailing itemized bills, payment milestone receipts, and cost allocations.
+
+### Sub-Tab 3: Line-by-Line Project Costs (Construction Ledger)
+Forensic audit ledger for any construction project:
+- **Project Selector**: Global dropdown dynamically populated with active projects.
+- **Itemized Columns**: Date, Vendor / Payee, Invoice #, Description, Quantity, Unit Price, and Line Total Amount (PKR).
+- **Summary Footer**: Total Project Cost displayed in bold JetBrains Mono typography.
+
+### Sub-Tab 4: Office & Administrative Overhead Ledger
+Tracks non-project operational expenses:
+- **Query Filter**: Strictly queries `ExpenseBill WHERE projectId IS NULL`.
+- **Itemized Columns**: Date, Vendor / Payee, Invoice #, Payment Status (Paid, Partial, Unpaid), and Grand Total (PKR).
+- **Summary Footer**: Total Overhead Expenses displayed in bold JetBrains Mono typography.
+
+### Sub-Tab 5: Partner Drawings & Distributions (Equity Ledger)
+Forensic tracking of personal withdrawals and equity draws debited against principal capital accounts:
+- **Partner 1 (Arshad Khalil)**: Itemizes withdrawals debited against Account `3010` (or `3010-01 Owner Drawings & Distributions`), showing JV Reference, Description/Memo, Account Code, and Amount.
+- **Partner 2 (Zeeshan Yousafzai)**: Itemizes withdrawals debited against Account `3020`, showing JV Reference, Description/Memo, Account Code, and Amount.
+- **Subtotals & Grand Total**: Displays individual partner subtotal drawings alongside a unified Grand Total partner drawing summary card.
+- **Null Safety**: Gracefully handles newly provisioned or empty partner accounts with clean zero-balance empty states.
+
+---
+
+## 3. Business Rules & Guardrails
+- **The Read-Only Absolute**: Like Screen 3 (Trial Balance), it is physically impossible to edit, post, or manipulate numbers directly on this dashboard. All figures are derived directly from immutable General Ledger journals and verified expense bills.
+- **No Escrow Mixing**: Client escrow is kept distinct and clearly highlighted as a restricted liability, preventing unauthorized executive capital draws.

@@ -1544,3 +1544,106 @@ Every record in the archive provides a one-click **"Print Receipt"** button:
   - `INFLOW_RECEIPT` -> `printInflowReceiptDocument(item.printPayload)`
 - Executes the universal **Print-First then Download** workflow (or native OS print in Electron).
 
+---
+
+## 12. Screen 10: Master Reports Hub (Module 4)
+
+The Master Reports Hub (`/reports`) is a 5-tab executive reporting suite with unified date filtering and institutional PDF/print support.
+
+### 12.1 Endpoints Specification
+
+| Method | Endpoint | Query / Path Parameters | Purpose |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/reports/snapshot` | None | Solvency KPIs (Liquid Cash, Client Funds Held, AR, AP) |
+| `GET` | `/api/v1/reports/deal-margins` | `?status=ACTIVE` (optional) | Per-deal gross profits and margin percentages |
+| `GET` | `/api/v1/reports/aging-radar` | None | Overdue receivables and pending vendor payables |
+| `GET` | `/api/v1/reports/net-income` | `?startDate=...&endDate=...` | Gross deal profit + commissions minus general overhead |
+| `GET` | `/api/v1/reports/trial-balance` | `?startDate=...&endDate=...` | Periodic Trial Balance with balance verification |
+| `GET` | `/api/v1/reports/project-ledger/:projectId` | `:projectId`, `?startDate=...&endDate=...` | Line-by-line project construction bills and costs |
+| `GET` | `/api/v1/reports/overhead-ledger` | `?startDate=...&endDate=...` | Non-project office overhead expenses (`projectId IS NULL`) |
+| `GET` | `/api/v1/reports/equity-drawings` | `?startDate=...&endDate=...` | Partner equity drawings (Arshad Khalil 3010, Zeeshan Yousafzai 3020) |
+
+### 12.2 TypeScript Data Types (`src/features/reports/types/index.ts`)
+
+```typescript
+export interface ProjectLedgerLineItem {
+  billId: string;
+  lineItemId: string;
+  billDate: string;
+  vendorName: string;
+  invoiceNumber: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  lineTotal: string;
+}
+
+export interface ProjectLedgerReport {
+  project: { id: string; projectName: string; projectPrefix?: string };
+  period?: { startDate?: string; endDate?: string };
+  lineItems: ProjectLedgerLineItem[];
+  totalProjectCost: string;
+}
+
+export interface OverheadLedgerItem {
+  billId: string;
+  billDate: string;
+  vendorName: string;
+  invoiceNumber: string;
+  grandTotal: string;
+  paymentStatus: string;
+}
+
+export interface OverheadLedgerReport {
+  period?: { startDate?: string; endDate?: string };
+  bills: OverheadLedgerItem[];
+  totalOverhead: string;
+}
+
+export interface EquityDrawingLineItem {
+  id: string;
+  date: string;
+  reference: string;
+  memo: string;
+  accountCode: string;
+  amount: string;
+}
+
+export interface PartnerDrawingSummary {
+  partnerName: string;
+  accountCode: string;
+  accountName: string;
+  lines: EquityDrawingLineItem[];
+  totalDrawings: string;
+}
+
+export interface EquityLedgerReport {
+  period?: { startDate?: string; endDate?: string };
+  arshad: PartnerDrawingSummary;
+  zeeshan: PartnerDrawingSummary;
+  grandTotal: string;
+}
+```
+
+### 12.3 React Query Hooks (`src/features/reports/hooks/useReports.ts`)
+
+```typescript
+// Sub-Tab 1: Executive Snapshot & Profitability
+export const useExecutiveSnapshot = () => useQuery<ExecutiveSnapshot>(...);
+export const useAgingRadar = () => useQuery<AgingRadarResponse>(...);
+export const useNetIncome = (startDate?: string, endDate?: string) => useQuery<NetIncomeReport>(...);
+
+// Sub-Tab 2: Deal Margins Matrix
+export const useDealMargins = (status?: string) => useQuery<DealMarginItem[]>(...);
+
+// Sub-Tab 3: Project Cost Ledger
+export const useProjectLedger = (projectId?: string, startDate?: string, endDate?: string) => useQuery<ProjectLedgerReport>(...);
+
+// Sub-Tab 4: Office Overhead Ledger
+export const useOverheadLedger = (startDate?: string, endDate?: string) => useQuery<OverheadLedgerReport>(...);
+
+// Sub-Tab 5: Partner Drawings (Equity Ledger)
+export const useEquityLedger = (startDate?: string, endDate?: string) => useQuery<EquityLedgerReport>(...);
+```
+
+

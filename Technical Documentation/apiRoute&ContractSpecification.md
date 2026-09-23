@@ -1850,3 +1850,204 @@ Protected under `authGuard`.
     - Decrements `remainingAmount`.
     - Updates `status` to `SETTLED` if `remainingAmount == 0`, otherwise `PARTIALLY_PAID`.
     - Returns 201 Created with repayment and updated loan state.
+
+---
+
+### Module 4: Executive Analytics & Master Reports Hub (Screen 10)
+
+The Master Reports Hub exposes read-only endpoints providing real-time financial health, deal profitability, project construction ledgers, overheads, and partner equity distributions.
+
+#### 1. Executive Solvency Snapshot
+- **`GET /api/v1/reports/snapshot`**
+  - **Purpose**: Computes real-time solvency and working capital metrics.
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "liquidCash": "15500000.00",
+        "clientFundsHeld": "4500000.00",
+        "totalAR": "8200000.00",
+        "totalAP": "3100000.00"
+      }
+    }
+    ```
+
+#### 2. Deal Margins Matrix
+- **`GET /api/v1/reports/deal-margins`**
+  - **Query Params**: `status` (optional, e.g. `ACTIVE`, `CLOSED`)
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": [
+        {
+          "dealId": "uuid",
+          "dealType": "CONSTRUCTION",
+          "customerName": "Chaudhry Aslam",
+          "projectName": "Wadaan Heights",
+          "totalValue": "16000000.00",
+          "revenueCollected": "8000000.00",
+          "totalProjectCost": "3000000.00",
+          "grossProfit": "5000000.00",
+          "marginPercentage": "62.50",
+          "isWipAsset": false
+        }
+      ]
+    }
+    ```
+
+#### 3. Aging Radar
+- **`GET /api/v1/reports/aging-radar`**
+  - **Purpose**: Prioritizes overdue client installments and aged vendor payables.
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "receivables": [
+          {
+            "invoiceId": "uuid",
+            "customerName": "Tariq Mehmood",
+            "description": "Down Payment",
+            "amount": "3000000.00",
+            "dueDate": "2026-09-20T00:00:00.000Z",
+            "daysOverdue": 3
+          }
+        ],
+        "payables": [
+          {
+            "billId": "uuid",
+            "vendorName": "Ali Hardware",
+            "invoiceNumber": "INV-STEEL-101",
+            "pendingAmount": "1500000.00",
+            "billDate": "2026-09-20T00:00:00.000Z",
+            "daysOverdue": 3
+          }
+        ]
+      }
+    }
+    ```
+
+#### 4. Corporate True Net Income
+- **`GET /api/v1/reports/net-income`**
+  - **Query Params**: `startDate` (ISO string), `endDate` (ISO string)
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "period": {
+          "startDate": "2026-07-01T00:00:00.000Z",
+          "endDate": "2027-06-30T23:59:59.999Z"
+        },
+        "grossDealProfit": "5000000.00",
+        "brokerageCommissions": "200000.00",
+        "generalOverhead": "694845.00",
+        "netIncome": "4505155.00"
+      }
+    }
+    ```
+
+#### 5. Project Cost Ledger
+- **`GET /api/v1/reports/project-ledger/:projectId`**
+  - **Query Params**: `startDate` (optional), `endDate` (optional)
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "project": {
+          "id": "uuid",
+          "projectName": "Wadaan Heights",
+          "projectPrefix": "WH"
+        },
+        "period": {
+          "startDate": "2026-09-01T00:00:00.000Z",
+          "endDate": "2026-09-30T23:59:59.999Z"
+        },
+        "lineItems": [
+          {
+            "billId": "uuid",
+            "lineItemId": "uuid",
+            "billDate": "2026-09-15T00:00:00.000Z",
+            "vendorName": "Al-Hadeed Steel Mills",
+            "invoiceNumber": "INV-1001",
+            "description": "Deformed Grade 60 Steel 10mm",
+            "quantity": "10",
+            "unitPrice": "25000.00",
+            "lineTotal": "250000.00"
+          }
+        ],
+        "totalProjectCost": "250000.00"
+      }
+    }
+    ```
+
+#### 6. Office Overhead Ledger
+- **`GET /api/v1/reports/overhead-ledger`**
+  - **Query Params**: `startDate` (optional), `endDate` (optional)
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "period": {
+          "startDate": "2026-09-01T00:00:00.000Z",
+          "endDate": "2026-09-30T23:59:59.999Z"
+        },
+        "bills": [
+          {
+            "billId": "uuid",
+            "billDate": "2026-09-10T00:00:00.000Z",
+            "vendorName": "WAPDA Electricity",
+            "invoiceNumber": "BILL-ELEC-01",
+            "grandTotal": "75000.00",
+            "paymentStatus": "PAID"
+          }
+        ],
+        "totalOverhead": "75000.00"
+      }
+    }
+    ```
+
+#### 7. Partner Drawings (Equity Ledger)
+- **`GET /api/v1/reports/equity-drawings`**
+  - **Query Params**: `startDate` (optional), `endDate` (optional)
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "period": {
+          "startDate": "2026-09-01T00:00:00.000Z",
+          "endDate": "2026-09-30T23:59:59.999Z"
+        },
+        "arshad": {
+          "partnerName": "Arshad Khalil",
+          "accountCode": "3010-01",
+          "accountName": "Owner Drawings & Distributions",
+          "lines": [
+            {
+              "id": "uuid",
+              "date": "2026-09-08T14:30:00.000Z",
+              "reference": "JV-MOD1-002",
+              "memo": "Cheque #991024 personal withdrawal",
+              "accountCode": "3010-01",
+              "amount": "200000.00"
+            }
+          ],
+          "totalDrawings": "200000.00"
+        },
+        "zeeshan": {
+          "partnerName": "Zeeshan Yousafzai",
+          "accountCode": "3020",
+          "accountName": "Zeeshan Yousafzai Drawings (3020)",
+          "lines": [],
+          "totalDrawings": "0.00"
+        },
+        "grandTotal": "200000.00"
+      }
+    }
+    ```
+
