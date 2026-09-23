@@ -185,7 +185,11 @@ export class DealService {
     return deals.map((deal) => {
       const pendingBalance = deal.invoices
         .filter((inv) => inv.paymentStatus !== 'PAID')
-        .reduce((sum, inv) => sum.plus(new Decimal(inv.amount)), new Decimal(0));
+        .reduce((sum, inv) => {
+          const invPaid = new Decimal(inv.paidAmount || 0);
+          const remaining = new Decimal(inv.amount).minus(invPaid);
+          return sum.plus(remaining.greaterThan(0) ? remaining : 0);
+        }, new Decimal(0));
 
       return {
         ...deal,
@@ -218,7 +222,11 @@ export class DealService {
 
     const pendingBalance = deal.invoices
       .filter((inv) => inv.paymentStatus !== 'PAID')
-      .reduce((sum, inv) => sum.plus(new Decimal(inv.amount)), new Decimal(0));
+      .reduce((sum, inv) => {
+        const invPaid = new Decimal(inv.paidAmount || 0);
+        const remaining = new Decimal(inv.amount).minus(invPaid);
+        return sum.plus(remaining.greaterThan(0) ? remaining : 0);
+      }, new Decimal(0));
 
     return {
       ...deal,

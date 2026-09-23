@@ -100,9 +100,12 @@ export class WalletManager {
     }
 
     const invoiceAmount = new Decimal(invoice.amount);
-    if (decAmount.greaterThan(invoiceAmount)) {
+    const currentPaid = new Decimal(invoice.paidAmount || 0);
+    const remainingBalance = invoiceAmount.minus(currentPaid);
+
+    if (decAmount.greaterThan(remainingBalance)) {
       throw new AppError(
-        `Consumption amount (Rs. ${decAmount}) cannot exceed invoice amount (Rs. ${invoiceAmount})`,
+        `Consumption amount (Rs. ${decAmount}) cannot exceed remaining invoice amount (Rs. ${remainingBalance})`,
         400,
         'EXCEEDS_INVOICE_AMOUNT'
       );
@@ -150,11 +153,13 @@ export class WalletManager {
       }
     });
 
-    // 3. Update Invoice status
-    const isFullyPaid = decAmount.equals(invoiceAmount);
+    // 3. Update Invoice status & paidAmount
+    const newPaidAmount = currentPaid.plus(decAmount);
+    const isFullyPaid = newPaidAmount.greaterThanOrEqualTo(invoiceAmount);
     await tx.dealInvoice.update({
       where: { id: invoiceId },
       data: {
+        paidAmount: newPaidAmount,
         paymentStatus: isFullyPaid ? 'PAID' : 'PARTIAL'
       }
     });

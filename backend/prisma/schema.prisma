@@ -195,6 +195,7 @@ model DealInvoice {
   dealId        String
   description   String        // e.g., "Installment 1" or "Foundation Milestone"
   amount        Decimal       @db.Decimal(15, 2)
+  paidAmount    Decimal       @default(0.00) @db.Decimal(15, 2)
   dueDate       DateTime
   paymentStatus PaymentStatus @default(UNPAID)
   receiptId     String?

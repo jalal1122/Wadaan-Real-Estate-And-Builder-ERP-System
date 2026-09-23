@@ -93,14 +93,17 @@ export class ReceiptService {
           });
 
           // B. Settle linked invoices
-          if (data.invoiceIds && data.invoiceIds.length > 0) {
-            await tx.dealInvoice.updateMany({
-              where: { id: { in: data.invoiceIds } },
-              data: {
-                paymentStatus: 'PAID',
-                receiptId: receipt.id
-              }
-            });
+          if (invoices && invoices.length > 0) {
+            for (const inv of invoices) {
+              await tx.dealInvoice.update({
+                where: { id: inv.id },
+                data: {
+                  paidAmount: inv.amount,
+                  paymentStatus: 'PAID',
+                  receiptId: receipt.id
+                }
+              });
+            }
           }
 
           // C. Inject excess into customer wallet if overpaid
@@ -275,15 +278,15 @@ export class ReceiptService {
 
         // 5. Mark linked invoices as PAID
         if (linkedInvoices.length > 0) {
-          await tx.dealInvoice.updateMany({
-            where: {
-              receiptId,
-              paymentStatus: 'PENDING_CLEARANCE'
-            },
-            data: {
-              paymentStatus: 'PAID'
-            }
-          });
+          for (const inv of linkedInvoices) {
+            await tx.dealInvoice.update({
+              where: { id: inv.id },
+              data: {
+                paidAmount: inv.amount,
+                paymentStatus: 'PAID'
+              }
+            });
+          }
         }
 
         // 6. Inject excess into Customer wallet if overpaid

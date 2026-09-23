@@ -1,4 +1,5 @@
 import { prisma } from '../config/db';
+import { Decimal } from 'decimal.js';
 import { CreateCustomerInput } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
@@ -30,9 +31,12 @@ export class CustomerService {
       include: {
         deals: {
           include: {
-            invoices: true,
+            invoices: {
+              orderBy: { dueDate: 'asc' }
+            },
             project: true
-          }
+          },
+          orderBy: { createdAt: 'desc' }
         },
         receipts: {
           include: {
@@ -47,7 +51,25 @@ export class CustomerService {
       throw new AppError(`Customer with ID '${id}' not found`, 404, 'CUSTOMER_NOT_FOUND');
     }
 
-    return customer;
+    const dealsWithPending = customer.deals.map((deal) => {
+      const pendingBalance = deal.invoices
+        .filter((inv) => inv.paymentStatus !== 'PAID')
+        .reduce((sum, inv) => {
+          const invPaid = new Decimal(inv.paidAmount || 0);
+          const remaining = new Decimal(inv.amount).minus(invPaid);
+          return sum.plus(remaining.greaterThan(0) ? remaining : 0);
+        }, new Decimal(0));
+
+      return {
+        ...deal,
+        pendingBalance
+      };
+    });
+
+    return {
+      ...customer,
+      deals: dealsWithPending
+    };
   }
 
   /**
