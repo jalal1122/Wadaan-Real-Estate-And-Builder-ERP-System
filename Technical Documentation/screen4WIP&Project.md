@@ -46,3 +46,17 @@ In addition to project cards and budget burn indicators, Screen 4 provides a gra
   - `GET /api/v1/projects/:id/transactions`
   - Queries `JournalLine` records where `projectId = id`, including `journal`, `account`, and `vendor`/`customer` relations, sorted by `journal.entryDate ASC`.
 
+---
+
+### 6. Client Construction Contracts & Realized Cash Margin
+
+When Wadaan builds a house or commercial plaza on behalf of a private client (Route B: Construction Contract initialized on Screen 8), Screen 4 automatically cross-links the project site with the customer's contract:
+
+- **Client Banner**: Displays client full name, contact phone number, and a `Client Contract` badge.
+- **Contract Value**: The total agreed contract price with the client.
+- **Client Paid**: Total funds actually received from the client across settled milestones and applied mobilization advances.
+- **Net Cash Margin**: Calculated in real-time as `Total Collected - Total Spent (WIP)`:
+  - **Positive Margin (Green)**: Wadaan is cash-flow positive on this construction job (client payments exceed site expenses to date).
+  - **Negative Margin (Red)**: Site expenses have temporarily outpaced client collections, signaling management to bill the upcoming milestone installment immediately.
+
+

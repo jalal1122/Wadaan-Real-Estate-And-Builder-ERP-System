@@ -328,6 +328,48 @@ Navigate to `/personal` via the sidebar navigation link **"Personal Ledger"**.
 
 ---
 
+### Test Scenario K: Milestone Partial Payment & Accurate Outstanding Balance
+Navigate to Screen 8 (`/deals`).
+1. Find customer **`Chaudhry Aslam`** and click **"Khaata"**.
+2. Observe the active contract (e.g. `Total Contract Value: Rs 8,000,000`).
+3. In the Installment Milestones list, look at **`Installment Milestone 3`**:
+   - Total milestone amount is `Rs 4,000,000`.
+   - Notice the status badge is **`PARTIAL`**.
+   - The prominent amount displays **`Rs 3,960,000`** (remaining balance).
+   - Underneath, the breakdown displays: `Due: 20 Nov 2026 • Paid: Rs 40,000 • Remaining: Rs 3,960,000 • Total: Rs 4,000,000`.
+4. Observe the Deal Financial Summary at the top of the card:
+   - **Outstanding Balance** accurately displays **`Rs 7,960,000`** (reflecting the remaining unpaid balance of `Rs 3,960,000` + unpaid Milestone 4 of `Rs 4,000,000`).
+5. Open the "Apply Advance to Unpaid Installment" dropdown:
+   - Installment Milestone 3 option displays remaining balance (`Rs 3,960,000 remaining`) so advance funds cannot be over-allocated.
+
+---
+
+### Test Scenario L: Client Construction Project Cost & Realized Cash Margin Cross-Linking
+Verify the bidirectional tracking between private client construction contracts and WIP site costs:
+
+#### Part 1: Screen 4 (`/projects`)
+1. Navigate to `/projects`.
+2. Find the project site linked to a construction client deal (e.g. **Wadaan Heights** or any client construction project).
+3. **Verify Client Contract Banner**:
+   - Client badge: `Client Contract`.
+   - Client name and phone number (e.g. `Client: Tariq Mehmood (0300-1234567)`).
+   - Three key financial metrics:
+     - **Contract Value**: Total agreed construction contract price.
+     - **Client Paid**: Total funds collected from the client to date.
+     - **Net Cash Margin**: Calculated in real-time as `Client Paid - Total Spent (WIP)`. Displayed in bold emerald green when positive, or red if expenditures temporarily outpace client collections.
+
+#### Part 2: Screen 8 (`/deals`)
+1. Navigate to `/deals`.
+2. Find the client (e.g. `Tariq Mehmood` or `Chaudhry Aslam`) and click **"Khaata"**.
+3. Under the construction contract card, verify the **Construction Site** panel:
+   - Site title: `Site: Wadaan Heights (WH)`.
+   - Metrics:
+     - **Client Paid**: Received client collections to date.
+     - **Site Spent (WIP)**: Total contractor and material bills charged to the site.
+     - **Net Cash Margin**: Realized cash margin on the project job to date.
+
+---
+
 ## ⚡ 5. Terminal Automated Test Commands
 
 To re-verify all 189 tests across the entire application:

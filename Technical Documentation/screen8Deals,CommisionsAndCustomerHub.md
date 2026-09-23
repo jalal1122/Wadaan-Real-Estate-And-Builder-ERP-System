@@ -66,4 +66,19 @@ Screen 8 perfectly organizes all your revenue streams, client debt, and middlema
   - Shifts remaining unpaid installment balance to new customer Khaata
   - `DR 1100 Accounts Receivable (New Customer)` / `CR 4000 Transfer Fee Revenue` (if fee > 0)
 
+### Milestone Partial Payments & Outstanding Balance Tracking
+- Each installment invoice maintains `paidAmount` alongside `amount`.
+- Partial advance consumption updates the invoice status to `PARTIAL` and dynamically displays:
+  - **Remaining Balance**: Emphasized in bold (e.g. `Remaining: Rs 3,960,000`).
+  - **Breakdown**: `Due: Date • Paid: Rs 40,000 • Remaining: Rs 3,960,000 • Total: Rs 4,000,000`.
+- The Deal's **Outstanding Balance** accurately sums `(amount - paidAmount)` across all unpaid and partial invoices.
+
+### Client Construction Site Cost & Net Margin Panel
+- For `CONSTRUCTION` deals with a linked project site, the Customer Khaata drawer displays a dedicated **Construction Site** card:
+  - **Site Reference**: Project Name and Prefix code (e.g. `Site: Faisal Town Commercial Plaza (FTCP)`).
+  - **Client Paid**: Total funds collected from the client to date.
+  - **Site Spent (WIP)**: Aggregated vendor expense bills charged to this project site.
+  - **Net Cash Margin**: Real-time margin (`Client Paid - Site Spent`), highlighted in green when profitable or red when expenditures temporarily exceed collections.
+
+
 
