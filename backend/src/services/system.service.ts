@@ -16,16 +16,20 @@ export class SystemService {
    * Returns current initialization status of the ERP system.
    * Auto-creates the singleton SystemSetting row if it does not exist yet.
    */
-  static async getStatus(): Promise<{ isInitialized: boolean; goLiveDate: Date | null }> {
-    const setting = await prisma.systemSetting.upsert({
-      where: { id: 1 },
-      update: {},
-      create: { id: 1, isInitialized: false }
-    });
+  static async getStatus(): Promise<{ isInitialized: boolean; goLiveDate: Date | null; hasAdmin: boolean }> {
+    const [setting, userCount] = await Promise.all([
+      prisma.systemSetting.upsert({
+        where: { id: 1 },
+        update: {},
+        create: { id: 1, isInitialized: false }
+      }),
+      prisma.user.count()
+    ]);
 
     return {
       isInitialized: setting.isInitialized,
-      goLiveDate: setting.goLiveDate
+      goLiveDate: setting.goLiveDate,
+      hasAdmin: userCount > 0
     };
   }
 
