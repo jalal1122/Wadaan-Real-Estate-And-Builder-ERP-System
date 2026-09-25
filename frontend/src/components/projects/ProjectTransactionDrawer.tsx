@@ -223,5 +223,6 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
         </div>
       </div>
     </div>
+  </div>
   );
 };
