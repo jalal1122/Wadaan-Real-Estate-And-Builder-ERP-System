@@ -1,0 +1,125 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --background: #F9FAFB;
+  --foreground: #0F172A;
+
+  --color-brand-dark: #0F172A;
+  --color-brand-emerald: #059669;
+  --color-brand-emerald-light: #10B981;
+  --color-brand-cream: #FEF3C7;
+  --color-neutral-bg: #F9FAFB;
+}
+
+@theme {
+  --color-brand-dark: #0F172A;
+  --color-brand-emerald: #059669;
+  --color-brand-emerald-light: #10B981;
+  --color-brand-cream: #FEF3C7;
+  --color-neutral-bg: #F9FAFB;
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  background-color: #F9FAFB;
+  color: #0F172A;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Institutional PIN input box focus styles */
+.pin-box:focus-within,
+.pin-box.active-focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15) !important;
+}
+
+.pin-box.error-state {
+  border-color: #EF4444 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Architectural Subtle Dot Grid Background */
+.architectural-grid {
+  background-image: radial-gradient(#E2E8F0 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+/* Print styles: isolate financial reports for physical printing or PDF export */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print,
+  #app-sidebar,
+  header {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body, html {
+    background: white !important;
+    color: #0F172A !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Unset viewport/overflow clipping from dashboard layout */
+  #__next,
+  div,
+  main,
+  section {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  #trial-balance-printable {
+    box-shadow: none !important;
+    border: 1px solid #CBD5E1 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
+
