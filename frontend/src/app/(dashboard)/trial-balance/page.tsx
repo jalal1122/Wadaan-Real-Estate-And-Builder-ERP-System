@@ -28,6 +28,20 @@ function toDateStr(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
+/**
+ * Formats a plain date string (YYYY-MM-DD) or ISO timestamp without timezone
+ * shift. Using `new Date('2026-07-01')` in PKT (UTC+5) would roll back to
+ * June 30 — this helper avoids that by reading date parts directly.
+ */
+function formatUTCDate(dateStr: string): string {
+  // Grab just the date portion if an ISO timestamp was passed
+  const datePart = dateStr.split('T')[0];
+  const [year, month, day] = datePart.split('-').map(Number);
+  // Build a local Date from explicit parts — no UTC shift
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 function getPresetDates(preset: Preset): { start: string; end: string } {
   const now = new Date();
   const y = now.getFullYear();
@@ -188,9 +202,9 @@ export default function TrialBalancePage() {
         {/* Period display */}
         {activeStart && activeEnd && (
           <span className="ml-auto text-[10px] text-slate-400 font-mono">
-            {new Date(activeStart).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {formatUTCDate(activeStart)}
             {' — '}
-            {new Date(activeEnd).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {formatUTCDate(activeEnd)}
           </span>
         )}
       </div>
@@ -243,7 +257,7 @@ export default function TrialBalancePage() {
             <p>
               <span className="font-semibold text-slate-700">Period: </span>
               {activeStart && activeEnd
-                ? `${new Date(activeStart).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })} — ${new Date(activeEnd).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                ? `${formatUTCDate(activeStart)} — ${formatUTCDate(activeEnd)}`
                 : 'All Time'}
             </p>
             <p>
