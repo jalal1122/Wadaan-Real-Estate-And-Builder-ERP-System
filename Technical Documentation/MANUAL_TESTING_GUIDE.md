@@ -395,6 +395,15 @@ npm run dev --prefix frontend
 6. Click outside the drawer.
 7. **Expected**: Drawer closes.
 
+### Test E-10: Contra-Equity Account in Trial Balance
+1. Navigate to **Module 1b: General Journal** and create a new entry:
+   - Debit: `3010-10 Owner Drawings` (EQUITY account) = Rs 100,000
+   - Credit: `1010-01 Office Safe (Vault A)` (ASSET account) = Rs 100,000
+2. Navigate to **Trial Balance** > All Time.
+3. **Verify**: `Owner Drawings` appears in the list.
+4. **Expected**: The `100,000` amount appears in the **Debit** column (as it is a contra-equity balance), NOT the Credit column.
+5. **Verify**: The Grand Total Debit still exactly matches the Grand Total Credit.
+
 ### Test E-9: Print / PDF Export (Read-Only Verification)
 1. Click **"Print Report"**.
 2. **Verify**: Browser print dialog opens.

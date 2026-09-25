@@ -610,8 +610,26 @@ export class ReportService {
       // Filter out zero-balance accounts
       if (netBalance.isZero()) continue;
 
-      const debitCol = isDebitNormal ? netBalance.toFixed(2) : '0.00';
-      const creditCol = isDebitNormal ? '0.00' : netBalance.toFixed(2);
+      let debitCol: string;
+      let creditCol: string;
+
+      if (isDebitNormal) {
+        if (netBalance.gte(0)) {
+          debitCol = netBalance.toFixed(2);
+          creditCol = '0.00';
+        } else {
+          debitCol = '0.00';
+          creditCol = netBalance.abs().toFixed(2);
+        }
+      } else {
+        if (netBalance.gte(0)) {
+          debitCol = '0.00';
+          creditCol = netBalance.toFixed(2);
+        } else {
+          debitCol = netBalance.abs().toFixed(2);
+          creditCol = '0.00';
+        }
+      }
 
       grandTotalDebit = grandTotalDebit.plus(new Decimal(debitCol));
       grandTotalCredit = grandTotalCredit.plus(new Decimal(creditCol));
