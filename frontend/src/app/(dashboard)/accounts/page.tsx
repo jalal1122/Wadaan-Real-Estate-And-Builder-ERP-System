@@ -310,7 +310,7 @@ export default function AccountsPage() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto">
+                <div className="overflow-visible">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
