@@ -15,8 +15,8 @@ This guide provides the complete blueprint for connecting the Next.js frontend (
 | **1 - Accounting** | Screen 1: Chart of Accounts (`/accounts`) | `src/app/(dashboard)/accounts/page.tsx` | ✅ Implemented (v1.4.0) |
 | **1 - Accounting** | Screen 2: General Journal (`/journals`) | `src/app/(dashboard)/journals/page.tsx` | ✅ Implemented (v1.5.0) |
 | **1 - Accounting** | Screen 3: Trial Balance (`/trial-balance`) | `src/app/(dashboard)/trial-balance/page.tsx` | ✅ Implemented (v1.5.0) |
-| **2 - Outflow Engine** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | ✅ Implemented (v2.0.0) |
-| **2 - Outflow Engine** | Screen 5: Expense Bills (`/payables` Tab 1) | `src/app/(dashboard)/payables/page.tsx` | ✅ Implemented (v2.0.0) |
+| **2 - Outflow Engine** | Screen 4: Projects & WIP (`/projects`) | `src/app/(dashboard)/projects/page.tsx` | ✅ Implemented (v1.0) |
+| **2 - Outflow Engine** | Screen 5: Expense Bills (`/payables` Tab 1) | `src/app/(dashboard)/payables/page.tsx` | ✅ Implemented (v1.0) |
 | **2 - Outflow Engine** | Screen 7: Payment Run (`/payables` Tab 2) | `src/app/(dashboard)/payables/page.tsx` | ✅ Implemented (v3.1.0) |
 | **3 - Inflow** | Screen 8: Deals & Customer Hub (`/deals`) | `src/app/(dashboard)/deals/page.tsx` | ✅ Implemented (v3.0.0) |
 | **3 - Inflow** | Screen 9: Receipts & Cheque Room (`/receipts`) | `src/app/(dashboard)/receipts/page.tsx` | ✅ Implemented (v3.0.0) |
