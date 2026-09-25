@@ -35,8 +35,12 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
     <div
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex justify-end"
       data-testid="project-transaction-drawer"
+      onClick={onClose}
     >
-      <div className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+      <div 
+        className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-6 bg-[#0F172A] text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
