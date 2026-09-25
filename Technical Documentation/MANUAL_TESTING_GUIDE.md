@@ -392,8 +392,15 @@ npm run dev --prefix frontend
 3. **Verify**: Shows account code, name, category badge, and current date range.
 4. **Verify**: 4 KPI cards: Opening Balance, Period Debits, Period Credits, Closing Balance — all accurate.
 5. **Verify**: Chronological transaction table with Running Balance column calculated dynamically.
-6. Click outside the drawer.
-7. **Expected**: Drawer closes.
+6. Click the **"Print Export"** (printer icon) button in the top right of the drawer header.
+7. **Verify**: Browser print dialog opens.
+8. **Verify Layout**:
+   - The dark header, backdrop, and footer are hidden.
+   - The Institutional Letterhead ("Wadaan Real Estate & Builders...") is visible at the top.
+   - The KPI cards and chronological transaction table render cleanly on a white background.
+9. Cancel the print dialog.
+10. Click outside the drawer or press Esc.
+11. **Expected**: Drawer closes.
 
 ### Test E-10: Contra-Equity Account in Trial Balance
 1. Navigate to **Module 1b: General Journal** and create a new entry:
