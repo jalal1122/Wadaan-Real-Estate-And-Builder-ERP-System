@@ -14,6 +14,7 @@ import {
   Layers,
   RotateCcw,
   CheckCircle2,
+  Printer,
 } from 'lucide-react';
 
 interface AccountLedgerPanelProps {
@@ -53,21 +54,21 @@ export const AccountLedgerPanel: React.FC<AccountLedgerPanelProps> = ({
     account.category === 'ASSET' || account.category === 'EXPENSE';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-50 overflow-hidden print:static print:h-auto print:overflow-visible">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200 no-print"
         onClick={onClose}
       />
 
       {/* Slide-over panel */}
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 print:static print:p-0 print:w-full print:block">
         <div
           data-testid="account-ledger-panel"
-          className="w-screen max-w-3xl bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between animate-in slide-in-from-right duration-300"
+          className="w-screen max-w-3xl bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between animate-in slide-in-from-right duration-300 print:w-full print:max-w-none print:shadow-none print:border-none print:animate-none"
         >
           {/* Header */}
-          <div className="px-6 py-5 bg-[#0F172A] text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+          <div className="no-print px-6 py-5 bg-[#0F172A] text-white flex items-center justify-between border-b border-slate-800 shrink-0">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700">
@@ -91,6 +92,13 @@ export const AccountLedgerPanel: React.FC<AccountLedgerPanelProps> = ({
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => window.print()}
+                title="Print Export"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors"
+              >
+                <Printer className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => refetch()}
                 disabled={isFetching}
                 title="Refresh Ledger"
@@ -109,7 +117,42 @@ export const AccountLedgerPanel: React.FC<AccountLedgerPanelProps> = ({
           </div>
 
           {/* Main Scrollable Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50 print:overflow-visible print:bg-white print:p-0">
+            
+            {/* PRINT-ONLY INSTITUTIONAL LETTERHEAD */}
+            <div className="print-only mb-6 pb-4 border-b-2 border-slate-800">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-xl font-black tracking-tight text-[#0F172A] uppercase">
+                    Wadaan Real Estate & Builders (Pvt) Ltd.
+                  </h1>
+                  <h2 className="text-base font-bold text-slate-700 mt-0.5">
+                    Account Ledger Report
+                  </h2>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">
+                      {account.accountCode}
+                    </span>
+                    <span className="text-sm font-bold text-slate-800 tracking-tight">
+                      {account.accountName}
+                    </span>
+                    <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-300">
+                      {account.category}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-slate-500 font-mono space-y-1">
+                  <p>
+                    <span className="font-semibold text-slate-700">Period: </span>
+                    {startDate || 'All-Time'} &mdash; {endDate || 'Current'}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Generated: </span>
+                    {new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+            </div>
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* Opening Balance */}
@@ -266,7 +309,7 @@ export const AccountLedgerPanel: React.FC<AccountLedgerPanelProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between shrink-0 text-xs text-slate-600">
+          <div className="no-print px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between shrink-0 text-xs text-slate-600">
             <span>
               Zero-sum balanced Ledger &bull; Standard Double-Entry Accounting
             </span>
