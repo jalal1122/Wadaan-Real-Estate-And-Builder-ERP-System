@@ -19,12 +19,24 @@ import {
 } from 'lucide-react';
 import { useChartOfAccounts } from '@/features/accounting/hooks/useAccounting';
 import { AccountCategory, AccountWithBalance } from '@/features/accounting/types';
+import { TrialBalanceLineItem } from '@/features/reports/types';
 import { formatPKR } from '@/lib/formatters';
 import CreateAccountModal from './_components/CreateAccountModal';
 import EditAccountModal from './_components/EditAccountModal';
 import DeleteAccountDialog from './_components/DeleteAccountDialog';
 import GLNavTabs from '@/components/accounting/GLNavTabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AccountLedgerPanel } from '@/components/accounting/AccountLedgerPanel';
+
+const toTrialBalanceItem = (a: AccountWithBalance): TrialBalanceLineItem => ({
+  accountId: a.id,
+  accountCode: a.accountCode,
+  accountName: a.accountName,
+  category: a.category,
+  totalDebit: a.totalDebit ?? '0',
+  totalCredit: a.totalCredit ?? '0',
+  balance: a.balance ?? '0',
+});
 
 const CATEGORY_ORDER: AccountCategory[] = [
   'ASSET',
@@ -71,6 +83,7 @@ export default function AccountsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountWithBalance | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<AccountWithBalance | null>(null);
+  const [ledgerAccount, setLedgerAccount] = useState<AccountWithBalance | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useChartOfAccounts(fyMode);
@@ -274,7 +287,7 @@ export default function AccountsPage() {
             return (
               <section
                 key={category}
-                className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden"
+                className="bg-white rounded-xl border border-slate-200 shadow-xs"
               >
                 {/* Section Header */}
                 <div className={`px-6 py-3.5 border-b border-slate-200 flex items-center justify-between ${meta.headerClass}`}>
@@ -371,14 +384,16 @@ export default function AccountsPage() {
 
                               {openDropdownId === account.id && (
                                 <div className="absolute right-4 top-10 w-44 bg-white rounded-lg shadow-lg border border-slate-200 z-20 py-1 text-left animate-in fade-in zoom-in-95 duration-100">
-                                  <Link
-                                    href={`/accounts/${account.id}/ledger`}
-                                    onClick={() => setOpenDropdownId(null)}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition"
+                                  <button
+                                    onClick={() => {
+                                      setOpenDropdownId(null);
+                                      setLedgerAccount(account);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition text-left"
                                   >
                                     <FileText className="w-3.5 h-3.5 text-slate-400" />
                                     <span>View Ledger</span>
-                                  </Link>
+                                  </button>
                                   <button
                                     onClick={() => {
                                       setOpenDropdownId(null);
@@ -459,6 +474,12 @@ export default function AccountsPage() {
         account={deletingAccount}
         isOpen={!!deletingAccount}
         onClose={() => setDeletingAccount(null)}
+      />
+
+      {/* ACCOUNT LEDGER DRAWER */}
+      <AccountLedgerPanel
+        account={ledgerAccount ? toTrialBalanceItem(ledgerAccount) : null}
+        onClose={() => setLedgerAccount(null)}
       />
     </div>
   );
