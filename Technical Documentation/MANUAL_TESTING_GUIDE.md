@@ -379,8 +379,8 @@ npm run dev --prefix frontend
 - **Verify**: Accounts with zero net balance (e.g., accounts with no transactions) do not appear in the trial balance table (zero-balance filtering active).
 
 ### Test E-7: Search Filter
-1. Type `1030` in the search bar.
-2. **Expected**: Only `1030-01 HBL Operations` account row is visible.
+1. Type `1020` in the search bar.
+2. **Expected**: Only `1020-01 HBL Operations` account row is visible.
 3. Type `Equity`.
 4. **Expected**: Only Equity accounts visible.
 5. Clear search.
