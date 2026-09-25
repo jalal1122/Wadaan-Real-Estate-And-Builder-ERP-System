@@ -32,14 +32,18 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
   const transactions = data?.transactions || [];
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex justify-end"
-      data-testid="project-transaction-drawer"
-      onPointerDown={onClose}
-    >
+    <>
+      {/* Backdrop */}
       <div 
-        className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
-        onPointerDown={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs transition-opacity" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      
+      {/* Drawer Panel */}
+      <div 
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-4xl bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
+        data-testid="project-transaction-drawer"
       >
         {/* Header */}
         <div className="p-6 bg-[#0F172A] text-white flex items-center justify-between">
@@ -217,6 +221,6 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 };
