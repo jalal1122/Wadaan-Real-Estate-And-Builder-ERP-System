@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import { useCustomer, useApplyCustomerWallet } from '@/features/customers/hooks/useCustomers';
+import { useRemoveCoClient } from '@/features/deals/hooks/useDeals';
+import { AddCoClientModal } from '@/features/deals/_components/AddCoClientModal';
+import { Deal } from '@/features/deals/types';
 import { formatPKR, formatDate, isInvoiceOverdue, getDaysOverdue } from '@/lib/format';
 import {
   X,
@@ -16,6 +19,9 @@ import {
   FileText,
   Building2,
   Sparkles,
+  Users,
+  UserPlus,
+  Trash2,
 } from 'lucide-react';
 
 interface CustomerKhaataDrawerProps {
@@ -29,24 +35,47 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
 }) => {
   const { data: customer, isLoading, isError } = useCustomer(customerId);
   const applyWalletMutation = useApplyCustomerWallet();
+  const removeCoClientMutation = useRemoveCoClient();
 
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
   const [applyAmount, setApplyAmount] = useState<string>('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  // Co-Client Modal & Management State
+  const [coClientDeal, setCoClientDeal] = useState<Deal | null>(null);
+  const [isAddCoClientOpen, setIsAddCoClientOpen] = useState<boolean>(false);
+  const [coClientError, setCoClientError] = useState<string | null>(null);
+
   React.useEffect(() => {
     setSelectedInvoiceId('');
     setApplyAmount('');
     setActionError(null);
     setActionSuccess(null);
+    setCoClientDeal(null);
+    setIsAddCoClientOpen(false);
+    setCoClientError(null);
   }, [customerId]);
+
+  const handleRemoveCoClient = async (dealId: string, clientId: string, name?: string) => {
+    if (!window.confirm(`Are you sure you want to remove ${name || 'this co-client'} from this contract?`)) {
+      return;
+    }
+    setCoClientError(null);
+    try {
+      await removeCoClientMutation.mutateAsync({ dealId, clientId });
+    } catch (err: any) {
+      setCoClientError(
+        err?.response?.data?.message || err?.message || 'Failed to remove co-client'
+      );
+    }
+  };
 
   if (!customerId) return null;
 
   const walletBalance = Number(customer?.walletBalance) || 0;
 
-  // Find all unpaid or partially paid invoices across this customer's deals
+  // Find all unpaid or partially paid invoices across this customer's deals (including co-client deals)
   const eligibleInvoices: Array<{
     id: string;
     description: string;
@@ -54,6 +83,8 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
     totalAmount: number;
     dealType: string;
     dueDate: string;
+    isCoClientDeal: boolean;
+    shareLabel?: string | null;
   }> = [];
 
   customer?.deals?.forEach((deal) => {
@@ -69,6 +100,8 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
           totalAmount: totalAmt,
           dealType: deal.dealType,
           dueDate: inv.dueDate,
+          isCoClientDeal: deal.isPrimary === false,
+          shareLabel: deal.shareLabel,
         });
       }
     });
@@ -261,6 +294,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                         <option value="">Select Invoice / Installment</option>
                         {eligibleInvoices.map((inv) => (
                           <option key={inv.id} value={inv.id}>
+                            {inv.isCoClientDeal ? `[Co-Buyer${inv.shareLabel ? `: ${inv.shareLabel}` : ''}] ` : ''}
                             {inv.description} (Remaining: {formatPKR(inv.amount)}) - Due {formatDate(inv.dueDate)}
                           </option>
                         ))}
@@ -317,6 +351,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                   <div className="space-y-3">
                     {customer.deals?.map((deal) => {
                       const dealHasOverdue = deal.invoices?.some((i) => isInvoiceOverdue(i.dueDate, i.paymentStatus));
+                      const isCoDeal = deal.isPrimary === false;
 
                       return (
                         <div
@@ -325,6 +360,29 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                             dealHasOverdue ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'
                           }`}
                         >
+                          {/* Co-Client Contract Header Badge if applicable */}
+                          {isCoDeal && (
+                            <div
+                              className="flex items-center justify-between px-3 py-1.5 bg-amber-50 text-amber-900 text-xs font-medium rounded-lg border border-amber-200"
+                              data-testid={`coclient-contract-badge-${deal.id}`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span className="font-semibold">Co-Client Contract</span>
+                                {deal.shareLabel && (
+                                  <span className="font-mono px-1 py-0.2 bg-amber-100 text-amber-800 rounded text-[11px]">
+                                    {deal.shareLabel}
+                                  </span>
+                                )}
+                              </div>
+                              {deal.primaryCustomer && (
+                                <span className="text-amber-700 text-[11px]">
+                                  Primary: <span className="font-semibold">{deal.primaryCustomer.fullName}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {getDealBadge(deal.dealType)}
@@ -399,6 +457,82 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                             </div>
                           )}
 
+                          {/* Co-Clients / Co-Buyers Panel */}
+                          <div
+                            className="bg-slate-50/80 border border-slate-200/70 rounded-lg p-3 text-xs space-y-2"
+                            data-testid={`deal-coclient-section-${deal.id}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                                <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Co-Clients & Partners ({deal.coClients?.length || 0})</span>
+                              </div>
+                              {!isCoDeal && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCoClientDeal(deal);
+                                    setIsAddCoClientOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-colors cursor-pointer"
+                                  data-testid={`open-add-coclient-btn-${deal.id}`}
+                                >
+                                  <UserPlus className="w-3 h-3" />
+                                  Add Co-Client
+                                </button>
+                              )}
+                            </div>
+
+                            {deal.coClients && deal.coClients.length > 0 ? (
+                              <div className="space-y-1.5 pt-1">
+                                {deal.coClients.map((cc) => (
+                                  <div
+                                    key={cc.id}
+                                    className="flex items-center justify-between p-2 rounded-md bg-white border border-slate-200/60 shadow-2xs"
+                                    data-testid={`coclient-row-${cc.id}`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-[10px] shrink-0">
+                                        {cc.customer?.fullName?.charAt(0) || 'C'}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 truncate">
+                                          <span className="font-semibold text-slate-800 truncate">
+                                            {cc.customer?.fullName}
+                                          </span>
+                                          {cc.shareLabel && (
+                                            <span className="px-1.5 py-0.2 text-[9px] font-mono font-medium bg-emerald-50 text-emerald-700 rounded border border-emerald-200 shrink-0">
+                                              {cc.shareLabel}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">
+                                          {cc.customer?.phone || 'No phone'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {!isCoDeal && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveCoClient(deal.id, cc.id, cc.customer?.fullName)}
+                                        disabled={removeCoClientMutation.isPending}
+                                        className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer shrink-0"
+                                        title="Remove Co-Client"
+                                        data-testid={`remove-coclient-btn-${cc.id}`}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 italic">
+                                No co-buyers registered. Single-client contract.
+                              </p>
+                            )}
+                          </div>
+
                           {/* Invoices Timeline */}
                           <div className="space-y-1.5 pt-1">
                             <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -432,6 +566,14 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                                         Due: {formatDate(inv.dueDate)}
                                         {isOverdue && ` (${daysOverdue > 0 ? `${daysOverdue}d overdue` : 'Overdue'})`}
                                       </span>
+                                      {inv.receipt?.customer && (
+                                        <>
+                                          <span className="text-slate-300">•</span>
+                                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 font-medium">
+                                            Paid by: {inv.receipt.customer.fullName}
+                                          </span>
+                                        </>
+                                      )}
                                       {isPartial && paidAmt > 0 && (
                                         <>
                                           <span className="text-slate-300">•</span>
@@ -519,6 +661,11 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                           <div className="text-[11px] text-slate-400 mt-0.5">
                             {formatDate(rcpt.receiptDate)}
                             {rcpt.bankRefNumber ? ` • Ref: ${rcpt.bankRefNumber}` : ''}
+                            {rcpt.customer && rcpt.customer.id !== customer.id && (
+                              <span className="ml-1 text-emerald-600 font-medium">
+                                • Paid by {rcpt.customer.fullName}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -530,6 +677,20 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Add Co-Client Modal */}
+      {coClientDeal && (
+        <AddCoClientModal
+          dealId={coClientDeal.id}
+          primaryCustomerId={coClientDeal.customerId}
+          existingCoClientIds={coClientDeal.coClients?.map((c) => c.customerId) || []}
+          isOpen={isAddCoClientOpen}
+          onClose={() => {
+            setIsAddCoClientOpen(false);
+            setCoClientDeal(null);
+          }}
+        />
+      )}
     </div>
   );
 };

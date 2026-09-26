@@ -15,6 +15,7 @@ import {
   Layers,
   AlertCircle,
   AlertTriangle,
+  Users,
 } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton';
 
@@ -260,6 +261,18 @@ export const DealTable: React.FC<DealTableProps> = ({
                           </span>
                         )}
                       </div>
+                      {deal.coClients && deal.coClients.length > 0 && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200"
+                            title={`Co-clients: ${deal.coClients.map((c) => c.customer?.fullName).join(', ')}`}
+                            data-testid={`coclient-badge-${deal.id}`}
+                          >
+                            <Users className="w-2.5 h-2.5 text-emerald-600" />
+                            +{deal.coClients.length} co-client{deal.coClients.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Deal Type Badge */}

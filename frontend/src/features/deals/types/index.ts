@@ -85,6 +85,13 @@ export interface Deal {
   project?: DealProject | null;
   invoices: DealInvoice[];
   coClients?: DealClientEntry[];
+  isPrimary?: boolean;
+  shareLabel?: string | null;
+  primaryCustomer?: {
+    id: string;
+    fullName: string;
+    phone?: string;
+  } | null;
 }
 
 

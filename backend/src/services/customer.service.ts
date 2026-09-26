@@ -32,7 +32,32 @@ export class CustomerService {
         deals: {
           include: {
             invoices: {
+              include: {
+                receipt: {
+                  include: {
+                    customer: {
+                      select: {
+                        id: true,
+                        fullName: true,
+                        phone: true
+                      }
+                    }
+                  }
+                }
+              },
               orderBy: { dueDate: 'asc' }
+            },
+            coClients: {
+              include: {
+                customer: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    phone: true,
+                    walletBalance: true
+                  }
+                }
+              }
             },
             project: {
               include: {
@@ -42,9 +67,64 @@ export class CustomerService {
           },
           orderBy: { createdAt: 'desc' }
         },
+        dealClients: {
+          include: {
+            deal: {
+              include: {
+                customer: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    phone: true
+                  }
+                },
+                invoices: {
+                  include: {
+                    receipt: {
+                      include: {
+                        customer: {
+                          select: {
+                            id: true,
+                            fullName: true,
+                            phone: true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  orderBy: { dueDate: 'asc' }
+                },
+                coClients: {
+                  include: {
+                    customer: {
+                      select: {
+                        id: true,
+                        fullName: true,
+                        phone: true,
+                        walletBalance: true
+                      }
+                    }
+                  }
+                },
+                project: {
+                  include: {
+                    expenseBills: true
+                  }
+                }
+              }
+            }
+          }
+        },
         receipts: {
           include: {
-            invoices: true
+            invoices: true,
+            customer: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true
+              }
+            }
           },
           orderBy: { receiptDate: 'desc' }
         }
@@ -55,16 +135,16 @@ export class CustomerService {
       throw new AppError(`Customer with ID '${id}' not found`, 404, 'CUSTOMER_NOT_FOUND');
     }
 
-    const dealsWithPending = customer.deals.map((deal) => {
+    const formatDeal = (deal: any, isPrimary: boolean, shareLabel?: string | null, primaryCustomer?: any) => {
       const pendingBalance = deal.invoices
-        .filter((inv) => inv.paymentStatus !== 'PAID')
-        .reduce((sum, inv) => {
+        .filter((inv: any) => inv.paymentStatus !== 'PAID')
+        .reduce((sum: Decimal, inv: any) => {
           const invPaid = new Decimal(inv.paidAmount || 0);
           const remaining = new Decimal(inv.amount).minus(invPaid);
           return sum.plus(remaining.greaterThan(0) ? remaining : 0);
         }, new Decimal(0));
 
-      const totalCollected = deal.invoices.reduce((sum, inv) => {
+      const totalCollected = deal.invoices.reduce((sum: Decimal, inv: any) => {
         const invPaid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
         return sum.plus(invPaid);
       }, new Decimal(0));
@@ -72,7 +152,7 @@ export class CustomerService {
       let spentOnSite = new Decimal(0);
       if (deal.project && deal.project.expenseBills) {
         spentOnSite = deal.project.expenseBills.reduce(
-          (sum, b) => sum.plus(new Decimal(b.grandTotal)),
+          (sum: Decimal, b: any) => sum.plus(new Decimal(b.grandTotal)),
           new Decimal(0)
         );
       }
@@ -81,16 +161,26 @@ export class CustomerService {
 
       return {
         ...deal,
+        isPrimary,
+        shareLabel: shareLabel || null,
+        primaryCustomer: primaryCustomer || null,
         pendingBalance,
         totalCollected,
         spentOnSite,
         netMargin
       };
-    });
+    };
+
+    const primaryDeals = customer.deals.map((deal) => formatDeal(deal, true));
+    const coDeals = (customer.dealClients || [])
+      .filter((dc) => !customer.deals.some((d) => d.id === dc.deal.id))
+      .map((dc) => formatDeal(dc.deal, false, dc.shareLabel, dc.deal.customer));
+
+    const allCustomerDeals = [...primaryDeals, ...coDeals];
 
     return {
       ...customer,
-      deals: dealsWithPending
+      deals: allCustomerDeals
     };
   }
 
