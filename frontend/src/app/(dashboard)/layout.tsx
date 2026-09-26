@@ -10,16 +10,16 @@ export default function DashboardRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser, isLoadingUser } = useAuth();
+  const { currentUser, isLoadingUser, isFetchingUser } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoadingUser && !currentUser) {
+    if (!isLoadingUser && !isFetchingUser && !currentUser) {
       router.replace('/login');
     }
-  }, [isLoadingUser, currentUser, router]);
+  }, [isLoadingUser, isFetchingUser, currentUser, router]);
 
-  if (isLoadingUser) {
+  if (!currentUser && (isLoadingUser || isFetchingUser)) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center space-y-4">
         <div className="w-8 h-8 border-3 border-slate-200 border-t-[#059669] rounded-full animate-spin" />

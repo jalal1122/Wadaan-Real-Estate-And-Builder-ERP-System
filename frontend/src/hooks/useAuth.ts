@@ -77,6 +77,7 @@ export function useAuth() {
   return {
     currentUser: currentUserQuery.data,
     isLoadingUser: currentUserQuery.isLoading,
+    isFetchingUser: currentUserQuery.isFetching,
     login: loginMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     loginError: loginMutation.error as ApiErrorPayload | null,
