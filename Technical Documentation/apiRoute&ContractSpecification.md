@@ -43,7 +43,10 @@ GET /api/v1/auth/me
 Purpose: Called by Next.js on startup to validate the persistent session.
 
 
-Access: Protected.
+Access: Protected (authGuard).
+
+
+Response: { success: true, data: { id: string, email: string, fullName: string } }
 
 
 POST /api/v1/auth/forgot-password

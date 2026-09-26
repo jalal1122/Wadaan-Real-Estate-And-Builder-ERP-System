@@ -260,10 +260,14 @@ Call this inside your root layout or React AuthContext to verify persistent logi
 
 ```typescript
 export const checkCurrentUser = async () => {
-  const response = await apiClient.get('/auth/me');
-  return response.data.data; // { userId: "..." }
+  const response = await apiClient.get<ApiResponse<UserContext>>('/auth/me');
+  return response.data.data; // { id: "...", email: "...", fullName: "..." }
 };
 ```
+
+> **Cache Integrity & Race Prevention:**
+> On successful login, the client must directly populate the `['auth', 'me']` cache key via `queryClient.setQueryData(['auth', 'me'], response.data.data)` instead of relying on a post-mutation cache invalidation. This guarantees that dashboard route guards immediately see an authenticated `currentUser` during route transitions and eliminates flash redirects back to `/login`.
+> Route guards also evaluate `isFetchingUser` alongside `isLoadingUser` when `currentUser` is null to display the verification spinner while active network verification is ongoing.
 
 ### 4.4 Password / PIN Recovery & Master Key Bypass
 
