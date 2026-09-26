@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ProjectTransactionDrawer } from './ProjectTransactionDrawer';
 
 let mockTransactionsData: any = null;
@@ -12,6 +12,41 @@ vi.mock('@/features/projects/hooks/useProjects', () => ({
     data: mockTransactionsData,
     isLoading: mockIsLoading,
     isError: mockIsError,
+    refetch: vi.fn(),
+  }),
+  useProjectReport: () => ({
+    data: {
+      project: {
+        id: 'proj-1',
+        projectName: 'Wadaan Heights',
+        projectPrefix: 'WH',
+        status: 'ACTIVE',
+        masterBOQ: 10000000,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+      summary: {
+        totalSpentWIP: 200000,
+        totalReceivedFromClients: 500000,
+        netCashMargin: 300000,
+        budgetVariance: 9800000,
+        isOverBudget: false,
+        budgetBurnPct: 2,
+        totalVendorBillCount: 1,
+        totalInvoiceCount: 1,
+      },
+      clientReceipts: [],
+      grandTotalFromClients: 500000,
+      vendorExpenses: [],
+      grandTotalToVendors: 200000,
+      glSummary: {
+        totalDebit: 200000,
+        totalCredit: 0,
+        netBalance: 200000,
+      },
+      glTransactions: [],
+    },
+    isLoading: false,
+    isError: false,
     refetch: vi.fn(),
   }),
 }));
@@ -83,4 +118,24 @@ describe('ProjectTransactionDrawer', () => {
 
     expect(screen.getByTestId('project-transactions-skeleton')).toBeInTheDocument();
   });
+
+  it('renders Print Report button in header', () => {
+    render(
+      <ProjectTransactionDrawer projectId="proj-1" onClose={vi.fn()} />
+    );
+
+    expect(screen.getByTestId('print-project-report-btn')).toBeInTheDocument();
+  });
+
+  it('clicking Print Report button opens ProjectReportModal', () => {
+    render(
+      <ProjectTransactionDrawer projectId="proj-1" onClose={vi.fn()} />
+    );
+
+    const printBtn = screen.getByTestId('print-project-report-btn');
+    fireEvent.click(printBtn);
+
+    expect(screen.getByTestId('project-report-modal')).toBeInTheDocument();
+  });
 });
+
