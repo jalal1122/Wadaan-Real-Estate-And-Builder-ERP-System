@@ -84,4 +84,43 @@ describe('CustomerKhaataDrawer Component', () => {
     expect(screen.getByTestId('apply-advance-form')).toBeInTheDocument();
     expect(screen.queryByTestId('zero-advance-notice')).toBeNull();
   });
+
+  it('highlights overdue installment milestones with bright red styling and Overdue badge', () => {
+    mockCustomerData = {
+      id: 'cust-1',
+      fullName: 'Chaudhry Aslam',
+      phone: '0300-5554433',
+      walletBalance: 0,
+      deals: [
+        {
+          id: 'deal-overdue-1',
+          dealType: 'BROKERAGE',
+          totalValue: 20000000,
+          pendingBalance: 20000000,
+          createdAt: '2026-09-20T00:00:00Z',
+          invoices: [
+            {
+              id: 'inv-past-due',
+              description: 'Full Contract Lump Sum',
+              amount: 20000000,
+              dueDate: '2026-09-20T00:00:00Z',
+              paymentStatus: 'UNPAID',
+            },
+          ],
+        },
+      ],
+      receipts: [],
+    };
+
+    render(<CustomerKhaataDrawer customerId="cust-1" onClose={vi.fn()} />);
+
+    // Verify the milestone container has red alert background
+    const milestoneItem = screen.getByTestId('milestone-item-inv-past-due');
+    expect(milestoneItem).toBeInTheDocument();
+    expect(milestoneItem.className).toContain('bg-red-50');
+
+    // Verify Overdue badge and text
+    expect(screen.getByText('Overdue')).toBeInTheDocument();
+    expect(screen.getByText(/Due: 20 Sept 2026/i)).toBeInTheDocument();
+  });
 });

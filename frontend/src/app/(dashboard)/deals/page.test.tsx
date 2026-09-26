@@ -400,4 +400,47 @@ describe('Screen 8: Deal Hub & Customer Portfolio (DealHubPage)', () => {
     const reopenedSelect = screen.getByRole('combobox');
     expect((reopenedSelect as HTMLSelectElement).value).toBe('');
   });
+
+  it('13. DealTable highlights overdue deal rows and milestones with bright red alerts', () => {
+    const dealsWithOverdue = [
+      {
+        id: 'deal-overdue-12345',
+        customerId: 'cust-1',
+        dealType: 'BROKERAGE',
+        totalValue: 20000000,
+        pendingBalance: 20000000,
+        createdAt: '2026-09-20T00:00:00.000Z',
+        customer: mockCustomers[0],
+        project: null,
+        invoices: [
+          {
+            id: 'inv-od-1',
+            dealId: 'deal-overdue-12345',
+            description: 'Full Contract Lump Sum',
+            amount: 20000000,
+            dueDate: '2026-09-20T00:00:00.000Z',
+            paymentStatus: 'UNPAID',
+          },
+        ],
+      },
+    ];
+
+    render(
+      <DealTable
+        deals={dealsWithOverdue as any}
+        onSelectCustomer={vi.fn()}
+        onTransferDeal={vi.fn()}
+      />
+    );
+
+    // Verify row has red alert background
+    const row = screen.getByTestId('deal-row-deal-overdue-12345');
+    expect(row).toBeInTheDocument();
+    expect(row.className).toContain('bg-red-50/40');
+    expect(row.className).toContain('border-l-red-500');
+
+    // Verify overdue badges
+    expect(screen.getAllByText(/Overdue/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('1 Overdue')).toBeInTheDocument();
+  });
 });
