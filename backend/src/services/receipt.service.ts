@@ -40,9 +40,24 @@ export class ReceiptService {
           }
 
           for (const inv of invoices) {
-            if (inv.deal.customerId !== data.customerId) {
+            let isAllowedPayer = inv.deal.customerId === data.customerId;
+            if (!isAllowedPayer) {
+              const isCoClient = await tx.dealClient.findUnique({
+                where: {
+                  dealId_customerId: {
+                    dealId: inv.dealId,
+                    customerId: data.customerId
+                  }
+                }
+              });
+              if (isCoClient) {
+                isAllowedPayer = true;
+              }
+            }
+
+            if (!isAllowedPayer) {
               throw new AppError(
-                `Invoice '${inv.description}' does not belong to customer '${customer.fullName}'`,
+                `Customer '${customer.fullName}' is not the primary owner or a registered co-client on this deal`,
                 400,
                 'INVOICE_CUSTOMER_MISMATCH'
               );

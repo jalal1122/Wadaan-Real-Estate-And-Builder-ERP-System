@@ -91,8 +91,23 @@ export class WalletManager {
       throw new AppError(`Invoice with ID '${invoiceId}' not found`, 404, 'INVOICE_NOT_FOUND');
     }
 
-    if (invoice.deal.customerId !== customerId) {
-      throw new AppError('Invoice does not belong to the specified customer', 400, 'CUSTOMER_MISMATCH');
+    let isAllowedWalletPayer = invoice.deal.customerId === customerId;
+    if (!isAllowedWalletPayer) {
+      const isCoClient = await tx.dealClient.findUnique({
+        where: {
+          dealId_customerId: {
+            dealId: invoice.dealId,
+            customerId
+          }
+        }
+      });
+      if (isCoClient) {
+        isAllowedWalletPayer = true;
+      }
+    }
+
+    if (!isAllowedWalletPayer) {
+      throw new AppError('Invoice does not belong to the specified customer or registered co-client on this deal', 400, 'CUSTOMER_MISMATCH');
     }
 
     if (invoice.paymentStatus === 'PAID') {
