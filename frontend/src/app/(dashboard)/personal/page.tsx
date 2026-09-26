@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { usePersonalContacts } from '@/features/personal/hooks/usePersonal';
+import { usePersonalContacts, useDeleteContact } from '@/features/personal/hooks/usePersonal';
 import { CreateContactModal } from '@/features/personal/components/CreateContactModal';
+import { EditContactModal } from '@/features/personal/components/EditContactModal';
 import { PersonalContactDetailDrawer } from '@/features/personal/components/PersonalContactDetailDrawer';
+import { PersonalContactSummary } from '@/features/personal/types';
 import { formatPKR } from '@/lib/format';
 import {
   UserRound,
@@ -17,16 +19,30 @@ import {
   ChevronRight,
   AlertCircle,
   Sparkles,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 type FilterTab = 'ALL' | 'RECEIVABLE' | 'PAYABLE' | 'SETTLED';
 
 export default function PersonalLedgerPage() {
   const { data, isLoading, isError, refetch } = usePersonalContacts();
+  const deleteContactMutation = useDeleteContact();
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<PersonalContactSummary | null>(null);
+
+  const handleDeleteContact = async (contact: PersonalContactSummary) => {
+    if (
+      confirm(
+        `Delete "${contact.name}" and ALL their loans and repayment history? This cannot be undone.`
+      )
+    ) {
+      await deleteContactMutation.mutateAsync(contact.id);
+    }
+  };
 
   const kpi = data?.kpi;
   const contacts = data?.contacts || [];
@@ -271,8 +287,8 @@ export default function PersonalLedgerPage() {
               >
                 {/* Header Row */}
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-bold text-slate-900 text-base leading-tight">
                         {contact.name}
                       </h3>
@@ -289,9 +305,31 @@ export default function PersonalLedgerPage() {
                       </div>
                     )}
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    {contact.activeLoansCount} active
-                  </span>
+                  {/* Per-card actions: active count + edit + delete */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[11px] font-semibold text-slate-400 mr-1">
+                      {contact.activeLoansCount} active
+                    </span>
+                    <button
+                      type="button"
+                      id={`edit-contact-${contact.id}`}
+                      onClick={(e) => { e.stopPropagation(); setEditTarget(contact); }}
+                      className="p-1 text-slate-400 hover:text-[#0F172A] rounded-md hover:bg-slate-100 transition-colors"
+                      title="Edit contact"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      id={`delete-contact-${contact.id}`}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteContact(contact); }}
+                      disabled={deleteContactMutation.isPending}
+                      className="p-1 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors disabled:opacity-40"
+                      title="Delete contact"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Balance Metrics */}
@@ -353,10 +391,17 @@ export default function PersonalLedgerPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create Contact Modal */}
       <CreateContactModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+      />
+
+      {/* Edit Contact Modal */}
+      <EditContactModal
+        isOpen={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        contact={editTarget}
       />
 
       {/* Contact Detail Slide-Over Drawer */}

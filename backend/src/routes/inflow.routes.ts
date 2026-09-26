@@ -6,7 +6,11 @@ import {
   createDeal,
   getDeals,
   getDealById,
-  transferFile
+  transferFile,
+  getDealCoClients,
+  addDealCoClient,
+  updateDealCoClient,
+  removeDealCoClient
 } from '../controllers/deal.controller';
 import {
   receivePayment,
@@ -34,6 +38,13 @@ router.get('/deals', getDeals);
 router.post('/deals', createDeal);
 router.get('/deals/:id', getDealById);
 router.post('/deals/:dealId/transfer', transferFile);
+
+// Multi-Client / Co-Clients Endpoints
+router.get('/deals/:id/clients', getDealCoClients);
+router.post('/deals/:id/clients', addDealCoClient);
+router.patch('/deals/:id/clients/:clientId', updateDealCoClient);
+router.delete('/deals/:id/clients/:clientId', removeDealCoClient);
+
 
 // -------------------------------------------------------------
 // Screen 9: Receipts & Cheque Waiting Room

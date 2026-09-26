@@ -21,6 +21,11 @@ export interface DealInvoice {
     bankRefNumber: string | null;
     clearanceStatus: string;
     receiptDate: string;
+    customer?: {
+      id: string;
+      fullName: string;
+      phone?: string;
+    } | null;
   } | null;
 }
 
@@ -42,6 +47,29 @@ export interface DealProject {
   spentToDate?: string | number;
 }
 
+export interface DealClientEntry {
+  id: string;
+  dealId: string;
+  customerId: string;
+  shareLabel?: string | null;
+  addedAt: string;
+  customer: {
+    id: string;
+    fullName: string;
+    phone: string;
+    walletBalance?: string | number | null;
+  };
+}
+
+export interface AddCoClientPayload {
+  customerId: string;
+  shareLabel?: string | null;
+}
+
+export interface UpdateCoClientPayload {
+  shareLabel?: string | null;
+}
+
 export interface Deal {
   id: string;
   customerId: string;
@@ -57,7 +85,16 @@ export interface Deal {
   customer: DealCustomer;
   project?: DealProject | null;
   invoices: DealInvoice[];
+  coClients?: DealClientEntry[];
+  isPrimary?: boolean;
+  shareLabel?: string | null;
+  primaryCustomer?: {
+    id: string;
+    fullName: string;
+    phone?: string;
+  } | null;
 }
+
 
 export interface CreateDealInvoiceInput {
   description: string;

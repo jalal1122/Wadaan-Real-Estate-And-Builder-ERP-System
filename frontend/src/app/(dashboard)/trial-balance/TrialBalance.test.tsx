@@ -49,8 +49,10 @@ describe('TrialBalancePage Component', () => {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth();
-    const expectedStart = new Date(y, m, 1).toISOString().split('T')[0];
-    const expectedEnd = new Date(y, m + 1, 0).toISOString().split('T')[0];
+    const toDateStr = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const expectedStart = toDateStr(new Date(y, m, 1));
+    const expectedEnd = toDateStr(new Date(y, m + 1, 0));
 
     expect(mockUseTrialBalance).toHaveBeenCalledWith(expectedStart, expectedEnd);
   });

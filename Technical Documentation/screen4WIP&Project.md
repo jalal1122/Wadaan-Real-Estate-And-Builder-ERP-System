@@ -59,4 +59,40 @@ When Wadaan builds a house or commercial plaza on behalf of a private client (Ro
   - **Positive Margin (Green)**: Wadaan is cash-flow positive on this construction job (client payments exceed site expenses to date).
   - **Negative Margin (Red)**: Site expenses have temporarily outpaced client collections, signaling management to bill the upcoming milestone installment immediately.
 
+---
+
+### 7. Project Financial & Audit Report (`ProjectReportModal`)
+
+Every project card and the GL Transaction Drawer expose a **"Print Report"** action. Clicking it opens the `ProjectReportModal` which compiles a complete printable project dossier:
+
+- **Institutional Header**: Wadaan Real Estate & Builders letterhead, project name, prefix, operational status, start date, and report timestamp.
+- **Executive Financial Summary**:
+  - Approved Master BOQ.
+  - Total Spent (WIP) and budget burn percentage (with budget overrun warnings).
+  - Total Received from Clients across all client deals.
+  - Net Cash Margin (`Total Received - Total Spent`), indicating whether the project is cash-flow positive or running a deficit.
+  - Budget Variance / remaining envelope.
+- **Client Receipts Breakdown**:
+  - Breakdown per client contract (supporting multiple clients and co-client payments).
+  - Contract Value, Total Paid, and Total Pending per client.
+  - Detailed payment ledger: Milestone / Description, Due Date, Receipt Date, Paid Amount, Payment Status, Payment Method, Bank Ref #, and actual payer name (`Receipt.customer.fullName`).
+  - Grand total received from all clients combined.
+- **Vendor Expenses & Subcontractors**:
+  - Breakdown per vendor.
+  - Total Billed, Total Paid, and Total Pending per vendor.
+  - Itemized bills table: Invoice #, Bill Date, Line Items description & quantities, Grand Total, and Payment Status.
+  - Grand total billed/spent across all vendors combined.
+- **General Ledger Audit Trail**:
+  - Chronological double-entry journal postings tagged to this project cost center.
+  - Dr / Cr summary and running balance.
+- **Institutional Signatures Block**:
+  - Formal signature lines for Site Manager / Project Engineer, Finance Controller, and Managing Director Approval.
+- **Print & PDF Optimization**:
+  - A dedicated "Print / Export PDF" button triggers `window.print()`.
+  - Scoped `@media print` rules hide modal chrome and application shell while maintaining clean typography and table page-break rules.
+
+**Backend API Contract**:
+- `GET /api/v1/projects/:id/report`
+
+
 

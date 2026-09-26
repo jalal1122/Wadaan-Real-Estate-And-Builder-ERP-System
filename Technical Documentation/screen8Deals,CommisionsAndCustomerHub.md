@@ -80,5 +80,20 @@ Screen 8 perfectly organizes all your revenue streams, client debt, and middlema
   - **Site Spent (WIP)**: Aggregated vendor expense bills charged to this project site.
   - **Net Cash Margin**: Real-time margin (`Client Paid - Site Spent`), highlighted in green when profitable or red when expenditures temporarily exceed collections.
 
+### Multi-Client Deals & Co-Buyer Partner Management (v3.5.0)
+- **Multi-Client Architecture**: A contract agreement can register one or more co-clients/co-buyers alongside the primary billing owner via the `DealClient` join table (`dealId`, `customerId`, `shareLabel`).
+- **Co-Clients Panel**: Located within each deal card in `CustomerKhaataDrawer`, showing all registered partners, their share descriptions (e.g. `50% Co-Investor`, `Partner`), and a `+ Add Co-Client` button opening `AddCoClientModal`.
+- **Multi-Payer Receipts**: Any registered co-client can pay milestone invoices directly via Fast Inflow (`POST /api/v1/receipts`) without triggering `INVOICE_CUSTOMER_MISMATCH`.
+- **Strict Overpayment Attribution**: When a co-client overpays, excess funds route strictly into that co-client's own advance wallet (`Customer.walletBalance`), NOT the primary client's wallet, keeping partner liabilities clean.
+- **Cross-Contract Wallet Consumption**: Co-clients can apply their advance wallet balance to unpaid milestones on any contract where they are a registered co-buyer.
+- **Co-Client Khaata Access (v3.5.1)**: In `DealTable`, each co-client is rendered as an **individual amber-styled clickable button** below the primary client cell. Clicking a co-client button opens the `CustomerKhaataDrawer` scoped to **that co-client's ID**, giving full access to their wallet balance and advance release form. If a co-client has a pending advance balance, it is shown inline on the button (e.g. `• Adv: Rs 500,000`) for immediate visibility. The `DealClient.customer` select in both `getAllDeals` and `getDealById` includes `walletBalance` to enable this display.
+- **Co-Client Advance Release Flow**:
+  1. User sees co-client button under a deal row (amber color, showing name, share label, and any pending advance).
+  2. User clicks the co-client's button → `CustomerKhaataDrawer` opens for that co-client.
+  3. Drawer shows their wallet balance and all deals where they are a participant (primary or co-buyer).
+  4. User selects the invoice and applies the advance via `POST /customers/:coClientId/apply-wallet`.
+
+
+
 
 

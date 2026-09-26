@@ -4,9 +4,10 @@ import {
   fetchProjectById,
   createProject,
   updateProjectStatus,
-  fetchProjectTransactions
+  fetchProjectTransactions,
+  fetchProjectReport
 } from '../api/projectApi';
-import { ProjectItem, CreateProjectPayload, ProjectStatus, ProjectTransactionsResponse } from '../types';
+import { ProjectItem, CreateProjectPayload, ProjectStatus, ProjectTransactionsResponse, ProjectReportResponse } from '../types';
 
 /**
  * Hook to fetch active projects and budget burn status for dashboard monitoring.
@@ -45,6 +46,19 @@ export const useProjectTransactions = (id: string | null | undefined) => {
 };
 
 /**
+ * Hook to fetch comprehensive project report (receipts, vendor expenses, GL audit).
+ */
+export const useProjectReport = (id: string | null | undefined) => {
+  return useQuery<ProjectReportResponse, Error>({
+    queryKey: ['projects', id, 'report'],
+    queryFn: () => fetchProjectReport(id!),
+    enabled: !!id,
+    retry: false,
+    staleTime: 1000 * 30, // 30 seconds
+  });
+};
+
+/**
  * Hook to create a new project.
  */
 export const useCreateProject = () => {
@@ -71,3 +85,4 @@ export const useUpdateProjectStatus = () => {
     },
   });
 };
+

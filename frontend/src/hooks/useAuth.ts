@@ -41,8 +41,12 @@ export function useAuth() {
       const res = await apiClient.post<ApiResponse<UserContext>>('/auth/login', credentials);
       return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    onSuccess: (data) => {
+      // Immediately populate the auth cache from the login response.
+      // This prevents the race where the dashboard guard sees stale null.
+      if (data?.data) {
+        queryClient.setQueryData(['auth', 'me'], data.data);
+      }
     },
   });
 
@@ -73,6 +77,7 @@ export function useAuth() {
   return {
     currentUser: currentUserQuery.data,
     isLoadingUser: currentUserQuery.isLoading,
+    isFetchingUser: currentUserQuery.isFetching,
     login: loginMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     loginError: loginMutation.error as ApiErrorPayload | null,

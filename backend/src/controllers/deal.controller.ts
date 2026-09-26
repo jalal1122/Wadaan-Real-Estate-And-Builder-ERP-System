@@ -4,7 +4,9 @@ import { DealService } from '../services/deal.service';
 import {
   CreateCustomerSchema,
   CreateDealSchema,
-  TransferFileSchema
+  TransferFileSchema,
+  AddCoClientSchema,
+  UpdateCoClientSchema
 } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
@@ -121,3 +123,85 @@ export const transferFile = async (req: Request, res: Response, next: NextFuncti
     next(error);
   }
 };
+
+export const getDealCoClients = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dealId = req.params.id as string;
+    const clients = await DealService.getCoClients(dealId);
+    res.status(200).json({
+      success: true,
+      data: clients
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addDealCoClient = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dealId = req.params.id as string;
+    const parseResult = AddCoClientSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const client = await DealService.addCoClient(
+      dealId,
+      parseResult.data.customerId,
+      parseResult.data.shareLabel
+    );
+    res.status(201).json({
+      success: true,
+      data: client,
+      message: 'Co-client registered successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDealCoClient = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dealId = req.params.id as string;
+    const clientId = req.params.clientId as string;
+    const parseResult = UpdateCoClientSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const updated = await DealService.updateCoClient(
+      dealId,
+      clientId,
+      parseResult.data.shareLabel
+    );
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Co-client share updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeDealCoClient = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dealId = req.params.id as string;
+    const clientId = req.params.clientId as string;
+    const result = await DealService.removeCoClient(dealId, clientId);
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Co-client removed successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

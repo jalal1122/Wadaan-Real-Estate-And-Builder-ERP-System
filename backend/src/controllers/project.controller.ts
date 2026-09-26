@@ -88,3 +88,18 @@ export const getProjectTransactions = async (req: Request, res: Response, next: 
     next(error);
   }
 };
+
+export const getProjectReport = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const result = await ProjectService.getProjectReport(id);
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

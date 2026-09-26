@@ -68,7 +68,11 @@ export interface TrialBalanceLineItem {
   category: AccountCategory;
   debit: string;   // Populated for ASSET and EXPENSE (normal debit balance)
   credit: string;  // Populated for LIABILITY, EQUITY, REVENUE (normal credit balance)
+  totalDebit?: string;
+  totalCredit?: string;
+  balance?: string;
 }
+
 
 export interface TrialBalanceReport {
   period: {

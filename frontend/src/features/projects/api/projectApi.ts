@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { ApiResponse } from '@/types/api';
-import { ProjectItem, CreateProjectPayload, ProjectStatus, ProjectTransactionsResponse } from '../types';
+import { ProjectItem, CreateProjectPayload, ProjectStatus, ProjectTransactionsResponse, ProjectReportResponse } from '../types';
 
 /**
  * Fetches all construction projects with calculated live health metrics.
@@ -41,3 +41,12 @@ export const fetchProjectTransactions = async (id: string): Promise<ProjectTrans
   const response = await apiClient.get<ApiResponse<ProjectTransactionsResponse>>(`/projects/${id}/transactions`);
   return response.data.data!;
 };
+
+/**
+ * Fetches the comprehensive financial report for a project (receipts, vendor bills, GL).
+ */
+export const fetchProjectReport = async (id: string): Promise<ProjectReportResponse> => {
+  const response = await apiClient.get<ApiResponse<ProjectReportResponse>>(`/projects/${id}/report`);
+  return response.data.data!;
+};
+

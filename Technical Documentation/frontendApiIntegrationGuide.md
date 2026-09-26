@@ -260,10 +260,14 @@ Call this inside your root layout or React AuthContext to verify persistent logi
 
 ```typescript
 export const checkCurrentUser = async () => {
-  const response = await apiClient.get('/auth/me');
-  return response.data.data; // { userId: "..." }
+  const response = await apiClient.get<ApiResponse<UserContext>>('/auth/me');
+  return response.data.data; // { id: "...", email: "...", fullName: "..." }
 };
 ```
+
+> **Cache Integrity & Race Prevention:**
+> On successful login, the client must directly populate the `['auth', 'me']` cache key via `queryClient.setQueryData(['auth', 'me'], response.data.data)` instead of relying on a post-mutation cache invalidation. This guarantees that dashboard route guards immediately see an authenticated `currentUser` during route transitions and eliminates flash redirects back to `/login`.
+> Route guards also evaluate `isFetchingUser` alongside `isLoadingUser` when `currentUser` is null to display the verification spinner while active network verification is ongoing.
 
 ### 4.4 Password / PIN Recovery & Master Key Bypass
 
@@ -1154,6 +1158,28 @@ export interface DealInvoice {
   receiptId?: string | null;
 }
 
+export interface DealClientEntry {
+  id: string;
+  dealId: string;
+  customerId: string;
+  shareLabel?: string | null;
+  addedAt: string;
+  customer: {
+    id: string;
+    fullName: string;
+    phone: string;
+  };
+}
+
+export interface AddCoClientPayload {
+  customerId: string;
+  shareLabel?: string | null;
+}
+
+export interface UpdateCoClientPayload {
+  shareLabel?: string | null;
+}
+
 export interface Deal {
   id: string;
   customerId: string;
@@ -1169,6 +1195,14 @@ export interface Deal {
     projectPrefix: string;
   } | null;
   invoices: DealInvoice[];
+  coClients?: DealClientEntry[];
+  isPrimary?: boolean;
+  shareLabel?: string | null;
+  primaryCustomer?: {
+    id: string;
+    fullName: string;
+    phone?: string;
+  } | null;
 }
 
 export interface Receipt {
@@ -1213,7 +1247,7 @@ export interface CreateReceiptPayload {
 #### API Client (`frontend/src/features/deals/api/dealApi.ts`)
 ```typescript
 import { apiClient } from '@/lib/api';
-import { Customer, Deal, CreateDealPayload } from '../types';
+import { Customer, Deal, CreateDealPayload, DealClientEntry, AddCoClientPayload, UpdateCoClientPayload } from '../types';
 
 export const fetchCustomers = async (): Promise<Customer[]> => {
   const res = await apiClient.get('/customers');
@@ -1249,6 +1283,34 @@ export const applyCustomerWallet = async (
 ) => {
   const res = await apiClient.post(`/customers/${customerId}/apply-wallet`, payload);
   return res.data.data;
+};
+
+// Co-Client & Multi-Buyer Operations
+export const fetchDealCoClients = async (dealId: string): Promise<DealClientEntry[]> => {
+  const res = await apiClient.get(`/deals/${dealId}/clients`);
+  return res.data.data;
+};
+
+export const addDealCoClient = async (
+  dealId: string,
+  payload: AddCoClientPayload
+): Promise<DealClientEntry> => {
+  const res = await apiClient.post(`/deals/${dealId}/clients`, payload);
+  return res.data.data;
+};
+
+export const updateCoClientLabel = async (
+  dealId: string,
+  clientId: string,
+  payload: UpdateCoClientPayload
+): Promise<DealClientEntry> => {
+  const res = await apiClient.patch(`/deals/${dealId}/clients/${clientId}`, payload);
+  return res.data.data;
+};
+
+export const removeDealCoClient = async (dealId: string, clientId: string) => {
+  const res = await apiClient.delete(`/deals/${dealId}/clients/${clientId}`);
+  return res.data;
 };
 ```
 

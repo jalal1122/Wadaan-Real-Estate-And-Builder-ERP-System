@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth.service';
 import { CryptoUtility, SESSION_DURATION_MS } from '../utils/crypto.util';
 import { MailUtility } from '../utils/mail.util';
 import { AppError } from '../middleware/errorHandler';
+import { prisma } from '../config/db';
 
 /**
  * One-time setup endpoint for creating the initial Master Administrator with a 4-digit PIN.
@@ -84,13 +85,36 @@ export const logout = (req: Request, res: Response) => {
 /**
  * Returns current authenticated user context.
  */
-export const getMe = (req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    data: {
-      userId: req.user?.userId
+export const getMe = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user?.userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+      },
+    });
+
+    if (!user) {
+      res.clearCookie('token');
+      return res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'User not found or session invalid.' },
+      });
     }
-  });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**

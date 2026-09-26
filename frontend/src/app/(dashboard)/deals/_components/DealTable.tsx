@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Deal, DealType } from '@/features/deals/types';
-import { formatPKR, formatDate } from '@/lib/format';
+import { formatPKR, formatDate, isInvoiceOverdue } from '@/lib/format';
 import {
   Search,
   ArrowRightLeft,
@@ -12,7 +12,10 @@ import {
   Clock,
   Building2,
   Briefcase,
-  Layers
+  Layers,
+  AlertCircle,
+  AlertTriangle,
+  Users,
 } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton';
 
@@ -211,16 +214,30 @@ export const DealTable: React.FC<DealTableProps> = ({
                 const paidInvoices = deal.invoices?.filter((i) => i.paymentStatus === 'PAID').length || 0;
                 const totalInvoices = deal.invoices?.length || 0;
                 const progressPct = totalInvoices > 0 ? Math.round((paidInvoices / totalInvoices) * 100) : 0;
+                const overdueInvoices = deal.invoices?.filter((i) => isInvoiceOverdue(i.dueDate, i.paymentStatus)) || [];
+                const hasOverdue = overdueInvoices.length > 0;
 
                 return (
                   <tr
                     key={deal.id}
-                    className="hover:bg-slate-50/80 transition-colors"
+                    className={`transition-colors ${
+                      hasOverdue
+                        ? 'bg-red-50/40 hover:bg-red-50/70 border-l-4 border-l-red-500'
+                        : 'hover:bg-slate-50/80'
+                    }`}
                     data-testid={`deal-row-${deal.id}`}
                   >
                     {/* Contract Ref & Date */}
                     <td className="py-3 px-4 font-mono font-semibold text-slate-800">
-                      <div>#{deal.id.slice(0, 8)}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span>#{deal.id.slice(0, 8)}</span>
+                        {hasOverdue && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-red-100 text-red-700 border border-red-200 flex items-center gap-0.5">
+                            <AlertCircle className="w-2.5 h-2.5 text-red-600 shrink-0" />
+                            Overdue
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-slate-400 font-sans font-normal">
                         {formatDate(deal.createdAt)}
                       </div>
@@ -244,6 +261,33 @@ export const DealTable: React.FC<DealTableProps> = ({
                           </span>
                         )}
                       </div>
+                      {deal.coClients && deal.coClients.length > 0 && (
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          {deal.coClients.map((cc) => (
+                            <button
+                              key={cc.id}
+                              type="button"
+                              onClick={() => onSelectCustomer(cc.customer.id)}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900 rounded-md border border-amber-200 transition-colors text-left w-fit"
+                              title={`Open Khaata for co-client: ${cc.customer.fullName}`}
+                              data-testid={`coclient-khaata-btn-${cc.customer.id}`}
+                            >
+                              <Users className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                              <span>{cc.customer.fullName}</span>
+                              {cc.shareLabel && (
+                                <span className="font-mono text-[8px] px-1 bg-amber-100 text-amber-700 rounded">
+                                  {cc.shareLabel}
+                                </span>
+                              )}
+                              {Number(cc.customer.walletBalance) > 0 && (
+                                <span className="text-emerald-700 font-bold">
+                                  • Adv: {formatPKR(cc.customer.walletBalance)}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </td>
 
                     {/* Deal Type Badge */}
@@ -273,7 +317,7 @@ export const DealTable: React.FC<DealTableProps> = ({
                     {/* Outstanding Balance */}
                     <td className="py-3 px-4 text-right font-mono">
                       {pending > 0 ? (
-                        <span className="font-bold text-amber-600">
+                        <span className={`font-bold ${hasOverdue ? 'text-red-600' : 'text-amber-600'}`}>
                           {formatPKR(pending)}
                         </span>
                       ) : (
@@ -286,15 +330,23 @@ export const DealTable: React.FC<DealTableProps> = ({
                     {/* Milestones Progress */}
                     <td className="py-3 px-4 text-center">
                       <div className="inline-flex flex-col items-center">
-                        <span className="text-[11px] font-semibold text-slate-700">
+                        <span className={`text-[11px] font-semibold ${hasOverdue ? 'text-red-700 font-bold' : 'text-slate-700'}`}>
                           {paidInvoices} / {totalInvoices} Paid
                         </span>
                         <div className="w-16 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
                           <div
-                            className="h-full bg-[#059669] rounded-full transition-all"
+                            className={`h-full rounded-full transition-all ${
+                              hasOverdue ? 'bg-red-500' : 'bg-[#059669]'
+                            }`}
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>
+                        {hasOverdue && (
+                          <span className="mt-1 px-1.5 py-0.5 text-[9px] font-bold text-red-700 bg-red-100 border border-red-200 rounded-full flex items-center gap-1">
+                            <AlertTriangle className="w-2.5 h-2.5 text-red-600" />
+                            {overdueInvoices.length} Overdue
+                          </span>
+                        )}
                       </div>
                     </td>
 

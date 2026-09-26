@@ -33,10 +33,13 @@ const toTrialBalanceItem = (a: AccountWithBalance): TrialBalanceLineItem => ({
   accountCode: a.accountCode,
   accountName: a.accountName,
   category: a.category,
+  debit: a.category === 'ASSET' || a.category === 'EXPENSE' ? (a.balance ?? '0') : '0',
+  credit: a.category !== 'ASSET' && a.category !== 'EXPENSE' ? (a.balance ?? '0') : '0',
   totalDebit: a.totalDebit ?? '0',
   totalCredit: a.totalCredit ?? '0',
   balance: a.balance ?? '0',
 });
+
 
 const CATEGORY_ORDER: AccountCategory[] = [
   'ASSET',

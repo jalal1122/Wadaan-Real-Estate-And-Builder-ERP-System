@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePersonalContact, useDeleteLoan } from '@/features/personal/hooks/usePersonal';
+import { usePersonalContact, useDeleteLoan, useDeleteContact } from '@/features/personal/hooks/usePersonal';
 import { CreateLoanModal } from './CreateLoanModal';
 import { AddRepaymentModal } from './AddRepaymentModal';
-import { PersonalLoanItem } from '@/features/personal/types';
+import { EditContactModal } from './EditContactModal';
+import { PersonalLoanItem, PersonalContactSummary } from '@/features/personal/types';
 import { formatPKR, formatDate } from '@/lib/format';
 import {
   X,
@@ -19,6 +20,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  Pencil,
 } from 'lucide-react';
 
 interface PersonalContactDetailDrawerProps {
@@ -32,15 +34,17 @@ export const PersonalContactDetailDrawer: React.FC<PersonalContactDetailDrawerPr
 }) => {
   const { data, isLoading, isError, refetch } = usePersonalContact(contactId || '');
   const deleteLoanMutation = useDeleteLoan();
+  const deleteContactMutation = useDeleteContact();
 
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [repaymentTargetLoan, setRepaymentTargetLoan] = useState<PersonalLoanItem | null>(null);
   const [expandedLoanIds, setExpandedLoanIds] = useState<Record<string, boolean>>({});
+  const [isEditContactOpen, setIsEditContactOpen] = useState(false);
 
   // Escape key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLoanModalOpen && !repaymentTargetLoan) {
+      if (e.key === 'Escape' && !isLoanModalOpen && !repaymentTargetLoan && !isEditContactOpen) {
         onClose();
       }
     };
@@ -48,7 +52,7 @@ export const PersonalContactDetailDrawer: React.FC<PersonalContactDetailDrawerPr
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [contactId, isLoanModalOpen, repaymentTargetLoan, onClose]);
+  }, [contactId, isLoanModalOpen, repaymentTargetLoan, isEditContactOpen, onClose]);
 
   if (!contactId) return null;
 
@@ -62,6 +66,17 @@ export const PersonalContactDetailDrawer: React.FC<PersonalContactDetailDrawerPr
   const handleDeleteLoan = async (loanId: string) => {
     if (confirm('Are you sure you want to delete this loan entry and its repayments?')) {
       await deleteLoanMutation.mutateAsync({ contactId, loanId });
+    }
+  };
+
+  const handleDeleteContact = async () => {
+    if (
+      confirm(
+        `Delete "${data?.contact.name}" and ALL their loans and repayment history? This cannot be undone.`
+      )
+    ) {
+      await deleteContactMutation.mutateAsync(contactId!);
+      onClose();
     }
   };
 
@@ -97,14 +112,35 @@ export const PersonalContactDetailDrawer: React.FC<PersonalContactDetailDrawerPr
 
           <div className="flex items-center gap-2">
             {!isLoading && data && (
-              <button
-                type="button"
-                onClick={() => setIsLoanModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                New Loan
-              </button>
+              <>
+                <button
+                  type="button"
+                  id="drawer-edit-contact-btn"
+                  onClick={() => setIsEditContactOpen(true)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                  title="Edit contact"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  id="drawer-delete-contact-btn"
+                  onClick={handleDeleteContact}
+                  disabled={deleteContactMutation.isPending}
+                  className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-900/30 transition-colors disabled:opacity-40"
+                  title="Delete contact"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLoanModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Loan
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -437,6 +473,15 @@ export const PersonalContactDetailDrawer: React.FC<PersonalContactDetailDrawerPr
           contactId={contactId}
           contactName={data.contact.name}
           loan={repaymentTargetLoan}
+        />
+      )}
+
+      {/* Edit Contact Modal (renders above drawer at z-[60]) */}
+      {data && (
+        <EditContactModal
+          isOpen={isEditContactOpen}
+          onClose={() => setIsEditContactOpen(false)}
+          contact={data.contact as PersonalContactSummary}
         />
       )}
     </div>

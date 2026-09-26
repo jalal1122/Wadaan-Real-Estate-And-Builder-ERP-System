@@ -120,8 +120,23 @@ All endpoints require authentication via `authGuard` (sliding HttpOnly JWT cooki
 
 ### Modals
 - `CreateContactModal.tsx`: Name, Phone, Relationship (`Partner`, `Friend`, `Family`, `Business Associate`, `Staff`, `Other`), Notes.
+- `EditContactModal.tsx`: Pre-populates all fields (name, phone, relationship, notes) from the selected `PersonalContactSummary`. Submits via `PATCH /api/v1/personal/contacts/:id`. Renders at `z-[60]` so it layers above the contact detail drawer (`z-50`).
 - `CreateLoanModal.tsx`: Direction toggle (Amber GIVEN vs Blue RECEIVED), Principal Amount (PKR), Transaction Date, Description.
 - `AddRepaymentModal.tsx`: Shows current loan remaining balance, "Pay Full Remaining" shortcut, Repayment Amount, Repayment Date, Notes / Payment Channel.
+
+### Contact Edit & Delete Flow
+
+#### From the Contact Card Grid (Master Dashboard `/personal`)
+Each contact card in the grid exposes two icon buttons in the top-right corner of the header row:
+- **Pencil (Edit)** — `id="edit-contact-{contactId}"`: Opens `EditContactModal` pre-populated with that contact's data. On save, invalidates `['personal-contacts']` and `['personal-contacts', id]` query caches.
+- **Trash (Delete)** — `id="delete-contact-{contactId}"`: Shows a browser `confirm()` dialog warning the user that ALL loans and repayments will be removed. On confirmation, calls `DELETE /api/v1/personal/contacts/:id`.
+
+#### From the Contact Detail Drawer
+The drawer header (dark nav bar) also exposes the same two icon buttons alongside the "New Loan" button:
+- **Pencil** — `id="drawer-edit-contact-btn"`: Opens `EditContactModal` (z-[60]).
+- **Trash** — `id="drawer-delete-contact-btn"`: Confirms deletion, calls `DELETE /api/v1/personal/contacts/:id`, then calls `onClose()` to dismiss the drawer.
+
+> **Cascade rule**: `PersonalContact` → `PersonalLoan` → `PersonalRepayment` all use `onDelete: Cascade` in the Prisma schema. Deleting a contact removes all child records atomically.
 
 ---
 
@@ -135,3 +150,5 @@ All endpoints require authentication via `authGuard` (sliding HttpOnly JWT cooki
 | **PARTIAL Status** | Amber background (`bg-amber-50 text-amber-700 border-amber-200`) | Partial repayment received |
 | **SETTLED Status** | Emerald background (`bg-emerald-50 text-emerald-700 border-emerald-200`) | Loan 100% cleared |
 | **Sidebar Nav Item** | `UserRound` icon, label `"Personal Ledger"` | Direct navigation link |
+| **Edit Contact Button** | `Pencil` icon, `text-slate-400 hover:text-[#0F172A]` / `hover:text-white` (drawer) | Opens `EditContactModal` |
+| **Delete Contact Button** | `Trash2` icon, `text-slate-400 hover:text-red-600` / `hover:text-red-400` (drawer) | Confirms then calls `DELETE /api/v1/personal/contacts/:id` |

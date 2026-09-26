@@ -473,6 +473,62 @@ npm run dev --prefix frontend
    - **Client Paid**: Collected amount
    - **Net Cash Margin**: Green if positive, Red if client payments lag behind site costs.
 
+### 📊 MODULE 2A.1: PROJECT PRINT REPORT (Tests PR-1 through PR-7)
+
+#### Test PR-1: Print Report button exists on project card & drawer
+1. Go to `/projects`. Look at any project card footer.
+2. **Verify**: A **"Print Report →"** button appears alongside **"View GL Entries →"**.
+3. Click **"Print Report →"** on the card.
+4. **Expected**: `ProjectReportModal` opens fullscreen with a loading skeleton, then displays the complete project financial report.
+5. Close the modal, then click **"View GL Entries →"** to open the drawer.
+6. **Verify**: The drawer header contains a printer icon button (`#print-project-report-btn`).
+7. Click the printer button.
+8. **Expected**: `ProjectReportModal` opens smoothly from the drawer as well.
+
+#### Test PR-2: Financial Summary is accurate
+1. Open report for a project with known costs and receipts (e.g. Wadaan Heights).
+2. **Verify** the Executive Financial Summary KPI cards:
+   - **Approved Master BOQ**: Matches project budget.
+   - **Total Spent (WIP)**: Matches cumulative project costs.
+   - **Received from Clients**: Total collections across all deals.
+   - **Net Cash Margin**: `Received - Spent` with cash-flow indicator (Green if positive, Red if deficit).
+   - **Budget Burn %**: Accurately reflects percentage of BOQ utilized.
+
+#### Test PR-3: Client Receipts grouped by contract
+1. For projects with linked deals (e.g. Arshad Sir, Kamran Ali):
+2. **Verify**: Each client contract has its own dedicated block showing:
+   - Client name, phone number, and contract type badge (e.g. `CONSTRUCTION`, `SALE`).
+   - Contract value, total paid, and total pending.
+   - Payments table showing each installment/milestone: Description, Due Date, Receipt Date, Invoice Amount, Paid Amount, and Status.
+3. **Verify**: A prominent **Grand Total Received** banner shows the sum across all clients.
+
+#### Test PR-4: Per-Payment Payer Attribution (Co-Client Support)
+1. For milestone payments made by a co-client or relative (e.g. paid by Zeeshan Sir for Arshad Sir's contract):
+2. **Verify**: The table row's **"Paid By (Customer)"** column accurately reflects the payer from the receipt (`Zeeshan Sir`), even if the primary contract holder is different.
+
+#### Test PR-5: Vendor Expenses Breakdown
+1. In the **Vendor Expenses & Subcontractors** section:
+2. **Verify**: Each vendor (e.g. Ali Hardware, Steel Traders) has its own block showing:
+   - Vendor Name, contact phone.
+   - Total Billed, Total Paid, and Total Pending.
+   - Table of bills with Invoice #, Date, Line Items description & quantity, Total Amount, and Payment Status.
+3. **Verify**: A **Grand Total to Vendors** banner shows total billed/incurred costs.
+
+#### Test PR-6: General Ledger Audit Trail & Running Balance
+1. In the **General Ledger Audit Trail** section:
+2. **Verify**: Every `JournalLine` tagged to the project appears in chronological order.
+3. **Verify**: Columns for Date, JV #, Account Code & Name, Description/Party, Debit, Credit, and Running Balance.
+4. **Verify**: Top summary shows Total Dr, Total Cr, and Net Balance.
+
+#### Test PR-7: Browser Print & PDF Export Execution
+1. In `ProjectReportModal`, click **"Print / Export PDF"** button.
+2. **Expected**: The browser native print dialog opens (`window.print()`).
+3. **Verify** in the print preview:
+   - Only the report content is displayed with black/slate typography on white background.
+   - The modal top bar, buttons, and app sidebar/chrome are hidden (`.no-print`).
+   - Tables and summary cards break cleanly across pages.
+   - Signature blocks for Site Manager, Finance Controller, and Managing Director appear at the bottom.
+
 ---
 
 ## 🧾 MODULE 2b: EXPENSE BILLS & WIP CAPITALIZATION (Screen 5 — `/payables` → Tab 1: "Record Bill")
@@ -740,6 +796,76 @@ npm run dev --prefix frontend
    - **Net Cash Margin**: Green (positive) or Red (negative).
 3. Post additional bills to Wadaan Heights to push WIP costs above client payments.
 4. **Expected**: Net Cash Margin turns **red** — signaling the site is cash-flow negative.
+
+---
+
+## 👥 MODULE 3a.1: MULTI-CLIENT DEALS & CO-BUYER PARTNER MANAGEMENT (Screen 8 — `/deals`)
+
+### Test MC-1: Register Co-Client on Existing Contract
+1. Navigate to `/deals`.
+2. Locate any active deal (e.g. `Tariq Mehmood`'s contract) and click **"Khaata"**.
+3. In the deal card, locate the **"Co-Clients & Partners"** panel.
+4. Click **"+ Add Co-Client"**.
+5. In the **Add Co-Client Modal**:
+   - **Select Customer**: Choose `Zain Tariq`.
+   - **Share Description / Role**: Enter `50% Co-Buyer`.
+6. Click **"Register Co-Client"**.
+7. **Expected**:
+   - Modal closes cleanly.
+   - `Zain Tariq` appears in the Co-Clients panel with `50% Co-Buyer` badge and phone number.
+   - In the master `/deals` table, Tariq's deal displays a `+1 co-client` badge under his name.
+
+### Test MC-2: Block Primary Client as Co-Client (Validation Guard)
+1. In `AddCoClientModal`, inspect the customer dropdown options.
+2. **Verify**: The primary contract owner (`Tariq Mehmood`) is automatically filtered out and cannot be selected.
+3. If attempting via direct API: `POST /api/v1/deals/:id/clients` with primary client ID returns `400 CANNOT_ADD_PRIMARY_AS_CO_CLIENT`.
+
+### Test MC-3: Block Duplicate Co-Client (409 Conflict Guard)
+1. Open **"+ Add Co-Client"** again on the same deal.
+2. **Verify**: `Zain Tariq` is already registered, so he is excluded from the customer dropdown.
+3. If attempting via direct API: `POST /api/v1/deals/:id/clients` with existing co-client returns `409 DUPLICATE_CO_CLIENT`.
+
+### Test MC-4: Co-Client Direct Milestone Payment via Fast Inflow
+1. Navigate to `/receipts`.
+2. In **FastInflowForm**, select Customer: `Zain Tariq` (the co-client).
+3. **Verify**: The unpaid invoice for `Tariq Mehmood`'s deal appears in Zain's unpaid invoice list labeled: `[Co-Buyer: 50% Co-Buyer] ...`.
+4. Select the milestone invoice and enter the exact amount.
+5. Select Method: `CASH` and submit.
+6. **Expected**:
+   - Receipt successfully creates without triggering `INVOICE_CUSTOMER_MISMATCH`.
+   - Invoice marks `PAID`.
+   - In `CustomerKhaataDrawer`, the milestone displays: `Paid by: Zain Tariq`.
+   - In Section 2 (Receipts Ledger), receipt displays: `• Paid by Zain Tariq`.
+
+### Test MC-5: Co-Client Overpayment Routes to Co-Client Wallet (Not Primary)
+1. In `/receipts`, select Customer: `Zain Tariq`.
+2. Select an unpaid milestone of `PKR 500,000`.
+3. Enter Amount: `PKR 600,000` (`PKR 100,000` overpayment).
+4. Submit receipt.
+5. **Expected**:
+   - Invoice is paid in full.
+   - The excess `PKR 100,000` routes directly into **Zain Tariq's wallet** (`walletBalance = 100,000`), NOT Tariq Mehmood's wallet.
+   - Open Zain Tariq's Khaata: Mobilization Advance Wallet shows `PKR 100,000`.
+   - Open Tariq Mehmood's Khaata: Tariq's wallet remains unchanged.
+
+### Test MC-6: Co-Client Advance Wallet Consumption across Contracts
+1. Open `Zain Tariq`'s Khaata drawer.
+2. **Verify**: Advance Wallet shows `PKR 100,000`.
+3. In the "Apply Advance" form, open the invoice dropdown.
+4. **Verify**: The dropdown lists unpaid milestones from both Zain's own contracts and contracts where Zain is a co-client.
+5. Select the co-client milestone and apply `PKR 50,000`.
+6. **Expected**:
+   - Advance wallet balance decreases to `PKR 50,000`.
+   - Selected milestone updates with `Paid: PKR 50,000`.
+
+### Test MC-7: Remove Co-Client
+1. In `CustomerKhaataDrawer`, find `Zain Tariq` in the Co-Clients panel.
+2. Click the trash icon next to Zain's entry.
+3. Confirm the browser confirmation prompt.
+4. **Expected**:
+   - Zain is removed from the co-clients list.
+   - The deal table badge updates or disappears (`0 co-clients`).
+   - Historical receipts already paid by Zain remain intact with full audit fidelity.
 
 ---
 
@@ -1194,6 +1320,8 @@ After all tests, navigate to `/documents`:
 
 ---
 
+---
+
 ## ⚡ AUTOMATED TEST SUITE VERIFICATION
 
 After completing all manual tests, run the full automated suite to confirm no regressions:
@@ -1205,11 +1333,67 @@ npm test --prefix backend
 # Run specific report service tests
 npm test --prefix backend -- src/__tests__/report.service.test.ts
 
+# Run frontend deal hub tests (14 tests)
+npx vitest run --root frontend "src/app/(dashboard)/deals/page.test.tsx"
+
+# Run Khaata drawer tests (8 tests)
+npx vitest run --root frontend "src/app/(dashboard)/deals/_components/CustomerKhaataDrawer.test.tsx"
+
 # Run frontend report page tests
 npx vitest run --root frontend "src/app/(dashboard)/reports/page.test.tsx" "src/features/reports/hooks/useReports.test.tsx"
 ```
 
 **Expected**: All tests pass. Any failure after the manual testing session indicates a regression from the new data state.
+
+---
+
+## 👥 MODULE MC: MULTI-CLIENT & CO-BUYER PARTNER MANAGEMENT (Screen 8)
+
+> [!NOTE]
+> This module tests the multi-payer deal architecture (v3.5.0) and co-client Khaata access (v3.5.1). Prerequisites: System initialized, at least 2 customers and 1 active deal created.
+
+### Test MC-1: Register a Co-Client on an Existing Deal
+1. Navigate to **Deals** (`/deals`) and open the Khaata for the **primary client** of any deal.
+2. In the deal card inside the Khaata drawer, find the **Co-Clients panel** and click `+ Add Co-Client`.
+3. Search for and select a second customer (not the primary owner). Optionally enter a Share Label like `50% Partner`.
+4. Click **Add Co-Client**.
+- **Expected**: The co-client appears in the panel below the deal card. The deal table row now shows the co-client as an amber button under the primary client's name.
+
+### Test MC-2: Co-Client Khaata Button is Visible in Deal Table
+1. In the **Deal Table**, locate the deal you added a co-client to.
+2. Under the primary client's name, verify that each co-client appears as an **individual amber-colored button** showing their name and (if set) their share label.
+- **Expected**: Amber button visible. If the co-client has a wallet advance balance > 0, it shows `• Adv: Rs X` inline on the button.
+
+### Test MC-3: Click Co-Client Button Opens Their Khaata (Core Fix)
+1. In the Deal Table, click the **amber co-client button** for a registered co-client.
+- **Expected**: The `CustomerKhaataDrawer` opens for **that co-client** (not the primary client). The drawer header shows the co-client's name and phone. Their wallet balance card appears. The deal shows as a `Co-Client Contract` banner with the primary owner's name listed.
+
+### Test MC-4: Co-Client Pays an Invoice via Fast Inflow
+1. Go to **Receipts** (`/receipts`), select the **co-client** as the customer.
+2. Select an invoice from the shared deal and enter the exact invoice amount.
+3. Submit the payment.
+- **Expected**: Receipt posted. Invoice marked PAID. The co-client's name appears in the "Paid by" attribution on the milestone in the primary client's Khaata.
+
+### Test MC-5: Co-Client Overpayment Routes to Co-Client Wallet (Not Primary)
+1. Go to **Receipts**, select the **co-client**, link an invoice, but enter an amount **larger** than the invoice (e.g. invoice = Rs 1,000,000, payment = Rs 1,500,000).
+2. Submit.
+- **Expected**: Invoice paid. The **Rs 500,000 excess** goes into **the co-client's walletBalance**, NOT the primary client's. Verify by opening both Khaata drawers and checking the wallet card.
+
+### Test MC-6: Co-Client Releases Advance Against an Invoice
+1. Ensure the co-client has a wallet balance > 0 (from Test MC-5 or a standalone advance receipt).
+2. Click the amber co-client button in the Deal Table to open their Khaata.
+3. In the **Mobilization Advance Wallet** card, select an unpaid invoice from the dropdown and enter an amount.
+4. Click **Apply**.
+- **Expected**: Wallet balance decreases. Invoice status updates to PAID or PARTIAL. Success message shown.
+
+### Test MC-7: Prevent Duplicate Co-Client Registration
+1. In the primary client's Khaata, try to add the **same co-client again** to the same deal.
+- **Expected**: Error returned — `"Customer is already registered as a co-client on this deal"` (HTTP 409).
+
+### Test MC-8: Remove Co-Client from Deal
+1. In the primary client's Khaata drawer, click the **Trash (🗑️)** icon next to a co-client.
+2. Confirm the removal dialog.
+- **Expected**: Co-client removed from the panel. The amber button disappears from the Deal Table row. Any receipts they made are **preserved** (not deleted). Their wallet balance is unaffected.
 
 ---
 
@@ -1236,8 +1420,11 @@ Before marking the system as fully verified, confirm each of the following:
 | 15 | Document Archive re-prints all 3 document types correctly | ☐ |
 | 16 | Idle 15-minute session timeout redirects to `/login` | ☐ |
 | 17 | All automated backend tests pass (56/56) | ☐ |
-| 18 | All automated frontend report tests pass (13/13) | ☐ |
+| 18 | All automated frontend deal hub tests pass (14/14) | ☐ |
+| 19 | Co-client Khaata buttons open correct co-client drawer (MC-3) | ☐ |
+| 20 | Co-client advance routes to co-client wallet, not primary (MC-5) | ☐ |
 
 ---
 
-*Generated: 2026-09-24 | Wadaan Real Estate ERP v3.2.0 | Full system coverage: Screens 0–11, Modules 0–4*
+*Generated: 2026-09-26 | Wadaan Real Estate ERP v3.5.1 | Full system coverage: Screens 0–11, Modules 0–4, Module MC*
+
