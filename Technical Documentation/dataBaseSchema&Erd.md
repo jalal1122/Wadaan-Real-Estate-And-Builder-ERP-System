@@ -118,6 +118,10 @@ model Project {
   expenseBills  ExpenseBill[]
   deals         Deal[] // Links construction cost to final revenue
   journalLines  JournalLine[] // v1.5.0: Project cost center allocation
+
+  // Note: The project report endpoint (GET /api/v1/projects/:id/report) navigates the 
+  // Project → deals → invoices → receipt chain AND the Project → expenseBills → vendor chain
+  // to produce the full financial report without requiring any new tables or schema changes.
 }
 
 model Vendor {

@@ -1004,7 +1004,33 @@ GET /api/v1/projects/:id/transactions
 
 Purpose: Fetches all double-entry general ledger journal transactions (`JournalLine` records tagged with `projectId`), ordered chronologically descending, along with summary totals (totalDebits, totalCredits, netCost) and related account/journal references.
 
+GET /api/v1/projects/:id/report
+
+Purpose: Fetches the comprehensive financial report for a project, including:
+- Project metadata and master BOQ
+- Financial summary (spentToDate, totalReceivedFromClients, netCashMargin, budgetVariance, isOverBudget, budgetBurnPct)
+- Client receipts breakdown grouped by client/contract (with milestone descriptions, due dates, paid dates, paid amounts, payment methods, bank ref numbers, and actual payer names supporting co-client deals)
+- Grand total collected across all clients
+- Vendor expenses breakdown grouped by vendor (with invoice numbers, bill dates, line item summaries, billed totals, paid totals, pending amounts, and payment statuses)
+- Grand total billed/spent across all vendors
+- General ledger audit trail (`JournalLine` records with debit, credit, running balances) and GL summary (totalDebit, totalCredit, netBalance)
+
+Response (200): {
+  success: true,
+  data: {
+    project,
+    summary,
+    clientReceipts,
+    grandTotalFromClients,
+    vendorExpenses,
+    grandTotalToVendors,
+    glSummary,
+    glTransactions
+  }
+}
+
 PATCH /api/v1/projects/:id/status
+
 
 Purpose: Updates project status (e.g. changes status to ACTIVE, COMPLETED, or ON_HOLD).
 Payload: { status: "COMPLETED" }

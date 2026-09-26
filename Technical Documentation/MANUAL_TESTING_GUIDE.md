@@ -473,6 +473,62 @@ npm run dev --prefix frontend
    - **Client Paid**: Collected amount
    - **Net Cash Margin**: Green if positive, Red if client payments lag behind site costs.
 
+### 📊 MODULE 2A.1: PROJECT PRINT REPORT (Tests PR-1 through PR-7)
+
+#### Test PR-1: Print Report button exists on project card & drawer
+1. Go to `/projects`. Look at any project card footer.
+2. **Verify**: A **"Print Report →"** button appears alongside **"View GL Entries →"**.
+3. Click **"Print Report →"** on the card.
+4. **Expected**: `ProjectReportModal` opens fullscreen with a loading skeleton, then displays the complete project financial report.
+5. Close the modal, then click **"View GL Entries →"** to open the drawer.
+6. **Verify**: The drawer header contains a printer icon button (`#print-project-report-btn`).
+7. Click the printer button.
+8. **Expected**: `ProjectReportModal` opens smoothly from the drawer as well.
+
+#### Test PR-2: Financial Summary is accurate
+1. Open report for a project with known costs and receipts (e.g. Wadaan Heights).
+2. **Verify** the Executive Financial Summary KPI cards:
+   - **Approved Master BOQ**: Matches project budget.
+   - **Total Spent (WIP)**: Matches cumulative project costs.
+   - **Received from Clients**: Total collections across all deals.
+   - **Net Cash Margin**: `Received - Spent` with cash-flow indicator (Green if positive, Red if deficit).
+   - **Budget Burn %**: Accurately reflects percentage of BOQ utilized.
+
+#### Test PR-3: Client Receipts grouped by contract
+1. For projects with linked deals (e.g. Arshad Sir, Kamran Ali):
+2. **Verify**: Each client contract has its own dedicated block showing:
+   - Client name, phone number, and contract type badge (e.g. `CONSTRUCTION`, `SALE`).
+   - Contract value, total paid, and total pending.
+   - Payments table showing each installment/milestone: Description, Due Date, Receipt Date, Invoice Amount, Paid Amount, and Status.
+3. **Verify**: A prominent **Grand Total Received** banner shows the sum across all clients.
+
+#### Test PR-4: Per-Payment Payer Attribution (Co-Client Support)
+1. For milestone payments made by a co-client or relative (e.g. paid by Zeeshan Sir for Arshad Sir's contract):
+2. **Verify**: The table row's **"Paid By (Customer)"** column accurately reflects the payer from the receipt (`Zeeshan Sir`), even if the primary contract holder is different.
+
+#### Test PR-5: Vendor Expenses Breakdown
+1. In the **Vendor Expenses & Subcontractors** section:
+2. **Verify**: Each vendor (e.g. Ali Hardware, Steel Traders) has its own block showing:
+   - Vendor Name, contact phone.
+   - Total Billed, Total Paid, and Total Pending.
+   - Table of bills with Invoice #, Date, Line Items description & quantity, Total Amount, and Payment Status.
+3. **Verify**: A **Grand Total to Vendors** banner shows total billed/incurred costs.
+
+#### Test PR-6: General Ledger Audit Trail & Running Balance
+1. In the **General Ledger Audit Trail** section:
+2. **Verify**: Every `JournalLine` tagged to the project appears in chronological order.
+3. **Verify**: Columns for Date, JV #, Account Code & Name, Description/Party, Debit, Credit, and Running Balance.
+4. **Verify**: Top summary shows Total Dr, Total Cr, and Net Balance.
+
+#### Test PR-7: Browser Print & PDF Export Execution
+1. In `ProjectReportModal`, click **"Print / Export PDF"** button.
+2. **Expected**: The browser native print dialog opens (`window.print()`).
+3. **Verify** in the print preview:
+   - Only the report content is displayed with black/slate typography on white background.
+   - The modal top bar, buttons, and app sidebar/chrome are hidden (`.no-print`).
+   - Tables and summary cards break cleanly across pages.
+   - Signature blocks for Site Manager, Finance Controller, and Managing Director appear at the bottom.
+
 ---
 
 ## 🧾 MODULE 2b: EXPENSE BILLS & WIP CAPITALIZATION (Screen 5 — `/payables` → Tab 1: "Record Bill")
