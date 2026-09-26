@@ -139,6 +139,22 @@ vi.mock('@/features/deals/hooks/useDeals', () => ({
     mutateAsync: mockTransferFileMutate,
     isPending: false,
   }),
+  useDealCoClients: () => ({
+    data: [],
+    isLoading: false,
+  }),
+  useAddCoClient: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  useUpdateCoClientLabel: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  useRemoveCoClient: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/features/customers/hooks/useCustomers', () => ({
