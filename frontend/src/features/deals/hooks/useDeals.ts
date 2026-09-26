@@ -3,13 +3,20 @@ import {
   fetchDeals,
   fetchDealById,
   createDeal,
-  transferFile
+  transferFile,
+  fetchDealCoClients,
+  addDealCoClient,
+  updateCoClientLabel,
+  removeDealCoClient
 } from '../api/dealApi';
 import {
   Deal,
   CreateDealPayload,
   TransferFilePayload,
-  TransferFileResult
+  TransferFileResult,
+  DealClientEntry,
+  AddCoClientPayload,
+  UpdateCoClientPayload
 } from '../types';
 
 /**
@@ -76,3 +83,84 @@ export const useTransferFile = () => {
     },
   });
 };
+
+/**
+ * Hook to fetch co-clients of a deal.
+ */
+export const useDealCoClients = (dealId: string | null | undefined) => {
+  return useQuery<DealClientEntry[], Error>({
+    queryKey: ['deals', dealId, 'clients'],
+    queryFn: () => fetchDealCoClients(dealId!),
+    enabled: !!dealId,
+    staleTime: 1000 * 30,
+  });
+};
+
+/**
+ * Hook to add a co-client to a deal.
+ */
+export const useAddCoClient = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      payload
+    }: {
+      dealId: string;
+      payload: AddCoClientPayload;
+    }) => addDealCoClient(dealId, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
+    },
+  });
+};
+
+/**
+ * Hook to update a co-client's share label.
+ */
+export const useUpdateCoClientLabel = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      clientId,
+      payload
+    }: {
+      dealId: string;
+      clientId: string;
+      payload: UpdateCoClientPayload;
+    }) => updateCoClientLabel(dealId, clientId, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
+    },
+  });
+};
+
+/**
+ * Hook to remove a co-client from a deal.
+ */
+export const useRemoveCoClient = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      clientId
+    }: {
+      dealId: string;
+      clientId: string;
+    }) => removeDealCoClient(dealId, clientId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
+    },
+  });
+};
+
