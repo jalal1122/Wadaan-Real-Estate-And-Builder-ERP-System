@@ -178,9 +178,25 @@ export class DealService {
         },
         invoices: {
           include: {
-            receipt: true
+            receipt: {
+              include: {
+                customer: true
+              }
+            }
           },
           orderBy: { dueDate: 'asc' }
+        },
+        coClients: {
+          include: {
+            customer: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true
+              }
+            }
+          },
+          orderBy: { addedAt: 'asc' }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -235,12 +251,29 @@ export class DealService {
         },
         invoices: {
           include: {
-            receipt: true
+            receipt: {
+              include: {
+                customer: true
+              }
+            }
           },
           orderBy: { dueDate: 'asc' }
+        },
+        coClients: {
+          include: {
+            customer: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true
+              }
+            }
+          },
+          orderBy: { addedAt: 'asc' }
         }
       }
     });
+
 
     if (!deal) {
       throw new AppError(`Deal with ID '${id}' not found`, 404, 'DEAL_NOT_FOUND');
@@ -403,4 +436,138 @@ export class DealService {
       { maxWait: 10000, timeout: 30000 }
     );
   }
+
+  /**
+   * Lists all co-clients registered on a deal.
+   */
+  static async getCoClients(dealId: string) {
+    const deal = await prisma.deal.findUnique({
+      where: { id: dealId }
+    });
+
+    if (!deal) {
+      throw new AppError(`Deal with ID '${dealId}' not found`, 404, 'DEAL_NOT_FOUND');
+    }
+
+    return await prisma.dealClient.findMany({
+      where: { dealId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true
+          }
+        }
+      },
+      orderBy: { addedAt: 'asc' }
+    });
+  }
+
+  /**
+   * Registers a co-client to an active deal.
+   */
+  static async addCoClient(dealId: string, customerId: string, shareLabel?: string | null) {
+    const deal = await prisma.deal.findUnique({
+      where: { id: dealId }
+    });
+
+    if (!deal) {
+      throw new AppError(`Deal with ID '${dealId}' not found`, 404, 'DEAL_NOT_FOUND');
+    }
+
+    // Guard 1: Cannot add primary billing client as co-client
+    if (deal.customerId === customerId) {
+      throw new AppError('Primary client cannot be added as a co-client', 400, 'CANNOT_ADD_PRIMARY_AS_CO_CLIENT');
+    }
+
+    // Guard 2: Customer must exist
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId }
+    });
+
+    if (!customer) {
+      throw new AppError(`Customer with ID '${customerId}' not found`, 404, 'CUSTOMER_NOT_FOUND');
+    }
+
+    // Guard 3: Duplicate co-client check
+    const existing = await prisma.dealClient.findUnique({
+      where: {
+        dealId_customerId: {
+          dealId,
+          customerId
+        }
+      }
+    });
+
+    if (existing) {
+      throw new AppError('Customer is already registered as a co-client on this deal', 409, 'DUPLICATE_CO_CLIENT');
+    }
+
+    return await prisma.dealClient.create({
+      data: {
+        dealId,
+        customerId,
+        shareLabel: shareLabel?.trim() || null
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Updates a co-client's share label.
+   */
+  static async updateCoClient(dealId: string, clientId: string, shareLabel?: string | null) {
+    const entry = await prisma.dealClient.findFirst({
+      where: { id: clientId, dealId }
+    });
+
+    if (!entry) {
+      throw new AppError('Co-client not found on this deal', 404, 'CO_CLIENT_NOT_FOUND');
+    }
+
+    return await prisma.dealClient.update({
+      where: { id: clientId },
+      data: {
+        shareLabel: shareLabel?.trim() || null
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Removes a co-client from a deal.
+   */
+  static async removeCoClient(dealId: string, clientId: string) {
+    const entry = await prisma.dealClient.findFirst({
+      where: { id: clientId, dealId }
+    });
+
+    if (!entry) {
+      throw new AppError('Co-client not found on this deal', 404, 'CO_CLIENT_NOT_FOUND');
+    }
+
+    await prisma.dealClient.delete({
+      where: { id: clientId }
+    });
+
+    return { success: true, message: 'Co-client removed successfully' };
+  }
 }
+

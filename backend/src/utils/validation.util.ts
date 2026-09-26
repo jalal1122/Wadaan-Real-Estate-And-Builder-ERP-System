@@ -566,4 +566,18 @@ export const AddPersonalRepaymentSchema = z.object({
 
 export type AddPersonalRepaymentInput = z.infer<typeof AddPersonalRepaymentSchema>;
 
+export const AddCoClientSchema = z.object({
+  customerId: z.string().uuid('Valid customer ID is required'),
+  shareLabel: z.string().max(100, 'Share label cannot exceed 100 characters').optional().nullable()
+});
+
+export type AddCoClientInput = z.infer<typeof AddCoClientSchema>;
+
+export const UpdateCoClientSchema = z.object({
+  shareLabel: z.string().max(100, 'Share label cannot exceed 100 characters').optional().nullable()
+});
+
+export type UpdateCoClientInput = z.infer<typeof UpdateCoClientSchema>;
+
+
 
