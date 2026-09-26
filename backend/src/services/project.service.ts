@@ -53,18 +53,23 @@ export class ProjectService {
     });
 
     return projects.map((project) => {
-      // Calculate spentToDate from journal lines that hit EXPENSE or WIP (ASSET) accounts
-      const spentToDate = project.journalLines.reduce((sum, line) => {
-        const isExpenseOrWIP = 
-          line.account.category === 'EXPENSE' || 
-          (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
-          line.account.accountCode === '5000'; // Hardcode fallback for standard COGS
-          
-        if (isExpenseOrWIP) {
-          return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
-        }
-        return sum;
-      }, new Decimal(0));
+      // Calculate spentToDate from journal lines that hit EXPENSE or WIP (ASSET) accounts, with fallback to expenseBills
+      const spentToDate = (project.journalLines && project.journalLines.length > 0)
+        ? project.journalLines.reduce((sum, line) => {
+            const isExpenseOrWIP = 
+              line.account.category === 'EXPENSE' || 
+              (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
+              line.account.accountCode === '5000'; // Hardcode fallback for standard COGS
+              
+            if (isExpenseOrWIP) {
+              return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
+            }
+            return sum;
+          }, new Decimal(0))
+        : (project.expenseBills || []).reduce(
+            (sum, b) => sum.plus(new Decimal(b.grandTotal)),
+            new Decimal(0)
+          );
       const masterBOQ = new Decimal(project.masterBOQ);
       const budgetVariance = masterBOQ.minus(spentToDate);
       const isOverBudget = spentToDate.gt(masterBOQ);
@@ -143,17 +148,22 @@ export class ProjectService {
       throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
     }
 
-    const spentToDate = project.journalLines.reduce((sum, line) => {
-      const isExpenseOrWIP = 
-        line.account.category === 'EXPENSE' || 
-        (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
-        line.account.accountCode === '5000';
-        
-      if (isExpenseOrWIP) {
-        return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
-      }
-      return sum;
-    }, new Decimal(0));
+    const spentToDate = (project.journalLines && project.journalLines.length > 0)
+      ? project.journalLines.reduce((sum, line) => {
+          const isExpenseOrWIP = 
+            line.account.category === 'EXPENSE' || 
+            (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
+            line.account.accountCode === '5000';
+            
+          if (isExpenseOrWIP) {
+            return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
+          }
+          return sum;
+        }, new Decimal(0))
+      : (project.expenseBills || []).reduce(
+          (sum, b) => sum.plus(new Decimal(b.grandTotal)),
+          new Decimal(0)
+        );
     const masterBOQ = new Decimal(project.masterBOQ);
     const budgetVariance = masterBOQ.minus(spentToDate);
     const isOverBudget = spentToDate.gt(masterBOQ);
@@ -376,18 +386,23 @@ export class ProjectService {
       throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
     }
 
-    // 1. Calculate spent to date from journal lines (WIP/Expense)
-    const spentToDate = project.journalLines.reduce((sum, line) => {
-      const isExpenseOrWIP = 
-        line.account.category === 'EXPENSE' || 
-        (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
-        line.account.accountCode === '5000';
-        
-      if (isExpenseOrWIP) {
-        return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
-      }
-      return sum;
-    }, new Decimal(0));
+    // 1. Calculate spent to date from journal lines (WIP/Expense), with fallback to expenseBills
+    const spentToDate = (project.journalLines && project.journalLines.length > 0)
+      ? project.journalLines.reduce((sum, line) => {
+          const isExpenseOrWIP = 
+            line.account.category === 'EXPENSE' || 
+            (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
+            line.account.accountCode === '5000';
+            
+          if (isExpenseOrWIP) {
+            return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
+          }
+          return sum;
+        }, new Decimal(0))
+      : (project.expenseBills || []).reduce(
+          (sum, b) => sum.plus(new Decimal(b.grandTotal)),
+          new Decimal(0)
+        );
 
     const masterBOQ = new Decimal(project.masterBOQ);
     const budgetVariance = masterBOQ.minus(spentToDate);
