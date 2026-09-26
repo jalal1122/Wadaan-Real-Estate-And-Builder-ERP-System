@@ -262,15 +262,30 @@ export const DealTable: React.FC<DealTableProps> = ({
                         )}
                       </div>
                       {deal.coClients && deal.coClients.length > 0 && (
-                        <div className="mt-1 flex items-center gap-1">
-                          <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200"
-                            title={`Co-clients: ${deal.coClients.map((c) => c.customer?.fullName).join(', ')}`}
-                            data-testid={`coclient-badge-${deal.id}`}
-                          >
-                            <Users className="w-2.5 h-2.5 text-emerald-600" />
-                            +{deal.coClients.length} co-client{deal.coClients.length > 1 ? 's' : ''}
-                          </span>
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          {deal.coClients.map((cc) => (
+                            <button
+                              key={cc.id}
+                              type="button"
+                              onClick={() => onSelectCustomer(cc.customer.id)}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900 rounded-md border border-amber-200 transition-colors text-left w-fit"
+                              title={`Open Khaata for co-client: ${cc.customer.fullName}`}
+                              data-testid={`coclient-khaata-btn-${cc.customer.id}`}
+                            >
+                              <Users className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                              <span>{cc.customer.fullName}</span>
+                              {cc.shareLabel && (
+                                <span className="font-mono text-[8px] px-1 bg-amber-100 text-amber-700 rounded">
+                                  {cc.shareLabel}
+                                </span>
+                              )}
+                              {Number(cc.customer.walletBalance) > 0 && (
+                                <span className="text-emerald-700 font-bold">
+                                  • Adv: {formatPKR(cc.customer.walletBalance)}
+                                </span>
+                              )}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </td>

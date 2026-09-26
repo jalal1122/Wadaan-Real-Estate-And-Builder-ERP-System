@@ -57,6 +57,7 @@ export interface DealClientEntry {
     id: string;
     fullName: string;
     phone: string;
+    walletBalance?: string | number | null;
   };
 }
 

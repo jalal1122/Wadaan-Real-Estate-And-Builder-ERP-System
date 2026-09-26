@@ -192,7 +192,8 @@ export class DealService {
               select: {
                 id: true,
                 fullName: true,
-                phone: true
+                phone: true,
+                walletBalance: true
               }
             }
           },
@@ -265,7 +266,8 @@ export class DealService {
               select: {
                 id: true,
                 fullName: true,
-                phone: true
+                phone: true,
+                walletBalance: true
               }
             }
           },

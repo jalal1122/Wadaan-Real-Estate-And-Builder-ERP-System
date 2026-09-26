@@ -1320,6 +1320,8 @@ After all tests, navigate to `/documents`:
 
 ---
 
+---
+
 ## ⚡ AUTOMATED TEST SUITE VERIFICATION
 
 After completing all manual tests, run the full automated suite to confirm no regressions:
@@ -1331,11 +1333,67 @@ npm test --prefix backend
 # Run specific report service tests
 npm test --prefix backend -- src/__tests__/report.service.test.ts
 
+# Run frontend deal hub tests (14 tests)
+npx vitest run --root frontend "src/app/(dashboard)/deals/page.test.tsx"
+
+# Run Khaata drawer tests (8 tests)
+npx vitest run --root frontend "src/app/(dashboard)/deals/_components/CustomerKhaataDrawer.test.tsx"
+
 # Run frontend report page tests
 npx vitest run --root frontend "src/app/(dashboard)/reports/page.test.tsx" "src/features/reports/hooks/useReports.test.tsx"
 ```
 
 **Expected**: All tests pass. Any failure after the manual testing session indicates a regression from the new data state.
+
+---
+
+## 👥 MODULE MC: MULTI-CLIENT & CO-BUYER PARTNER MANAGEMENT (Screen 8)
+
+> [!NOTE]
+> This module tests the multi-payer deal architecture (v3.5.0) and co-client Khaata access (v3.5.1). Prerequisites: System initialized, at least 2 customers and 1 active deal created.
+
+### Test MC-1: Register a Co-Client on an Existing Deal
+1. Navigate to **Deals** (`/deals`) and open the Khaata for the **primary client** of any deal.
+2. In the deal card inside the Khaata drawer, find the **Co-Clients panel** and click `+ Add Co-Client`.
+3. Search for and select a second customer (not the primary owner). Optionally enter a Share Label like `50% Partner`.
+4. Click **Add Co-Client**.
+- **Expected**: The co-client appears in the panel below the deal card. The deal table row now shows the co-client as an amber button under the primary client's name.
+
+### Test MC-2: Co-Client Khaata Button is Visible in Deal Table
+1. In the **Deal Table**, locate the deal you added a co-client to.
+2. Under the primary client's name, verify that each co-client appears as an **individual amber-colored button** showing their name and (if set) their share label.
+- **Expected**: Amber button visible. If the co-client has a wallet advance balance > 0, it shows `• Adv: Rs X` inline on the button.
+
+### Test MC-3: Click Co-Client Button Opens Their Khaata (Core Fix)
+1. In the Deal Table, click the **amber co-client button** for a registered co-client.
+- **Expected**: The `CustomerKhaataDrawer` opens for **that co-client** (not the primary client). The drawer header shows the co-client's name and phone. Their wallet balance card appears. The deal shows as a `Co-Client Contract` banner with the primary owner's name listed.
+
+### Test MC-4: Co-Client Pays an Invoice via Fast Inflow
+1. Go to **Receipts** (`/receipts`), select the **co-client** as the customer.
+2. Select an invoice from the shared deal and enter the exact invoice amount.
+3. Submit the payment.
+- **Expected**: Receipt posted. Invoice marked PAID. The co-client's name appears in the "Paid by" attribution on the milestone in the primary client's Khaata.
+
+### Test MC-5: Co-Client Overpayment Routes to Co-Client Wallet (Not Primary)
+1. Go to **Receipts**, select the **co-client**, link an invoice, but enter an amount **larger** than the invoice (e.g. invoice = Rs 1,000,000, payment = Rs 1,500,000).
+2. Submit.
+- **Expected**: Invoice paid. The **Rs 500,000 excess** goes into **the co-client's walletBalance**, NOT the primary client's. Verify by opening both Khaata drawers and checking the wallet card.
+
+### Test MC-6: Co-Client Releases Advance Against an Invoice
+1. Ensure the co-client has a wallet balance > 0 (from Test MC-5 or a standalone advance receipt).
+2. Click the amber co-client button in the Deal Table to open their Khaata.
+3. In the **Mobilization Advance Wallet** card, select an unpaid invoice from the dropdown and enter an amount.
+4. Click **Apply**.
+- **Expected**: Wallet balance decreases. Invoice status updates to PAID or PARTIAL. Success message shown.
+
+### Test MC-7: Prevent Duplicate Co-Client Registration
+1. In the primary client's Khaata, try to add the **same co-client again** to the same deal.
+- **Expected**: Error returned — `"Customer is already registered as a co-client on this deal"` (HTTP 409).
+
+### Test MC-8: Remove Co-Client from Deal
+1. In the primary client's Khaata drawer, click the **Trash (🗑️)** icon next to a co-client.
+2. Confirm the removal dialog.
+- **Expected**: Co-client removed from the panel. The amber button disappears from the Deal Table row. Any receipts they made are **preserved** (not deleted). Their wallet balance is unaffected.
 
 ---
 
@@ -1362,8 +1420,11 @@ Before marking the system as fully verified, confirm each of the following:
 | 15 | Document Archive re-prints all 3 document types correctly | ☐ |
 | 16 | Idle 15-minute session timeout redirects to `/login` | ☐ |
 | 17 | All automated backend tests pass (56/56) | ☐ |
-| 18 | All automated frontend report tests pass (13/13) | ☐ |
+| 18 | All automated frontend deal hub tests pass (14/14) | ☐ |
+| 19 | Co-client Khaata buttons open correct co-client drawer (MC-3) | ☐ |
+| 20 | Co-client advance routes to co-client wallet, not primary (MC-5) | ☐ |
 
 ---
 
-*Generated: 2026-09-24 | Wadaan Real Estate ERP v3.2.0 | Full system coverage: Screens 0–11, Modules 0–4*
+*Generated: 2026-09-26 | Wadaan Real Estate ERP v3.5.1 | Full system coverage: Screens 0–11, Modules 0–4, Module MC*
+

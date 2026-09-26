@@ -459,4 +459,83 @@ describe('Screen 8: Deal Hub & Customer Portfolio (DealHubPage)', () => {
     expect(screen.getAllByText(/Overdue/i).length).toBeGreaterThan(0);
     expect(screen.getByText('1 Overdue')).toBeInTheDocument();
   });
+
+  it('14. DealTable renders clickable Khaata buttons for each co-client, calling onSelectCustomer with co-client ID', () => {
+    const mockOnSelectCustomer = vi.fn();
+
+    const dealWithCoClients = [
+      {
+        id: 'deal-mc-001',
+        customerId: 'cust-primary',
+        dealType: 'CONSTRUCTION',
+        totalValue: 10000000,
+        pendingBalance: 5000000,
+        createdAt: '2026-09-01T00:00:00.000Z',
+        customer: {
+          id: 'cust-primary',
+          fullName: 'Primary Owner',
+          phone: '03001110000',
+          walletBalance: 0,
+        },
+        project: null,
+        invoices: [],
+        coClients: [
+          {
+            id: 'dc-entry-1',
+            dealId: 'deal-mc-001',
+            customerId: 'cust-cobuyer-1',
+            shareLabel: '30% Share',
+            addedAt: '2026-09-02T00:00:00.000Z',
+            customer: {
+              id: 'cust-cobuyer-1',
+              fullName: 'Ahmad Co-Buyer',
+              phone: '03002220000',
+              walletBalance: 500000,
+            },
+          },
+          {
+            id: 'dc-entry-2',
+            dealId: 'deal-mc-001',
+            customerId: 'cust-cobuyer-2',
+            shareLabel: null,
+            addedAt: '2026-09-03T00:00:00.000Z',
+            customer: {
+              id: 'cust-cobuyer-2',
+              fullName: 'Bilal Second Buyer',
+              phone: '03003330000',
+              walletBalance: 0,
+            },
+          },
+        ],
+      },
+    ];
+
+    render(
+      <DealTable
+        deals={dealWithCoClients as any}
+        onSelectCustomer={mockOnSelectCustomer}
+        onTransferDeal={vi.fn()}
+      />
+    );
+
+    // Both co-client Khaata buttons should be present
+    const ahmadBtn = screen.getByTestId('coclient-khaata-btn-cust-cobuyer-1');
+    const bilalBtn = screen.getByTestId('coclient-khaata-btn-cust-cobuyer-2');
+    expect(ahmadBtn).toBeInTheDocument();
+    expect(bilalBtn).toBeInTheDocument();
+
+    // Names and share labels should be visible
+    expect(screen.getByText('Ahmad Co-Buyer')).toBeInTheDocument();
+    expect(screen.getByText('Bilal Second Buyer')).toBeInTheDocument();
+    expect(screen.getByText('30% Share')).toBeInTheDocument();
+
+    // Clicking Ahmad's button should call onSelectCustomer with Ahmad's ID (not primary's)
+    fireEvent.click(ahmadBtn);
+    expect(mockOnSelectCustomer).toHaveBeenCalledWith('cust-cobuyer-1');
+    expect(mockOnSelectCustomer).not.toHaveBeenCalledWith('cust-primary');
+
+    // Clicking Bilal's button should call with Bilal's ID
+    fireEvent.click(bilalBtn);
+    expect(mockOnSelectCustomer).toHaveBeenCalledWith('cust-cobuyer-2');
+  });
 });
