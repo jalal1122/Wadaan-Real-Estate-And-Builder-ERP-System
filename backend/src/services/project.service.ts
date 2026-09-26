@@ -304,4 +304,264 @@ export class ProjectService {
       transactions
     };
   }
+
+  /**
+   * Fetches the comprehensive project report including financial summary,
+   * client receipts breakdown, vendor expense breakdown, and GL audit trail.
+   */
+  static async getProjectReport(id: string) {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: {
+        expenseBills: {
+          include: {
+            vendor: true,
+            lineItems: true
+          },
+          orderBy: { billDate: 'asc' }
+        },
+        deals: {
+          include: {
+            customer: true,
+            invoices: {
+              include: {
+                receipt: {
+                  include: { customer: true }
+                }
+              },
+              orderBy: { dueDate: 'asc' }
+            }
+          }
+        },
+        journalLines: {
+          include: {
+            journal: {
+              select: {
+                id: true,
+                entryNumber: true,
+                entryDate: true,
+                description: true
+              }
+            },
+            account: {
+              select: {
+                id: true,
+                accountCode: true,
+                accountName: true,
+                category: true
+              }
+            },
+            vendor: {
+              select: {
+                id: true,
+                vendorName: true
+              }
+            },
+            customer: {
+              select: {
+                id: true,
+                fullName: true
+              }
+            }
+          },
+          orderBy: [
+            { journal: { entryDate: 'asc' } },
+            { id: 'asc' }
+          ]
+        }
+      }
+    });
+
+    if (!project) {
+      throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
+    }
+
+    // 1. Calculate spent to date from journal lines (WIP/Expense)
+    const spentToDate = project.journalLines.reduce((sum, line) => {
+      const isExpenseOrWIP = 
+        line.account.category === 'EXPENSE' || 
+        (line.account.category === 'ASSET' && line.account.accountName.toUpperCase().includes('WIP')) ||
+        line.account.accountCode === '5000';
+        
+      if (isExpenseOrWIP) {
+        return sum.plus(new Decimal(line.debitAmount)).minus(new Decimal(line.creditAmount));
+      }
+      return sum;
+    }, new Decimal(0));
+
+    const masterBOQ = new Decimal(project.masterBOQ);
+    const budgetVariance = masterBOQ.minus(spentToDate);
+    const isOverBudget = spentToDate.gt(masterBOQ);
+    const budgetBurnPct = masterBOQ.gt(0)
+      ? spentToDate.dividedBy(masterBOQ).times(100).toDecimalPlaces(2).toNumber()
+      : 0;
+
+    // 2. Client Receipts Breakdown
+    let totalReceivedFromClients = new Decimal(0);
+    let totalInvoiceCount = 0;
+
+    const clientReceipts = (project.deals || []).map((deal) => {
+      let clientTotalPaid = new Decimal(0);
+      let clientTotalPending = new Decimal(0);
+
+      const payments = (deal.invoices || []).map((inv) => {
+        totalInvoiceCount++;
+        const invAmount = new Decimal(inv.amount);
+        const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+        clientTotalPaid = clientTotalPaid.plus(paid);
+        const pending = invAmount.minus(paid);
+        if (pending.gt(0)) {
+          clientTotalPending = clientTotalPending.plus(pending);
+        }
+
+        return {
+          invoiceDescription: inv.description,
+          dueDate: inv.dueDate,
+          receiptDate: inv.receipt?.receiptDate || null,
+          amount: invAmount,
+          paidAmount: paid,
+          paymentStatus: inv.paymentStatus,
+          paymentMethod: inv.receipt?.paymentMethod || null,
+          bankRefNumber: inv.receipt?.bankRefNumber || null,
+          paidByCustomerName: inv.receipt?.customer?.fullName || null
+        };
+      });
+
+      totalReceivedFromClients = totalReceivedFromClients.plus(clientTotalPaid);
+
+      return {
+        customerId: deal.customerId,
+        customerName: deal.customer?.fullName || 'Client',
+        customerPhone: deal.customer?.phone || null,
+        dealType: deal.dealType,
+        contractValue: new Decimal(deal.totalValue),
+        payments,
+        totalPaid: clientTotalPaid,
+        totalPending: clientTotalPending
+      };
+    });
+
+    const netCashMargin = totalReceivedFromClients.minus(spentToDate);
+
+    // 3. Vendor Expenses Breakdown
+    const vendorMap = new Map<string, {
+      vendorId: string;
+      vendorName: string;
+      vendorPhone: string | null;
+      bills: Array<{
+        invoiceNumber: string;
+        billDate: Date;
+        grandTotal: Decimal;
+        pendingAmount: Decimal;
+        paymentStatus: string;
+        lineItems: Array<{
+          description: string;
+          quantity: number;
+          unitPrice: Decimal;
+          lineTotal: Decimal;
+        }>;
+      }>;
+      totalBilled: Decimal;
+      totalPaid: Decimal;
+      totalPending: Decimal;
+    }>();
+
+    for (const bill of (project.expenseBills || [])) {
+      const vId = bill.vendorId;
+      if (!vendorMap.has(vId)) {
+        vendorMap.set(vId, {
+          vendorId: vId,
+          vendorName: bill.vendor?.vendorName || 'Unknown Vendor',
+          vendorPhone: bill.vendor?.phone || null,
+          bills: [],
+          totalBilled: new Decimal(0),
+          totalPaid: new Decimal(0),
+          totalPending: new Decimal(0)
+        });
+      }
+
+      const vGroup = vendorMap.get(vId)!;
+      const billTotal = new Decimal(bill.grandTotal);
+      const pending = new Decimal(bill.pendingAmount || 0);
+      const paid = billTotal.minus(pending);
+
+      vGroup.totalBilled = vGroup.totalBilled.plus(billTotal);
+      vGroup.totalPaid = vGroup.totalPaid.plus(paid.gt(0) ? paid : new Decimal(0));
+      vGroup.totalPending = vGroup.totalPending.plus(pending);
+
+      vGroup.bills.push({
+        invoiceNumber: bill.invoiceNumber,
+        billDate: bill.billDate,
+        grandTotal: billTotal,
+        pendingAmount: pending,
+        paymentStatus: bill.paymentStatus,
+        lineItems: (bill.lineItems || []).map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: new Decimal(item.unitPrice),
+          lineTotal: new Decimal(item.lineTotal)
+        }))
+      });
+    }
+
+    const vendorExpenses = Array.from(vendorMap.values());
+    const grandTotalToVendors = vendorExpenses.reduce((sum, v) => sum.plus(v.totalBilled), new Decimal(0));
+
+    // 4. GL Audit Trail
+    let runningBalance = new Decimal(0);
+    const glTransactions = project.journalLines.map((line) => {
+      const debit = new Decimal(line.debitAmount);
+      const credit = new Decimal(line.creditAmount);
+      runningBalance = runningBalance.plus(debit).minus(credit);
+
+      return {
+        id: line.id,
+        journalId: line.journal.id,
+        entryNumber: line.journal.entryNumber,
+        entryDate: line.journal.entryDate,
+        journalDescription: line.journal.description,
+        memo: line.memo,
+        accountCode: line.account.accountCode,
+        accountName: line.account.accountName,
+        accountCategory: line.account.category,
+        debitAmount: debit,
+        creditAmount: credit,
+        runningBalance: runningBalance,
+        partyName: line.vendor?.vendorName || line.customer?.fullName || null
+      };
+    });
+
+    const glSummary = {
+      totalDebit: project.journalLines.reduce((sum, l) => sum.plus(new Decimal(l.debitAmount)), new Decimal(0)),
+      totalCredit: project.journalLines.reduce((sum, l) => sum.plus(new Decimal(l.creditAmount)), new Decimal(0)),
+      netBalance: runningBalance
+    };
+
+    return {
+      project: {
+        id: project.id,
+        projectName: project.projectName,
+        projectPrefix: project.projectPrefix,
+        status: project.status,
+        masterBOQ: project.masterBOQ,
+        createdAt: project.createdAt
+      },
+      summary: {
+        totalSpentWIP: spentToDate,
+        totalReceivedFromClients,
+        netCashMargin,
+        budgetVariance,
+        isOverBudget,
+        budgetBurnPct,
+        totalVendorBillCount: (project.expenseBills || []).length,
+        totalInvoiceCount
+      },
+      clientReceipts,
+      grandTotalFromClients: totalReceivedFromClients,
+      vendorExpenses,
+      grandTotalToVendors,
+      glSummary,
+      glTransactions
+    };
+  }
 }
