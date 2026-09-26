@@ -2,15 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ProjectItem, ProjectStatus } from '@/features/projects/types';
 import { useUpdateProjectStatus } from '@/features/projects/hooks/useProjects';
 import { formatPKR } from '@/lib/formatters';
-import { MoreVertical, AlertTriangle, CheckCircle2, PauseCircle, PlayCircle, User } from 'lucide-react';
+import { ProjectReportModal } from './ProjectReportModal';
+import { MoreVertical, AlertTriangle, CheckCircle2, PauseCircle, PlayCircle, User, Printer } from 'lucide-react';
 
 interface ProjectCardProps {
   project: ProjectItem;
   onViewTransactions?: (id: string) => void;
+  onPrintReport?: (id: string) => void;
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransactions }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransactions, onPrintReport }) => {
+  const [reportOpen, setReportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const updateStatusMutation = useUpdateProjectStatus();
 
@@ -243,9 +247,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransac
           </div>
         )}
 
-        {/* General Ledger Drill-Down Action */}
+        {/* Actions Footer */}
         <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs mt-3">
-          <span className="text-slate-400">GL Cost Center</span>
+          <button
+            type="button"
+            onClick={() => onPrintReport ? onPrintReport(project.id) : setReportOpen(true)}
+            className="font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors cursor-pointer"
+            data-testid={`print-report-${project.id}`}
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-400" />
+            Print Report &rarr;
+          </button>
           <button
             type="button"
             onClick={() => onViewTransactions?.(project.id)}
@@ -256,6 +268,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransac
           </button>
         </div>
       </div>
+
+      {reportOpen && (
+        <ProjectReportModal
+          projectId={project.id}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </div>
   );
 };
+

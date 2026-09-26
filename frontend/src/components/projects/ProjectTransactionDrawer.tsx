@@ -1,10 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useProjectTransactions } from '@/features/projects/hooks/useProjects';
 import { formatPKR, formatDate } from '@/lib/format';
+import { ProjectReportModal } from './ProjectReportModal';
 import {
   X,
+  Printer,
   Building2,
   AlertCircle,
   FileSpreadsheet,
@@ -24,6 +26,7 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
   projectId,
   onClose,
 }) => {
+  const [reportOpen, setReportOpen] = useState(false);
   const { data, isLoading, isError, refetch } = useProjectTransactions(projectId);
 
   if (!projectId) return null;
@@ -70,15 +73,28 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-            data-testid="close-project-drawer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              id="print-project-report-btn"
+              data-testid="print-project-report-btn"
+              title="Print full project report"
+              type="button"
+              onClick={() => setReportOpen(true)}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <Printer className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              data-testid="close-project-drawer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -223,6 +239,14 @@ export const ProjectTransactionDrawer: React.FC<ProjectTransactionDrawerProps> =
         </div>
       </div>
     </div>
+
+    {reportOpen && (
+      <ProjectReportModal
+        projectId={projectId}
+        onClose={() => setReportOpen(false)}
+      />
+    )}
   </div>
   );
 };
+
