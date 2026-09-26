@@ -1158,6 +1158,28 @@ export interface DealInvoice {
   receiptId?: string | null;
 }
 
+export interface DealClientEntry {
+  id: string;
+  dealId: string;
+  customerId: string;
+  shareLabel?: string | null;
+  addedAt: string;
+  customer: {
+    id: string;
+    fullName: string;
+    phone: string;
+  };
+}
+
+export interface AddCoClientPayload {
+  customerId: string;
+  shareLabel?: string | null;
+}
+
+export interface UpdateCoClientPayload {
+  shareLabel?: string | null;
+}
+
 export interface Deal {
   id: string;
   customerId: string;
@@ -1173,6 +1195,14 @@ export interface Deal {
     projectPrefix: string;
   } | null;
   invoices: DealInvoice[];
+  coClients?: DealClientEntry[];
+  isPrimary?: boolean;
+  shareLabel?: string | null;
+  primaryCustomer?: {
+    id: string;
+    fullName: string;
+    phone?: string;
+  } | null;
 }
 
 export interface Receipt {
@@ -1217,7 +1247,7 @@ export interface CreateReceiptPayload {
 #### API Client (`frontend/src/features/deals/api/dealApi.ts`)
 ```typescript
 import { apiClient } from '@/lib/api';
-import { Customer, Deal, CreateDealPayload } from '../types';
+import { Customer, Deal, CreateDealPayload, DealClientEntry, AddCoClientPayload, UpdateCoClientPayload } from '../types';
 
 export const fetchCustomers = async (): Promise<Customer[]> => {
   const res = await apiClient.get('/customers');
@@ -1253,6 +1283,34 @@ export const applyCustomerWallet = async (
 ) => {
   const res = await apiClient.post(`/customers/${customerId}/apply-wallet`, payload);
   return res.data.data;
+};
+
+// Co-Client & Multi-Buyer Operations
+export const fetchDealCoClients = async (dealId: string): Promise<DealClientEntry[]> => {
+  const res = await apiClient.get(`/deals/${dealId}/clients`);
+  return res.data.data;
+};
+
+export const addDealCoClient = async (
+  dealId: string,
+  payload: AddCoClientPayload
+): Promise<DealClientEntry> => {
+  const res = await apiClient.post(`/deals/${dealId}/clients`, payload);
+  return res.data.data;
+};
+
+export const updateCoClientLabel = async (
+  dealId: string,
+  clientId: string,
+  payload: UpdateCoClientPayload
+): Promise<DealClientEntry> => {
+  const res = await apiClient.patch(`/deals/${dealId}/clients/${clientId}`, payload);
+  return res.data.data;
+};
+
+export const removeDealCoClient = async (dealId: string, clientId: string) => {
+  const res = await apiClient.delete(`/deals/${dealId}/clients/${clientId}`);
+  return res.data;
 };
 ```
 

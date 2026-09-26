@@ -1298,10 +1298,34 @@ Guardrail: Rejects with ERR_PENDING_FUNDS_LOCKED (400) if any invoices are PENDI
 Payload: { newCustomerId: "uuid", transferFeeAmount: 50000 }
 Response (200): { success: true, data: { deal: {...}, previousCustomerId, newCustomer: {...}, feeInvoice: {...} }, message: "File transfer executed successfully" }
 
+GET /api/v1/deals/:id/clients
+Purpose: Fetches all co-clients registered on a deal contract, ordered by added date ascending.
+Response (200): { success: true, data: [{ id, dealId, customerId, shareLabel, addedAt, customer: { id, fullName, phone } }] }
+
+POST /api/v1/deals/:id/clients
+Purpose: Registers a co-client / co-buyer on an existing deal contract.
+Guardrails:
+- 400 CANNOT_ADD_PRIMARY_AS_CO_CLIENT: Primary contract billing client cannot be added as their own co-client.
+- 404 CUSTOMER_NOT_FOUND: Customer must exist.
+- 409 DUPLICATE_CO_CLIENT: Cannot register the same customer twice on the same deal.
+Payload: { customerId: "uuid", shareLabel: "50% share (optional)" }
+Response (201): { success: true, data: { id, dealId, customerId, shareLabel, addedAt, customer: {...} }, message: "Co-client registered successfully" }
+
+PATCH /api/v1/deals/:id/clients/:clientId
+Purpose: Updates a co-client's share description / role label.
+Payload: { shareLabel: "60% partner (optional/nullable)" }
+Response (200): { success: true, data: { id, dealId, customerId, shareLabel, addedAt, customer: {...} }, message: "Co-client updated successfully" }
+
+DELETE /api/v1/deals/:id/clients/:clientId
+Purpose: Removes a co-client from a deal contract.
+Response (200): { success: true, message: "Co-client removed successfully" }
+
 Receipts & Cheque Clearing (Screen 9)
 
 POST /api/v1/receipts
 Purpose: Logs physical money crossing the desk (CASH, CHEQUE, ONLINE).
+- Multi-Client Payer Rule: Allows payment from either the primary deal owner OR any registered co-client on the linked deals. Rejects unrelated non-co-client payers with 400 INVOICE_CUSTOMER_MISMATCH.
+- Multi-Client Overpayment Rule: If a co-client overpays, excess funds route strictly into that co-client's own advance wallet (Customer.walletBalance for customerId), preserving partner liability boundaries.
 - CASH: Immediately CLEARED, marks invoices PAID, updates Customer.walletBalance on overpayment, posts GL journal.
 - CHEQUE/ONLINE: Status PENDING, enters Cheque Waiting Room, marks invoices PENDING_CLEARANCE. NO GL journal until clearance.
 Payload: {

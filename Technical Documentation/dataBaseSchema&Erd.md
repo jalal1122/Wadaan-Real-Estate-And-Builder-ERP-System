@@ -187,6 +187,7 @@ model Customer {
   
   // Relationships
   deals        Deal[]
+  dealClients  DealClient[]
   receipts     Receipt[]
   journalLines JournalLine[] // v1.5.0: Direct customer party tracking
 }
@@ -204,6 +205,21 @@ model Deal {
   customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   project          Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
   invoices         DealInvoice[]
+  coClients        DealClient[]
+}
+
+model DealClient {
+  id         String   @id @default(uuid())
+  dealId     String
+  customerId String
+  shareLabel String?  // e.g. "50% share", "Co-investor" - display label only
+  addedAt    DateTime @default(now())
+
+  // Relationships
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, customerId])
 }
 
 model DealInvoice {

@@ -799,6 +799,76 @@ npm run dev --prefix frontend
 
 ---
 
+## 👥 MODULE 3a.1: MULTI-CLIENT DEALS & CO-BUYER PARTNER MANAGEMENT (Screen 8 — `/deals`)
+
+### Test MC-1: Register Co-Client on Existing Contract
+1. Navigate to `/deals`.
+2. Locate any active deal (e.g. `Tariq Mehmood`'s contract) and click **"Khaata"**.
+3. In the deal card, locate the **"Co-Clients & Partners"** panel.
+4. Click **"+ Add Co-Client"**.
+5. In the **Add Co-Client Modal**:
+   - **Select Customer**: Choose `Zain Tariq`.
+   - **Share Description / Role**: Enter `50% Co-Buyer`.
+6. Click **"Register Co-Client"**.
+7. **Expected**:
+   - Modal closes cleanly.
+   - `Zain Tariq` appears in the Co-Clients panel with `50% Co-Buyer` badge and phone number.
+   - In the master `/deals` table, Tariq's deal displays a `+1 co-client` badge under his name.
+
+### Test MC-2: Block Primary Client as Co-Client (Validation Guard)
+1. In `AddCoClientModal`, inspect the customer dropdown options.
+2. **Verify**: The primary contract owner (`Tariq Mehmood`) is automatically filtered out and cannot be selected.
+3. If attempting via direct API: `POST /api/v1/deals/:id/clients` with primary client ID returns `400 CANNOT_ADD_PRIMARY_AS_CO_CLIENT`.
+
+### Test MC-3: Block Duplicate Co-Client (409 Conflict Guard)
+1. Open **"+ Add Co-Client"** again on the same deal.
+2. **Verify**: `Zain Tariq` is already registered, so he is excluded from the customer dropdown.
+3. If attempting via direct API: `POST /api/v1/deals/:id/clients` with existing co-client returns `409 DUPLICATE_CO_CLIENT`.
+
+### Test MC-4: Co-Client Direct Milestone Payment via Fast Inflow
+1. Navigate to `/receipts`.
+2. In **FastInflowForm**, select Customer: `Zain Tariq` (the co-client).
+3. **Verify**: The unpaid invoice for `Tariq Mehmood`'s deal appears in Zain's unpaid invoice list labeled: `[Co-Buyer: 50% Co-Buyer] ...`.
+4. Select the milestone invoice and enter the exact amount.
+5. Select Method: `CASH` and submit.
+6. **Expected**:
+   - Receipt successfully creates without triggering `INVOICE_CUSTOMER_MISMATCH`.
+   - Invoice marks `PAID`.
+   - In `CustomerKhaataDrawer`, the milestone displays: `Paid by: Zain Tariq`.
+   - In Section 2 (Receipts Ledger), receipt displays: `• Paid by Zain Tariq`.
+
+### Test MC-5: Co-Client Overpayment Routes to Co-Client Wallet (Not Primary)
+1. In `/receipts`, select Customer: `Zain Tariq`.
+2. Select an unpaid milestone of `PKR 500,000`.
+3. Enter Amount: `PKR 600,000` (`PKR 100,000` overpayment).
+4. Submit receipt.
+5. **Expected**:
+   - Invoice is paid in full.
+   - The excess `PKR 100,000` routes directly into **Zain Tariq's wallet** (`walletBalance = 100,000`), NOT Tariq Mehmood's wallet.
+   - Open Zain Tariq's Khaata: Mobilization Advance Wallet shows `PKR 100,000`.
+   - Open Tariq Mehmood's Khaata: Tariq's wallet remains unchanged.
+
+### Test MC-6: Co-Client Advance Wallet Consumption across Contracts
+1. Open `Zain Tariq`'s Khaata drawer.
+2. **Verify**: Advance Wallet shows `PKR 100,000`.
+3. In the "Apply Advance" form, open the invoice dropdown.
+4. **Verify**: The dropdown lists unpaid milestones from both Zain's own contracts and contracts where Zain is a co-client.
+5. Select the co-client milestone and apply `PKR 50,000`.
+6. **Expected**:
+   - Advance wallet balance decreases to `PKR 50,000`.
+   - Selected milestone updates with `Paid: PKR 50,000`.
+
+### Test MC-7: Remove Co-Client
+1. In `CustomerKhaataDrawer`, find `Zain Tariq` in the Co-Clients panel.
+2. Click the trash icon next to Zain's entry.
+3. Confirm the browser confirmation prompt.
+4. **Expected**:
+   - Zain is removed from the co-clients list.
+   - The deal table badge updates or disappears (`0 co-clients`).
+   - Historical receipts already paid by Zain remain intact with full audit fidelity.
+
+---
+
 ## 💵 MODULE 3b: CASH & CHEQUE GATEWAY (Screen 9 — `/receipts`)
 
 ### Test J-1: Screen Layout
