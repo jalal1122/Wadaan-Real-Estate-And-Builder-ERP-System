@@ -64,6 +64,11 @@ body {
     display: none !important;
   }
 
+  /* When project report portal is active, suppress background app to prevent blank initial page */
+  body:has(#project-report-portal) > *:not(#project-report-portal) {
+    display: none !important;
+  }
+
   .print-only {
     display: block !important;
   }

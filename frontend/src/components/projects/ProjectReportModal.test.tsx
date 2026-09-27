@@ -209,4 +209,26 @@ describe('ProjectReportModal', () => {
 
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
+
+  it('10. renders into document.body via createPortal with id="project-report-portal"', () => {
+    render(<ProjectReportModal projectId="proj-1" onClose={vi.fn()} />);
+
+    const portalEl = document.getElementById('project-report-portal');
+    expect(portalEl).toBeInTheDocument();
+    expect(portalEl?.parentElement).toBe(document.body);
+  });
+
+  it('11. embeds print stylesheet isolating portal and suppressing background app flow', () => {
+    const { container } = render(
+      <ProjectReportModal projectId="proj-1" onClose={vi.fn()} />
+    );
+
+    const styleEl = document.querySelector('style');
+    expect(styleEl).toBeInTheDocument();
+    const cssText = styleEl?.textContent || '';
+    expect(cssText).toContain('body > *:not(#project-report-portal)');
+    expect(cssText).toContain('display: none !important');
+    expect(cssText).toContain('#project-report-print-root');
+    expect(cssText).toContain('position: static !important');
+  });
 });

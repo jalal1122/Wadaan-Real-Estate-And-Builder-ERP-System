@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useProjectReport } from '@/features/projects/hooks/useProjects';
 import { formatPKR, formatDate } from '@/lib/format';
 import {
@@ -30,9 +31,15 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
   projectId,
   onClose,
 }) => {
+  const [mounted, setMounted] = useState(false);
   const { data, isLoading, isError, refetch } = useProjectReport(projectId);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!projectId) return null;
+  if (!mounted && typeof window === 'undefined') return null;
 
   const project = data?.project;
   const summary = data?.summary;
@@ -45,37 +52,97 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
     window.print();
   };
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:inset-auto"
+      id="project-report-portal"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 print:p-0 print:m-0 print:bg-white print:static print:inset-auto print:overflow-visible print:backdrop-blur-none print:block print:w-full print:h-auto"
       data-testid="project-report-modal"
     >
       <style
         dangerouslySetInnerHTML={{
           __html: `
             @media print {
-              body * {
-                visibility: hidden !important;
+              /* 1. Eliminate entire background dashboard tree from print layout */
+              body > *:not(#project-report-portal) {
+                display: none !important;
               }
-              #project-report-print-root, #project-report-print-root * {
-                visibility: visible !important;
+
+              /* 2. Reset html & body layout */
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                height: auto !important;
+                min-height: auto !important;
+                overflow: visible !important;
               }
-              #project-report-print-root {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
+
+              /* 3. Report portal root in normal document flow on Page 1 */
+              #project-report-portal {
+                display: block !important;
+                position: static !important;
+                inset: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 width: 100% !important;
+                background: #ffffff !important;
+                overflow: visible !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+              }
+
+              /* 4. Modal Dialog Card in normal document flow starting at top of Page 1 */
+              #project-report-print-root {
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
                 margin: 0 !important;
                 padding: 16px !important;
-                background: white !important;
+                background: #ffffff !important;
                 color: #0f172a !important;
                 box-shadow: none !important;
                 border: none !important;
+                border-radius: 0 !important;
                 max-height: none !important;
                 overflow: visible !important;
               }
+
+              /* 5. Non-printable controls */
               .no-print {
                 display: none !important;
+              }
+
+              /* 6. Page-break handling */
+              .report-header-block {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+              }
+
+              .report-kpi-summary {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+              }
+
+              .report-signatures-block {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+              }
+
+              table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+              }
+
+              thead {
+                display: table-header-group !important;
+              }
+
+              tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
               }
             }
           `,
@@ -85,7 +152,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
       {/* Modal Dialog Card */}
       <div
         id="project-report-print-root"
-        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:rounded-none print:border-none print:w-full overflow-hidden"
+        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:rounded-none print:border-none print:w-full print:overflow-visible print:static overflow-hidden"
       >
         {/* Top Control Bar (Screen only, hidden in print) */}
         <div className="no-print bg-[#0F172A] text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
@@ -173,7 +240,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
           ) : project && summary ? (
             <div className="space-y-8">
               {/* 1. Institutional Header */}
-              <div className="border-b-2 border-slate-900 pb-5">
+              <div className="border-b-2 border-slate-900 pb-5 report-header-block print:break-inside-avoid">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div>
                     <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">
@@ -212,7 +279,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
               </div>
 
               {/* 2. Executive Financial KPI Strip */}
-              <div>
+              <div className="report-kpi-summary print:break-inside-avoid">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
                   Executive Financial Summary
@@ -331,7 +398,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
                         </div>
 
                         {/* Payments Table */}
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto print:overflow-visible">
                           <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                               <tr>
@@ -450,7 +517,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
                         </div>
 
                         {/* Bills Table */}
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto print:overflow-visible">
                           <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                               <tr>
@@ -534,7 +601,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
                     No General Ledger entries recorded for this project yet.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto print:overflow-visible">
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                         <tr>
@@ -584,7 +651,7 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
               </div>
 
               {/* 6. Signatures / Institutional Stamp Block */}
-              <div className="pt-6 border-t border-slate-200 grid grid-cols-3 gap-8 text-center text-xs text-slate-500">
+              <div className="pt-6 border-t border-slate-200 grid grid-cols-3 gap-8 text-center text-xs text-slate-500 report-signatures-block print:break-inside-avoid print:pt-8">
                 <div>
                   <div className="h-14 border-b border-dashed border-slate-400"></div>
                   <p className="mt-2 font-semibold text-slate-700">Project Engineer / Site Manager</p>
@@ -604,4 +671,6 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

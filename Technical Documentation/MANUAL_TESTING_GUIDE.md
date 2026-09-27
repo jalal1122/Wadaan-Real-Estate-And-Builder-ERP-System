@@ -520,14 +520,15 @@ npm run dev --prefix frontend
 3. **Verify**: Columns for Date, JV #, Account Code & Name, Description/Party, Debit, Credit, and Running Balance.
 4. **Verify**: Top summary shows Total Dr, Total Cr, and Net Balance.
 
-#### Test PR-7: Browser Print & PDF Export Execution
+#### Test PR-7: Browser Print & PDF Export Execution (Zero Blank Initial Page)
 1. In `ProjectReportModal`, click **"Print / Export PDF"** button.
 2. **Expected**: The browser native print dialog opens (`window.print()`).
 3. **Verify** in the print preview:
-   - Only the report content is displayed with black/slate typography on white background.
-   - The modal top bar, buttons, and app sidebar/chrome are hidden (`.no-print`).
-   - Tables and summary cards break cleanly across pages.
-   - Signature blocks for Site Manager, Finance Controller, and Managing Director appear at the bottom.
+   - **Page 1 is NEVER empty or blank**: Page 1 begins immediately with the WADAAN REAL ESTATE & BUILDERS institutional letterhead, report title, project badge (e.g. `OPF Villa [OPFV]`), operational status, and Executive Financial Summary strip.
+   - Background dashboard elements (sidebar, top navbar, KPI cards, filters, and project cards) are completely collapsed (`display: none !important`), taking up 0 layout flow space so no ghost spacing or blank first page occurs.
+   - The modal top bar, action buttons, and close controls are hidden (`.no-print`).
+   - Tables and cards break cleanly across subsequent pages without clipped borders (`print:overflow-visible`).
+   - Signature blocks for Site Manager, Finance Controller, and Managing Director appear intact with `break-inside: avoid`.
 
 ---
 
