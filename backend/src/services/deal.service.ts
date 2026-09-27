@@ -166,6 +166,7 @@ export class DealService {
 
     bustCache('deals');
     bustCache('projects');
+    bustCache('reports');
     return newContract;
   }
 
@@ -459,6 +460,7 @@ export class DealService {
     bustCache('deals');
     bustCache('projects');
     bustCache('customers');
+    bustCache('reports');
     return transferResult;
   }
 

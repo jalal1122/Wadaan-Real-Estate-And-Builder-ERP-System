@@ -4,6 +4,90 @@ import { AppError } from '../middleware/errorHandler';
 import { CreateProjectInput, UpdateProjectStatusInput } from '../utils/validation.util';
 import { getCache, setCache, bustCache } from '../utils/cache.util';
 
+export interface ProjectReportResult {
+  project: {
+    id: string;
+    projectName: string;
+    projectPrefix: string;
+    status: string;
+    masterBOQ: any;
+    createdAt: Date;
+  };
+  summary: {
+    totalSpentWIP: Decimal;
+    totalReceivedFromClients: Decimal;
+    netCashMargin: Decimal;
+    budgetVariance: Decimal;
+    isOverBudget: boolean;
+    budgetBurnPct: number;
+    totalVendorBillCount: number;
+    totalInvoiceCount: number;
+  };
+  clientReceipts: Array<{
+    customerId: string;
+    customerName: string;
+    customerPhone: string | null;
+    dealType: string;
+    contractValue: Decimal;
+    payments: Array<{
+      invoiceDescription: string;
+      dueDate: Date;
+      receiptDate: Date | null;
+      amount: Decimal;
+      paidAmount: Decimal;
+      paymentStatus: string;
+      paymentMethod: string | null;
+      bankRefNumber: string | null;
+      paidByCustomerName: string | null;
+    }>;
+    totalPaid: Decimal;
+    totalPending: Decimal;
+  }>;
+  grandTotalFromClients: Decimal;
+  vendorExpenses: Array<{
+    vendorId: string;
+    vendorName: string;
+    vendorPhone: string | null;
+    bills: Array<{
+      invoiceNumber: string;
+      billDate: Date;
+      grandTotal: Decimal;
+      pendingAmount: Decimal;
+      paymentStatus: string;
+      lineItems: Array<{
+        description: string;
+        quantity: number;
+        unitPrice: Decimal;
+        lineTotal: Decimal;
+      }>;
+    }>;
+    totalBilled: Decimal;
+    totalPaid: Decimal;
+    totalPending: Decimal;
+  }>;
+  grandTotalToVendors: Decimal;
+  glSummary: {
+    totalDebit: Decimal;
+    totalCredit: Decimal;
+    netBalance: Decimal;
+  };
+  glTransactions: Array<{
+    id: string;
+    journalId: string;
+    entryNumber: string;
+    entryDate: Date;
+    journalDescription: string;
+    memo: string | null;
+    accountCode: string;
+    accountName: string;
+    accountCategory: string;
+    debitAmount: Decimal;
+    creditAmount: Decimal;
+    runningBalance: Decimal;
+    partyName: string | null;
+  }>;
+}
+
 export class ProjectService {
   /**
    * Initializes a new construction site.
@@ -159,6 +243,10 @@ export class ProjectService {
    * Fetches single project detail with associated bills and computed metrics.
    */
   static async getProjectById(id: string) {
+    const CACHE_KEY = `projects:detail:${id}`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const project = await prisma.project.findUnique({
       where: { id },
       include: {
@@ -238,7 +326,7 @@ export class ProjectService {
       };
     }
 
-    return {
+    const result = {
       ...project,
       spentToDate,
       budgetVariance,
@@ -246,6 +334,9 @@ export class ProjectService {
       budgetBurnPercentage,
       clientInfo
     };
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 
   /**
@@ -361,7 +452,11 @@ export class ProjectService {
    * Fetches the comprehensive project report including financial summary,
    * client receipts breakdown, vendor expense breakdown, and GL audit trail.
    */
-  static async getProjectReport(id: string) {
+  static async getProjectReport(id: string): Promise<ProjectReportResult> {
+    const CACHE_KEY = `projects:report:${id}`;
+    const cached = getCache<ProjectReportResult>(CACHE_KEY);
+    if (cached) return cached;
+
     const project = await prisma.project.findUnique({
       where: { id },
       include: {
@@ -594,7 +689,7 @@ export class ProjectService {
       netBalance: runningBalance
     };
 
-    return {
+    const result = {
       project: {
         id: project.id,
         projectName: project.projectName,
@@ -620,5 +715,8 @@ export class ProjectService {
       glSummary,
       glTransactions
     };
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 }

@@ -66,3 +66,25 @@ Route Protection: Every request to localhost:4000/api/* passes through an Expres
 
 
 Database Access & Connection Pooling: The frontend never possesses database credentials. The cloud PostgreSQL URL is securely injected only into the compiled Express backend via environment variables hidden inside the Electron package. All query executions are strictly channeled through the centralized Prisma Client singleton at backend/src/config/db.ts to guarantee connection pool discipline and consistent TypeScript type inference across services.
+
+5. High-Performance Multi-Tier Micro-Caching & Query Optimization Architecture
+To deliver instantaneous screen transitions (<50ms) and eliminate heavy database re-computations across large General Ledger aggregates, the ERP features a coordinated two-tier caching architecture:
+
+Tier 1: Backend In-Memory Micro-Cache (`backend/src/utils/cache.util.ts`)
+- Target Endpoints & TTLs:
+  - Executive Financial Snapshot (`GET /reports/snapshot`): 30s TTL
+  - Trial Balance Statement (`GET /reports/trial-balance`): 60s TTL
+  - Deal Margins & True Net Income (`GET /reports/deal-margins`, `/reports/net-income`): 120s TTL
+  - Aging Radar (`GET /reports/aging-radar`): 60s TTL
+  - Overhead & Equity Ledgers (`GET /reports/overhead-ledger`, `/reports/equity-ledger`): 120s TTL
+  - Chart of Accounts Live Balances (`GET /accounts`): 60s TTL
+  - Project Overview & Detailed Reports (`GET /projects`, `/projects/:id`, `/projects/:id/report`): 60s - 120s TTL
+  - Personal Finance Contacts & Ledger (`GET /personal/contacts`): 120s TTL
+  - Chronological Account Ledger (`GET /ledger/:accountId`): 30s TTL
+- Mutation-Driven Event Invalidation:
+  - Any mutating action (Receipt processing/clearing/bouncing, Vendor bill recording, FIFO payment runs, Journal entry posting/reversal, Deal creation/transfer, Account creation/modification, Personal loans/repayments) triggers atomic prefix-based invalidation (`bustCache`) across dependent namespaces (`reports`, `accounts`, `ledger`, `projects`, `deals`, `customers`, `personal:contacts`).
+
+Tier 2: Frontend Client-Side Stale-Time Synchronization (`TanStack Query`)
+- Query hooks (`useTrialBalance`, `useAccountLedger`, `useOverheadLedger`, `useEquityLedger`, `useProjectReport`, `useProjectTransactions`, `useExecutiveSnapshot`, `useAgingRadar`) have their `staleTime` tuned to match backend cache lifetimes (30s to 120s).
+- Switching between tabs and pages re-uses fresh cached data instantly with zero layout shifts, while mutations seamlessly trigger React Query `queryClient.invalidateQueries()` for immediate synchronized updates.
+

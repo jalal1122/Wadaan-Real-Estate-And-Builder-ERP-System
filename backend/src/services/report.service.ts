@@ -3,6 +3,7 @@ import { Prisma, AccountCategory, PaymentStatus, DealType } from '@prisma/client
 import { prisma } from '../config/db';
 import { DateUtility, MathUtility } from '../utils/aggregation.util';
 import { FiscalYearUtility } from '../utils/fiscal.util';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export interface TrialBalanceLineItem {
   accountId: string;
@@ -169,6 +170,10 @@ export class ReportService {
    * - Total AP: ExpenseBill pendingAmount where paymentStatus != 'PAID'
    */
   static async calculateSnapshot(): Promise<ExecutiveSnapshot> {
+    const CACHE_KEY = 'reports:snapshot';
+    const cached = getCache<ExecutiveSnapshot>(CACHE_KEY);
+    if (cached) return cached;
+
     const [liquidCash, clientFundsHeld, totalAR, totalAP] = await Promise.all([
       this.getLiquidCash(),
       this.getClientFundsHeld(),
@@ -176,12 +181,15 @@ export class ReportService {
       this.getTotalAP()
     ]);
 
-    return {
+    const result: ExecutiveSnapshot = {
       liquidCash: liquidCash.toFixed(2),
       clientFundsHeld: clientFundsHeld.toFixed(2),
       totalAR: totalAR.toFixed(2),
       totalAP: totalAP.toFixed(2)
     };
+
+    setCache(CACHE_KEY, result, 30_000); // 30s TTL — matches frontend polling interval
+    return result;
   }
 
   private static async getLiquidCash(): Promise<Decimal> {
@@ -305,6 +313,10 @@ export class ReportService {
    * Calculates gross profit, margin percentage (safe against div-by-zero), and WIP flag.
    */
   static async calculateDealMargins(status?: string): Promise<DealMarginItem[]> {
+    const CACHE_KEY = `reports:deal-margins:${status ?? 'all'}`;
+    const cached = getCache<DealMarginItem[]>(CACHE_KEY);
+    if (cached) return cached;
+
     const statusClause = status
       ? Prisma.sql`WHERE p.status = ${status}`
       : Prisma.empty;
@@ -331,7 +343,7 @@ export class ReportService {
       ORDER BY d."createdAt" DESC
     `;
 
-    return rows.map((row) => {
+    const result: DealMarginItem[] = rows.map((row) => {
       const revenue = new Decimal(row.revenueCollected ?? 0);
       const cost = new Decimal(row.totalProjectCost ?? 0);
       const totalVal = new Decimal(row.totalValue ?? 0);
@@ -352,6 +364,9 @@ export class ReportService {
         isWipAsset
       };
     });
+
+    setCache(CACHE_KEY, result, 120_000); // 2-minute TTL
+    return result;
   }
 
   /**
@@ -360,6 +375,10 @@ export class ReportService {
    * sorted by daysOverdue DESC.
    */
   static async getAgingRadar(): Promise<AgingRadarResponse> {
+    const CACHE_KEY = 'reports:aging-radar';
+    const cached = getCache<AgingRadarResponse>(CACHE_KEY);
+    if (cached) return cached;
+
     const now = new Date();
 
     const [unpaidInvoices, unpaidBills] = await Promise.all([
@@ -419,10 +438,9 @@ export class ReportService {
     receivables.sort((a, b) => b.daysOverdue - a.daysOverdue);
     payables.sort((a, b) => b.daysOverdue - a.daysOverdue);
 
-    return {
-      receivables,
-      payables
-    };
+    const result: AgingRadarResponse = { receivables, payables };
+    setCache(CACHE_KEY, result, 60_000); // 60s TTL
+    return result;
   }
 
   /**
@@ -437,6 +455,10 @@ export class ReportService {
     const { startDate: defaultStart, endDate: defaultEnd } = FiscalYearUtility.getCurrentBoundary();
     const start = startDate ?? defaultStart;
     const end = endDate ?? defaultEnd;
+
+    const CACHE_KEY = `reports:net-income:${start.toISOString()}:${end.toISOString()}`;
+    const cached = getCache<NetIncomeReport>(CACHE_KEY);
+    if (cached) return cached;
 
     // 1. Gross Profit from Deals created in period
     const dealRows = await prisma.$queryRaw<RawDealMarginRow[]>`
@@ -507,7 +529,7 @@ export class ReportService {
     // 4. Net Income formula
     const netIncome = grossDealProfit.plus(brokerageCommissions).minus(generalOverhead);
 
-    return {
+    const result: NetIncomeReport = {
       period: {
         startDate: start.toISOString(),
         endDate: end.toISOString()
@@ -517,6 +539,9 @@ export class ReportService {
       generalOverhead: generalOverhead.toFixed(2),
       netIncome: netIncome.toFixed(2)
     };
+
+    setCache(CACHE_KEY, result, 120_000); // 2-minute TTL
+    return result;
   }
 
   /**
@@ -537,6 +562,10 @@ export class ReportService {
     const { startDate: defaultStart, endDate: defaultEnd } = FiscalYearUtility.getCurrentBoundary();
     const periodStart = startDate ?? defaultStart;
     const periodEnd = endDate ?? defaultEnd;
+
+    const CACHE_KEY = `reports:trial-balance:${periodStart.toISOString()}:${periodEnd.toISOString()}`;
+    const cached = getCache<TrialBalanceReport>(CACHE_KEY);
+    if (cached) return cached;
 
     // Fetch all active (non-archived) accounts
     const allAccounts = await prisma.account.findMany({
@@ -644,7 +673,7 @@ export class ReportService {
       });
     }
 
-      return {
+    const result: TrialBalanceReport = {
       period: {
         startDate: periodStart.toISOString(),
         endDate: periodEnd.toISOString()
@@ -654,6 +683,9 @@ export class ReportService {
       grandTotalCredit: grandTotalCredit.toFixed(2),
       isBalanced: grandTotalDebit.equals(grandTotalCredit)
     };
+
+    setCache(CACHE_KEY, result, 60_000); // 60s TTL
+    return result;
   }
 
   /**
@@ -741,6 +773,10 @@ export class ReportService {
     startDate?: Date,
     endDate?: Date
   ): Promise<OverheadLedgerReport> {
+    const CACHE_KEY = `reports:overhead-ledger:${startDate?.toISOString() ?? 'all'}:${endDate?.toISOString() ?? 'all'}`;
+    const cached = getCache<OverheadLedgerReport>(CACHE_KEY);
+    if (cached) return cached;
+
     const where: Prisma.ExpenseBillWhereInput = {
       projectId: null
     };
@@ -776,7 +812,7 @@ export class ReportService {
       });
     }
 
-    return {
+    const result: OverheadLedgerReport = {
       period: {
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined
@@ -784,6 +820,9 @@ export class ReportService {
       bills: ledgerItems,
       totalOverhead: totalOverhead.toFixed(2)
     };
+
+    setCache(CACHE_KEY, result, 120_000); // 2-minute TTL
+    return result;
   }
 
   /**
@@ -795,6 +834,10 @@ export class ReportService {
     startDate?: Date,
     endDate?: Date
   ): Promise<EquityLedgerReport> {
+    const CACHE_KEY = `reports:equity-ledger:${startDate?.toISOString() ?? 'all'}:${endDate?.toISOString() ?? 'all'}`;
+    const cached = getCache<EquityLedgerReport>(CACHE_KEY);
+    if (cached) return cached;
+
     const equityAccounts = await prisma.account.findMany({
       where: {
         category: AccountCategory.EQUITY
@@ -889,7 +932,7 @@ export class ReportService {
       .plus(new Decimal(zeeshanSummary.totalDrawings))
       .toFixed(2);
 
-    return {
+    const result: EquityLedgerReport = {
       period: {
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined
@@ -898,5 +941,8 @@ export class ReportService {
       zeeshan: zeeshanSummary,
       grandTotal
     };
+
+    setCache(CACHE_KEY, result, 120_000); // 2-minute TTL
+    return result;
   }
 }

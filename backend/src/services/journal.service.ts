@@ -6,6 +6,7 @@ import {
   CreateJournalInput,
   DoubleEntryValidator
 } from '../utils/validation.util';
+import { bustCache } from '../utils/cache.util';
 
 export class JournalService {
   /**
@@ -103,13 +104,20 @@ export class JournalService {
       return createdEntry;
     };
 
+    let result: JournalEntry;
     if (tx) {
-      return execute(tx);
+      result = await execute(tx);
+    } else {
+      result = await prisma.$transaction(async (innerTx) => {
+        return execute(innerTx);
+      });
     }
 
-    return prisma.$transaction(async (innerTx) => {
-      return execute(innerTx);
-    });
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
+    bustCache('projects');
+    return result;
   }
 
   /**
@@ -117,7 +125,7 @@ export class JournalService {
    * Never deletes records; creates a mirror entry with "[REVERSAL]" prefixed.
    */
   static async reverseEntry(journalId: string): Promise<JournalEntry> {
-    return prisma.$transaction(async (tx) => {
+    const reversed = await prisma.$transaction(async (tx) => {
       // 1. Fetch original entry with all lines
       const original = await tx.journalEntry.findUnique({
         where: { id: journalId },
@@ -182,6 +190,12 @@ export class JournalService {
 
       return reversalEntry;
     });
+
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
+    bustCache('projects');
+    return reversed;
   }
 
   /**

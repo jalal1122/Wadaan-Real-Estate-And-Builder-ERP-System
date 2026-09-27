@@ -42,6 +42,7 @@ export const useProjectTransactions = (id: string | null | undefined) => {
     queryFn: () => fetchProjectTransactions(id!),
     enabled: !!id,
     retry: false,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 };
 
@@ -54,7 +55,7 @@ export const useProjectReport = (id: string | null | undefined) => {
     queryFn: () => fetchProjectReport(id!),
     enabled: !!id,
     retry: false,
-    staleTime: 1000 * 30, // 30 seconds
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 };
 
