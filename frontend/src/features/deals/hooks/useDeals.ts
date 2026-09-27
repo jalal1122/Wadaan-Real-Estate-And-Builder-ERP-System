@@ -77,6 +77,7 @@ export const useTransferFile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] }); // Bust project card clientInfo & PDF report after transfer
       queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
       queryClient.invalidateQueries({ queryKey: ['journals'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
