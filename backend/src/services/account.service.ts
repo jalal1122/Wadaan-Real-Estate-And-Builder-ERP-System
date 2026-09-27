@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { AccountCategory, Account } from '@prisma/client';
+import { AccountCategory, Account, Prisma } from '@prisma/client';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateAccountInput, UpdateAccountInput } from '../utils/validation.util';
@@ -56,74 +56,38 @@ export class AccountService {
     const cached = getCache<LiveBalancesResult>(CACHE_KEY);
     if (cached) return cached;
 
-    // 1. Fetch all active accounts in the system
-    const allAccounts = await prisma.account.findMany({
-      where: { isArchived: false },
-      orderBy: { accountCode: 'asc' }
-    });
+    // 1. Single roundtrip Raw SQL to aggregate all balances
+    const dateFilter = fiscalStartDate 
+      ? Prisma.sql`AND (a.category IN ('ASSET'::"AccountCategory", 'LIABILITY'::"AccountCategory", 'EQUITY'::"AccountCategory") OR (SELECT "entryDate" FROM "JournalEntry" WHERE id = jl."journalId") >= ${fiscalStartDate})`
+      : Prisma.empty;
 
-    // Partition account IDs by category type
-    const permanentAccounts = allAccounts.filter(
-      (a) =>
-        a.category === AccountCategory.ASSET ||
-        a.category === AccountCategory.LIABILITY ||
-        a.category === AccountCategory.EQUITY
-    );
-    const annualAccounts = allAccounts.filter(
-      (a) =>
-        a.category === AccountCategory.REVENUE ||
-        a.category === AccountCategory.EXPENSE
-    );
-
-    const permanentIds = permanentAccounts.map((a) => a.id);
-    const annualIds = annualAccounts.map((a) => a.id);
-
-    // 2. Query aggregations for permanent accounts (all-time)
-    const permanentAggregations = permanentIds.length > 0
-      ? await prisma.journalLine.groupBy({
-          by: ['accountId'],
-          _sum: {
-            debitAmount: true,
-            creditAmount: true
-          },
-          where: {
-            accountId: { in: permanentIds }
-          }
-        })
-      : [];
-
-    // 3. Query aggregations for annual accounts (filtered by fiscalStartDate if supplied)
-    const annualAggregations = annualIds.length > 0
-      ? await prisma.journalLine.groupBy({
-          by: ['accountId'],
-          _sum: {
-            debitAmount: true,
-            creditAmount: true
-          },
-          where: {
-            accountId: { in: annualIds },
-            ...(fiscalStartDate
-              ? {
-                  journal: {
-                    entryDate: {
-                      gte: fiscalStartDate
-                    }
-                  }
-                }
-              : {})
-          }
-        })
-      : [];
-
-    // Map accountId -> { totalDebit, totalCredit }
-    const totalsMap = new Map<string, { totalDebit: Decimal; totalCredit: Decimal }>();
-
-    for (const row of [...permanentAggregations, ...annualAggregations]) {
-      totalsMap.set(row.accountId, {
-        totalDebit: new Decimal(row._sum.debitAmount?.toString() || '0'),
-        totalCredit: new Decimal(row._sum.creditAmount?.toString() || '0')
-      });
-    }
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        accountCode: string;
+        accountName: string;
+        category: AccountCategory;
+        isSystemLocked: boolean;
+        isArchived: boolean;
+        totalDebit: Decimal | number | string;
+        totalCredit: Decimal | number | string;
+      }>
+    >`
+      SELECT 
+        a.id, 
+        a."accountCode", 
+        a."accountName", 
+        a.category, 
+        a."isSystemLocked", 
+        a."isArchived",
+        COALESCE(SUM(jl."debitAmount"), 0) AS "totalDebit",
+        COALESCE(SUM(jl."creditAmount"), 0) AS "totalCredit"
+      FROM "Account" a
+      LEFT JOIN "JournalLine" jl ON jl."accountId" = a.id ${dateFilter}
+      WHERE a."isArchived" = false
+      GROUP BY a.id, a."accountCode", a."accountName", a.category, a."isSystemLocked", a."isArchived"
+      ORDER BY a."accountCode" ASC
+    `;
 
     const grouped: GroupedAccounts = {
       ASSET: [],
@@ -143,21 +107,20 @@ export class AccountService {
 
     const accountsWithBalance: AccountWithBalance[] = [];
 
-    // 4. Calculate live balances per account
-    for (const acc of allAccounts) {
-      const totals = totalsMap.get(acc.id) || {
-        totalDebit: new Decimal(0),
-        totalCredit: new Decimal(0)
-      };
+    // 2. Calculate live balances per account
+    for (const row of rows) {
+      const acc = row;
+      const totalDebit = new Decimal(row.totalDebit || 0);
+      const totalCredit = new Decimal(row.totalCredit || 0);
 
       let balance: Decimal;
       if (
         acc.category === AccountCategory.ASSET ||
         acc.category === AccountCategory.EXPENSE
       ) {
-        balance = totals.totalDebit.minus(totals.totalCredit);
+        balance = totalDebit.minus(totalCredit);
       } else {
-        balance = totals.totalCredit.minus(totals.totalDebit);
+        balance = totalCredit.minus(totalDebit);
       }
 
       const item: AccountWithBalance = {
@@ -166,8 +129,8 @@ export class AccountService {
         accountName: acc.accountName,
         category: acc.category,
         isSystemLocked: acc.isSystemLocked,
-        totalDebit: totals.totalDebit.toFixed(2),
-        totalCredit: totals.totalCredit.toFixed(2),
+        totalDebit: totalDebit.toFixed(2),
+        totalCredit: totalCredit.toFixed(2),
         balance: balance.toFixed(2)
       };
 

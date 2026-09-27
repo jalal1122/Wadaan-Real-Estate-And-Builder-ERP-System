@@ -174,136 +174,54 @@ export class ReportService {
     const cached = getCache<ExecutiveSnapshot>(CACHE_KEY);
     if (cached) return cached;
 
-    const [liquidCash, clientFundsHeld, totalAR, totalAP] = await Promise.all([
-      this.getLiquidCash(),
-      this.getClientFundsHeld(),
-      this.getTotalAR(),
-      this.getTotalAP()
-    ]);
+    const rows = await prisma.$queryRaw<
+      Array<{
+        liquidCash: string | number | Decimal;
+        clientFundsHeld: string | number | Decimal;
+        totalAR: string | number | Decimal;
+        totalAP: string | number | Decimal;
+      }>
+    >`
+      SELECT
+        COALESCE((
+          SELECT SUM(jl."debitAmount" - jl."creditAmount")
+          FROM "JournalLine" jl
+          JOIN "Account" a ON jl."accountId" = a.id
+          WHERE a.category = 'ASSET' AND a."accountCode" LIKE '10%'
+        ), 0) AS "liquidCash",
+        
+        COALESCE((SELECT SUM("walletBalance") FROM "Customer"), 0) +
+        COALESCE((
+          SELECT SUM(jl."creditAmount" - jl."debitAmount")
+          FROM "JournalLine" jl
+          JOIN "Account" a ON jl."accountId" = a.id
+          WHERE a."accountCode" = '2100'
+        ), 0) AS "clientFundsHeld",
+        
+        COALESCE((
+          SELECT SUM("amount")
+          FROM "DealInvoice"
+          WHERE "paymentStatus" != 'PAID'
+        ), 0) AS "totalAR",
+
+        COALESCE((
+          SELECT SUM("pendingAmount")
+          FROM "ExpenseBill"
+          WHERE "paymentStatus" != 'PAID'
+        ), 0) AS "totalAP"
+    `;
+
+    const row = rows[0];
 
     const result: ExecutiveSnapshot = {
-      liquidCash: liquidCash.toFixed(2),
-      clientFundsHeld: clientFundsHeld.toFixed(2),
-      totalAR: totalAR.toFixed(2),
-      totalAP: totalAP.toFixed(2)
+      liquidCash: new Decimal(row?.liquidCash || 0).toFixed(2),
+      clientFundsHeld: new Decimal(row?.clientFundsHeld || 0).toFixed(2),
+      totalAR: new Decimal(row?.totalAR || 0).toFixed(2),
+      totalAP: new Decimal(row?.totalAP || 0).toFixed(2)
     };
 
-    setCache(CACHE_KEY, result, 30_000); // 30s TTL — matches frontend polling interval
+    setCache(CACHE_KEY, result, 30_000); // 30s TTL
     return result;
-  }
-
-  private static async getLiquidCash(): Promise<Decimal> {
-    // Liquid cash accounts: category ASSET and accountCode starts with '10' (e.g. 1001-1099 range)
-    const liquidAccounts = await prisma.account.findMany({
-      where: {
-        category: AccountCategory.ASSET,
-        accountCode: { startsWith: '10' }
-      },
-      select: { id: true }
-    });
-
-    if (liquidAccounts.length === 0) {
-      return new Decimal(0);
-    }
-
-    const accountIds = liquidAccounts.map((a) => a.id);
-
-    const aggregates = await prisma.journalLine.groupBy({
-      by: ['accountId'],
-      _sum: {
-        debitAmount: true,
-        creditAmount: true
-      },
-      where: {
-        accountId: { in: accountIds }
-      }
-    });
-
-    let total = new Decimal(0);
-    for (const agg of aggregates) {
-      const debit = agg._sum.debitAmount ? new Decimal(agg._sum.debitAmount) : new Decimal(0);
-      const credit = agg._sum.creditAmount ? new Decimal(agg._sum.creditAmount) : new Decimal(0);
-      // For Asset accounts, balance = Debits - Credits
-      total = total.plus(debit.minus(credit));
-    }
-
-    return total;
-  }
-
-  private static async getClientFundsHeld(): Promise<Decimal> {
-    // 1. Customer wallets sum
-    const customerWalletAgg = await prisma.customer.aggregate({
-      _sum: {
-        walletBalance: true
-      }
-    });
-    const walletSum = customerWalletAgg._sum.walletBalance
-      ? new Decimal(customerWalletAgg._sum.walletBalance)
-      : new Decimal(0);
-
-    // 2. Escrow Liability account (accountCode '2100')
-    const escrowAccount = await prisma.account.findFirst({
-      where: { accountCode: '2100' },
-      select: { id: true }
-    });
-
-    let escrowBalance = new Decimal(0);
-    if (escrowAccount) {
-      const escrowAgg = await prisma.journalLine.groupBy({
-        by: ['accountId'],
-        _sum: {
-          debitAmount: true,
-          creditAmount: true
-        },
-        where: {
-          accountId: escrowAccount.id
-        }
-      });
-
-      if (escrowAgg.length > 0) {
-        const debit = escrowAgg[0]._sum.debitAmount
-          ? new Decimal(escrowAgg[0]._sum.debitAmount)
-          : new Decimal(0);
-        const credit = escrowAgg[0]._sum.creditAmount
-          ? new Decimal(escrowAgg[0]._sum.creditAmount)
-          : new Decimal(0);
-        // For Liability accounts, balance = Credits - Debits
-        escrowBalance = credit.minus(debit);
-      }
-    }
-
-    const total = walletSum.plus(escrowBalance);
-    return total.isNegative() ? new Decimal(0) : total;
-  }
-
-  private static async getTotalAR(): Promise<Decimal> {
-    const arAgg = await prisma.dealInvoice.aggregate({
-      _sum: {
-        amount: true
-      },
-      where: {
-        paymentStatus: {
-          not: PaymentStatus.PAID
-        }
-      }
-    });
-
-    return arAgg._sum.amount ? new Decimal(arAgg._sum.amount) : new Decimal(0);
-  }
-
-  private static async getTotalAP(): Promise<Decimal> {
-    const apAgg = await prisma.expenseBill.aggregate({
-      _sum: {
-        pendingAmount: true
-      },
-      where: {
-        paymentStatus: {
-          not: PaymentStatus.PAID
-        }
-      }
-    });
-
-    return apAgg._sum.pendingAmount ? new Decimal(apAgg._sum.pendingAmount) : new Decimal(0);
   }
 
   /**
@@ -381,55 +299,81 @@ export class ReportService {
 
     const now = new Date();
 
-    const [unpaidInvoices, unpaidBills] = await Promise.all([
-      prisma.dealInvoice.findMany({
-        where: {
-          paymentStatus: {
-            in: [PaymentStatus.UNPAID, PaymentStatus.PARTIAL]
-          }
-        },
-        include: {
-          deal: {
-            include: {
-              customer: true
-            }
-          }
-        },
-        orderBy: { dueDate: 'asc' }
-      }),
-      prisma.expenseBill.findMany({
-        where: {
-          paymentStatus: {
-            in: [PaymentStatus.UNPAID, PaymentStatus.PARTIAL]
-          }
-        },
-        include: {
-          vendor: true
-        },
-        orderBy: { billDate: 'asc' }
-      })
-    ]);
+    const rows = await prisma.$queryRaw<
+      Array<{
+        receivables: Array<{
+          id: string;
+          description: string;
+          amount: string | Decimal;
+          dueDate: string;
+          customerName: string;
+        }>;
+        payables: Array<{
+          id: string;
+          invoiceNumber: string;
+          pendingAmount: string | Decimal;
+          billDate: string;
+          vendorName: string;
+        }>;
+      }>
+    >`
+      SELECT
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id', di.id,
+              'description', di.description,
+              'amount', di.amount,
+              'dueDate', di."dueDate",
+              'customerName', c."fullName"
+            ) ORDER BY di."dueDate" ASC
+          ), '[]'::json)
+          FROM "DealInvoice" di
+          JOIN "Deal" d ON di."dealId" = d.id
+          JOIN "Customer" c ON d."customerId" = c.id
+          WHERE di."paymentStatus" IN ('UNPAID', 'PARTIAL')
+        ) AS receivables,
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id', eb.id,
+              'invoiceNumber', eb."invoiceNumber",
+              'pendingAmount', eb."pendingAmount",
+              'billDate', eb."billDate",
+              'vendorName', v."vendorName"
+            ) ORDER BY eb."billDate" ASC
+          ), '[]'::json)
+          FROM "ExpenseBill" eb
+          JOIN "Vendor" v ON eb."vendorId" = v.id
+          WHERE eb."paymentStatus" IN ('UNPAID', 'PARTIAL')
+        ) AS payables
+    `;
 
-    const receivables: AgingReceivableItem[] = unpaidInvoices.map((inv) => {
-      const days = DateUtility.daysBetween(inv.dueDate, now);
+    const rawReceivables = rows[0]?.receivables || [];
+    const rawPayables = rows[0]?.payables || [];
+
+    const receivables: AgingReceivableItem[] = rawReceivables.map((inv) => {
+      const dueDateObj = new Date(inv.dueDate);
+      const days = DateUtility.daysBetween(dueDateObj, now);
       return {
         invoiceId: inv.id,
-        customerName: inv.deal.customer.fullName,
+        customerName: inv.customerName,
         description: inv.description,
         amount: new Decimal(inv.amount).toFixed(2),
-        dueDate: inv.dueDate.toISOString(),
+        dueDate: dueDateObj.toISOString(),
         daysOverdue: days > 0 ? days : 0
       };
     });
 
-    const payables: AgingPayableItem[] = unpaidBills.map((bill) => {
-      const days = DateUtility.daysBetween(bill.billDate, now);
+    const payables: AgingPayableItem[] = rawPayables.map((bill) => {
+      const billDateObj = new Date(bill.billDate);
+      const days = DateUtility.daysBetween(billDateObj, now);
       return {
         billId: bill.id,
-        vendorName: bill.vendor.vendorName,
+        vendorName: bill.vendorName,
         invoiceNumber: bill.invoiceNumber,
         pendingAmount: new Decimal(bill.pendingAmount).toFixed(2),
-        billDate: bill.billDate.toISOString(),
+        billDate: billDateObj.toISOString(),
         daysOverdue: days > 0 ? days : 0
       };
     });
@@ -567,65 +511,49 @@ export class ReportService {
     const cached = getCache<TrialBalanceReport>(CACHE_KEY);
     if (cached) return cached;
 
-    // Fetch all active (non-archived) accounts
-    const allAccounts = await prisma.account.findMany({
-      where: { isArchived: false },
-      orderBy: { accountCode: 'asc' }
-    });
+    // Single roundtrip Raw SQL to aggregate Trial Balance with fiscal boundaries
+    const dateFilter = Prisma.sql`
+      AND (
+        (a.category IN ('ASSET'::"AccountCategory", 'LIABILITY'::"AccountCategory", 'EQUITY'::"AccountCategory") AND (SELECT "entryDate" FROM "JournalEntry" WHERE id = jl."journalId") <= ${periodEnd})
+        OR
+        (a.category IN ('REVENUE'::"AccountCategory", 'EXPENSE'::"AccountCategory") AND (SELECT "entryDate" FROM "JournalEntry" WHERE id = jl."journalId") >= ${periodStart} AND (SELECT "entryDate" FROM "JournalEntry" WHERE id = jl."journalId") <= ${periodEnd})
+      )
+    `;
 
-    const permanentCategories: AccountCategory[] = [
-      AccountCategory.ASSET,
-      AccountCategory.LIABILITY,
-      AccountCategory.EQUITY
-    ];
-    const annualCategories: AccountCategory[] = [AccountCategory.REVENUE, AccountCategory.EXPENSE];
-
-    const permanentIds = allAccounts
-      .filter((a) => permanentCategories.includes(a.category))
-      .map((a) => a.id);
-    const annualIds = allAccounts
-      .filter((a) => annualCategories.includes(a.category))
-      .map((a) => a.id);
-
-    // Permanent: all-time up to endDate (balance sheet is continuous)
-    const permanentAgg = permanentIds.length > 0
-      ? await prisma.journalLine.groupBy({
-          by: ['accountId'],
-          _sum: { debitAmount: true, creditAmount: true },
-          where: {
-            accountId: { in: permanentIds },
-            journal: { entryDate: { lte: periodEnd } }
-          }
-        })
-      : [];
-
-    // Annual: strictly between startDate and endDate (P&L period)
-    const annualAgg = annualIds.length > 0
-      ? await prisma.journalLine.groupBy({
-          by: ['accountId'],
-          _sum: { debitAmount: true, creditAmount: true },
-          where: {
-            accountId: { in: annualIds },
-            journal: { entryDate: { gte: periodStart, lte: periodEnd } }
-          }
-        })
-      : [];
-
-    // Build a totals lookup map
-    const totalsMap = new Map<string, { debit: Decimal; credit: Decimal }>();
-    for (const row of [...permanentAgg, ...annualAgg]) {
-      totalsMap.set(row.accountId, {
-        debit: new Decimal(row._sum.debitAmount?.toString() || '0'),
-        credit: new Decimal(row._sum.creditAmount?.toString() || '0')
-      });
-    }
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        accountCode: string;
+        accountName: string;
+        category: AccountCategory;
+        totalDebit: Decimal | number | string;
+        totalCredit: Decimal | number | string;
+      }>
+    >`
+      SELECT 
+        a.id, 
+        a."accountCode", 
+        a."accountName", 
+        a.category,
+        COALESCE(SUM(jl."debitAmount"), 0) AS "totalDebit",
+        COALESCE(SUM(jl."creditAmount"), 0) AS "totalCredit"
+      FROM "Account" a
+      LEFT JOIN "JournalLine" jl ON jl."accountId" = a.id ${dateFilter}
+      WHERE a."isArchived" = false
+      GROUP BY a.id, a."accountCode", a."accountName", a.category
+      ORDER BY a."accountCode" ASC
+    `;
 
     let grandTotalDebit = new Decimal(0);
     let grandTotalCredit = new Decimal(0);
     const lines: TrialBalanceLineItem[] = [];
 
-    for (const acc of allAccounts) {
-      const totals = totalsMap.get(acc.id) ?? { debit: new Decimal(0), credit: new Decimal(0) };
+    for (const row of rows) {
+      const acc = row;
+      const totals = { 
+        debit: new Decimal(row.totalDebit || 0), 
+        credit: new Decimal(row.totalCredit || 0) 
+      };
 
       // Normal balance direction determines which column the net balance sits in
       const isDebitNormal =
