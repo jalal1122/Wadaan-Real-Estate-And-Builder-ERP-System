@@ -87,9 +87,11 @@ Every project card and the GL Transaction Drawer expose a **"Print Report"** act
   - Dr / Cr summary and running balance.
 - **Institutional Signatures Block**:
   - Formal signature lines for Site Manager / Project Engineer, Finance Controller, and Managing Director Approval.
-- **Print & PDF Optimization**:
+- **Print & PDF Optimization (v3.5.1)**:
   - A dedicated "Print / Export PDF" button triggers `window.print()`.
-  - Scoped `@media print` rules hide modal chrome and application shell while maintaining clean typography and table page-break rules.
+  - **Portal DOM Architecture**: `ProjectReportModal` renders via `createPortal(modalContent, document.body)`, extracting the printable dossier out of nested positioned elements (`ProjectCard`, dashboard wrappers).
+  - **Zero Blank Page Layout Guarantee**: High-specificity `@media print` styles apply `body > *:not(#project-report-portal) { display: none !important; }`. This completely collapses background dashboard nodes (`display: none` rather than `visibility: hidden`), eliminating ghost document flow and ensuring Page 1 begins cleanly at the institutional letterhead without an empty initial page.
+  - **Paged Media Pagination**: The printed container adheres to normal document flow (`position: static`), allowing natural A4 pagination. Critical sections (`.report-header-block`, `.report-kpi-summary`, `.report-signatures-block`) utilize `break-inside: avoid !important` to prevent fragmented signature lines or split summary strips. Table wrappers enforce `print:overflow-visible` to prevent horizontal clipping.
 
 **Backend API Contract**:
 - `GET /api/v1/projects/:id/report`
