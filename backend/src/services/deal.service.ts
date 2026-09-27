@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { CreateDealInput, TransferFileInput } from '../utils/validation.util';
 import { RevenueSplitUtility } from '../utils/revenue.util';
 import { JournalService } from './journal.service';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class DealService {
   /**
@@ -14,7 +15,7 @@ export class DealService {
    *   - BROKERAGE: DR AR (1100) / CR Revenue (4000) [Commission] + CR Escrow Holdings (2200) [Seller funds]
    */
   static async initializeContract(data: CreateDealInput) {
-    return prisma.$transaction(
+    const newContract = await prisma.$transaction(
       async (tx) => {
         // 1. Validate customer exists
         const customer = await tx.customer.findUnique({
@@ -162,18 +163,32 @@ export class DealService {
       },
       { maxWait: 10000, timeout: 30000 }
     );
+
+    bustCache('deals');
+    bustCache('projects');
+    return newContract;
   }
 
   /**
    * Fetches master deal grid with dynamically calculated pending balances.
    */
   static async getAllDeals() {
+    const CACHE_KEY = 'deals:all';
+    const cached = getCache<any[]>(CACHE_KEY);
+    if (cached) {
+      return cached;
+    }
+
     const deals = await prisma.deal.findMany({
       include: {
         customer: true,
         project: {
           include: {
-            expenseBills: true
+            expenseBills: {
+              select: {
+                grandTotal: true
+              }
+            }
           }
         },
         invoices: {
@@ -203,7 +218,7 @@ export class DealService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return deals.map((deal) => {
+    const result = deals.map((deal) => {
       const pendingBalance = deal.invoices
         .filter((inv) => inv.paymentStatus !== 'PAID')
         .reduce((sum, inv) => {
@@ -235,6 +250,9 @@ export class DealService {
         netMargin
       };
     });
+
+    setCache(CACHE_KEY, result, 30_000);
+    return result;
   }
 
   /**
@@ -320,7 +338,7 @@ export class DealService {
    * Adds an invoice for the transfer fee and routes to Wadaan Revenue (4000).
    */
   static async executeFileTransfer(dealId: string, data: TransferFileInput) {
-    return prisma.$transaction(
+    const transferResult = await prisma.$transaction(
       async (tx) => {
         const deal = await tx.deal.findUnique({
           where: { id: dealId },
@@ -437,6 +455,11 @@ export class DealService {
       },
       { maxWait: 10000, timeout: 30000 }
     );
+
+    bustCache('deals');
+    bustCache('projects');
+    bustCache('customers');
+    return transferResult;
   }
 
   /**
@@ -506,7 +529,7 @@ export class DealService {
       throw new AppError('Customer is already registered as a co-client on this deal', 409, 'DUPLICATE_CO_CLIENT');
     }
 
-    return await prisma.dealClient.create({
+    const coClient = await prisma.dealClient.create({
       data: {
         dealId,
         customerId,
@@ -522,6 +545,9 @@ export class DealService {
         }
       }
     });
+
+    bustCache('deals');
+    return coClient;
   }
 
   /**
@@ -536,7 +562,7 @@ export class DealService {
       throw new AppError('Co-client not found on this deal', 404, 'CO_CLIENT_NOT_FOUND');
     }
 
-    return await prisma.dealClient.update({
+    const updated = await prisma.dealClient.update({
       where: { id: clientId },
       data: {
         shareLabel: shareLabel?.trim() || null
@@ -551,6 +577,9 @@ export class DealService {
         }
       }
     });
+
+    bustCache('deals');
+    return updated;
   }
 
   /**
@@ -569,6 +598,7 @@ export class DealService {
       where: { id: clientId }
     });
 
+    bustCache('deals');
     return { success: true, message: 'Co-client removed successfully' };
   }
 }

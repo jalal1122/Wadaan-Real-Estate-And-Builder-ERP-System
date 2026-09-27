@@ -93,6 +93,9 @@ model JournalLine {
   customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
   vendor        Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   project       Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([accountId])
 }
 
 model Project {
@@ -137,6 +140,7 @@ model ExpenseBill {
   lineItems     BillLineItem[]
 
   @@unique([vendorId, invoiceNumber])
+  @@index([projectId])
 }
 
 model BillLineItem {
@@ -190,6 +194,9 @@ model Deal {
   project          Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
   invoices         DealInvoice[]
   coClients        DealClient[]
+
+  @@index([projectId])
+  @@index([customerId])
 }
 
 model DealClient {
@@ -219,6 +226,8 @@ model DealInvoice {
 
   deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
   receipt       Receipt?      @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, paymentStatus])
 }
 
 model Receipt {
@@ -232,6 +241,8 @@ model Receipt {
 
   customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
   invoices        DealInvoice[]
+
+  @@index([customerId, clearanceStatus])
 }
 
 model SystemSetting {

@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateProjectInput, UpdateProjectStatusInput } from '../utils/validation.util';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class ProjectService {
   /**
@@ -20,7 +21,7 @@ export class ProjectService {
       );
     }
 
-    return await prisma.project.create({
+    const newProject = await prisma.project.create({
       data: {
         projectName: data.projectName,
         projectPrefix: data.projectPrefix,
@@ -28,31 +29,66 @@ export class ProjectService {
         status: 'ACTIVE'
       }
     });
+
+    bustCache('projects');
+    return newProject;
   }
 
   /**
    * Fetches master grid of projects with calculated live health metrics.
    */
   static async getAllProjects() {
+    const CACHE_KEY = 'projects:all';
+    const cached = getCache<any[]>(CACHE_KEY);
+    if (cached) {
+      return cached;
+    }
+
     const projects = await prisma.project.findMany({
       include: {
-        expenseBills: true,
+        expenseBills: {
+          select: {
+            grandTotal: true
+          }
+        },
         journalLines: {
-          include: {
-            account: true
+          select: {
+            debitAmount: true,
+            creditAmount: true,
+            account: {
+              select: {
+                category: true,
+                accountName: true,
+                accountCode: true
+              }
+            }
           }
         },
         deals: {
-          include: {
-            customer: true,
-            invoices: true
-          }
+          select: {
+            totalValue: true,
+            dealType: true,
+            customer: {
+              select: {
+                fullName: true,
+                phone: true
+              }
+            },
+            invoices: {
+              select: {
+                amount: true,
+                paidAmount: true,
+                paymentStatus: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    return projects.map((project) => {
+    const result = projects.map((project) => {
       // Calculate spentToDate from journal lines that hit EXPENSE or WIP (ASSET) accounts, with fallback to expenseBills
       const spentToDate = (project.journalLines && project.journalLines.length > 0)
         ? project.journalLines.reduce((sum, line) => {
@@ -114,6 +150,9 @@ export class ProjectService {
         clientInfo
       };
     });
+
+    setCache(CACHE_KEY, result, 120_000); // 2-minute TTL
+    return result;
   }
 
   /**
@@ -219,10 +258,13 @@ export class ProjectService {
       throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
     }
 
-    return await prisma.project.update({
+    const updated = await prisma.project.update({
       where: { id },
       data: { status: input.status }
     });
+
+    bustCache('projects');
+    return updated;
   }
 
   /**
