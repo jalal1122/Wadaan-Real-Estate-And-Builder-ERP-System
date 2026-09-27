@@ -260,47 +260,52 @@ export class DealService {
    * Fetches single deal with dynamic pending balance.
    */
   static async getDealById(id: string) {
+    const CACHE_KEY = `deals:${id}`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
+    // 1. Fetch base deal
     const deal = await prisma.deal.findUnique({
       where: { id },
       include: {
         customer: true,
-        project: {
-          include: {
-            expenseBills: true
-          }
-        },
-        invoices: {
-          include: {
-            receipt: {
-              include: {
-                customer: true
-              }
-            }
-          },
-          orderBy: { dueDate: 'asc' }
-        },
-        coClients: {
-          include: {
-            customer: {
-              select: {
-                id: true,
-                fullName: true,
-                phone: true,
-                walletBalance: true
-              }
-            }
-          },
-          orderBy: { addedAt: 'asc' }
-        }
       }
     });
-
 
     if (!deal) {
       throw new AppError(`Deal with ID '${id}' not found`, 404, 'DEAL_NOT_FOUND');
     }
 
-    const pendingBalance = deal.invoices
+    // 2. Fetch nested relations in parallel
+    const [project, invoices, coClients] = await Promise.all([
+      deal.projectId ? prisma.project.findUnique({
+        where: { id: deal.projectId },
+        include: { expenseBills: true }
+      }) : Promise.resolve(null),
+      prisma.dealInvoice.findMany({
+        where: { dealId: id },
+        include: { receipt: { include: { customer: true } } },
+        orderBy: { dueDate: 'asc' }
+      }),
+      prisma.dealClient.findMany({
+        where: { dealId: id },
+        include: {
+          customer: {
+            select: { id: true, fullName: true, phone: true, walletBalance: true }
+          }
+        },
+        orderBy: { addedAt: 'asc' }
+      })
+    ]);
+
+    const enrichedDeal = {
+      ...deal,
+      project,
+      invoices,
+      coClients
+    };
+
+    const pendingBalance = invoices
       .filter((inv) => inv.paymentStatus !== 'PAID')
       .reduce((sum, inv) => {
         const invPaid = new Decimal(inv.paidAmount || 0);
@@ -308,14 +313,14 @@ export class DealService {
         return sum.plus(remaining.greaterThan(0) ? remaining : 0);
       }, new Decimal(0));
 
-    const totalCollected = deal.invoices.reduce((sum, inv) => {
+    const totalCollected = invoices.reduce((sum, inv) => {
       const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
       return sum.plus(paid);
     }, new Decimal(0));
 
     let spentOnSite = new Decimal(0);
-    if (deal.project && (deal.project as any).expenseBills) {
-      spentOnSite = (deal.project as any).expenseBills.reduce(
+    if (project && (project as any).expenseBills) {
+      spentOnSite = (project as any).expenseBills.reduce(
         (sum: Decimal, b: any) => sum.plus(new Decimal(b.grandTotal)),
         new Decimal(0)
       );
@@ -323,13 +328,16 @@ export class DealService {
 
     const netMargin = totalCollected.minus(spentOnSite);
 
-    return {
-      ...deal,
+    const result = {
+      ...enrichedDeal,
       pendingBalance,
       totalCollected,
       spentOnSite,
       netMargin
     };
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 
   /**

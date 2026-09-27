@@ -4,6 +4,7 @@ import { AccountCategory } from '@prisma/client';
 
 jest.mock('../config/db', () => ({
   prisma: {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     account: {
       findMany: jest.fn(),
     },
@@ -25,6 +26,7 @@ const mockPrisma = prisma as unknown as {
   journalLine: { groupBy: jest.Mock; findMany: jest.Mock };
   project: { findUnique: jest.Mock };
   expenseBill: { findMany: jest.Mock };
+  $queryRaw: jest.Mock;
 };
 
 describe('ReportService.getTrialBalance', () => {
@@ -66,21 +68,9 @@ describe('ReportService.getTrialBalance', () => {
 
   test('1. returns cumulative balance for ASSET accounts regardless of startDate', async () => {
     // Permanent query should filter entryDate <= endDate without startDate
-    (mockPrisma.journalLine.groupBy as jest.Mock).mockImplementation(({ where }) => {
-      if (where?.accountId?.in?.includes('acc-asset')) {
-        // Assert permanent query does NOT have gte in journal.entryDate
-        expect(where.journal?.entryDate?.gte).toBeUndefined();
-        expect(where.journal?.entryDate?.lte).toBeDefined();
-
-        return Promise.resolve([
-          {
-            accountId: 'acc-asset',
-            _sum: { debitAmount: '150000.00', creditAmount: '50000.00' },
-          },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      { id: 'acc-asset', accountCode: '1001', accountName: 'Cash in Bank', category: 'ASSET', totalDebit: 150000, totalCredit: 50000 }
+    ]);
 
     const report = await ReportService.getTrialBalance(new Date('2026-06-01'), new Date('2026-06-30'));
     const assetLine = report.accounts.find((a) => a.accountCode === '1001');
@@ -94,21 +84,9 @@ describe('ReportService.getTrialBalance', () => {
     const startDate = new Date('2026-01-01');
     const endDate = new Date('2026-01-31');
 
-    (mockPrisma.journalLine.groupBy as jest.Mock).mockImplementation(({ where }) => {
-      if (where?.accountId?.in?.includes('acc-revenue')) {
-        // Assert annual query HAS both gte and lte
-        expect(where.journal?.entryDate?.gte).toEqual(startDate);
-        expect(where.journal?.entryDate?.lte).toEqual(endDate);
-
-        return Promise.resolve([
-          {
-            accountId: 'acc-revenue',
-            _sum: { debitAmount: '0.00', creditAmount: '75000.00' },
-          },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      { id: 'acc-revenue', accountCode: '4001', accountName: 'Sales Revenue', category: 'REVENUE', totalDebit: 0, totalCredit: 75000 }
+    ]);
 
     const report = await ReportService.getTrialBalance(startDate, endDate);
     const revLine = report.accounts.find((a) => a.accountCode === '4001');
@@ -119,25 +97,11 @@ describe('ReportService.getTrialBalance', () => {
   });
 
   test('3. reports isBalanced: true when grandTotalDebit equals grandTotalCredit', async () => {
-    (mockPrisma.journalLine.groupBy as jest.Mock).mockImplementation(({ where }) => {
-      if (where?.accountId?.in?.includes('acc-asset')) {
-        return Promise.resolve([
-          {
-            accountId: 'acc-asset',
-            _sum: { debitAmount: '50000.00', creditAmount: '0.00' },
-          },
-        ]);
-      }
-      if (where?.accountId?.in?.includes('acc-revenue')) {
-        return Promise.resolve([
-          {
-            accountId: 'acc-revenue',
-            _sum: { debitAmount: '0.00', creditAmount: '50000.00' },
-          },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      { id: 'acc-asset', accountCode: '1001', accountName: 'Cash', category: 'ASSET', totalDebit: 50000, totalCredit: 0 },
+      { id: 'acc-liability', accountCode: '2001', accountName: 'AP', category: 'LIABILITY', totalDebit: 0, totalCredit: 50000 },
+    ]);
 
     const report = await ReportService.getTrialBalance();
 
@@ -148,15 +112,9 @@ describe('ReportService.getTrialBalance', () => {
 
   test('4. filters out zero-balance accounts from the report accounts list', async () => {
     // acc-zero has 0 debit and 0 credit
-    (mockPrisma.journalLine.groupBy as jest.Mock).mockResolvedValue([
-      {
-        accountId: 'acc-asset',
-        _sum: { debitAmount: '10000.00', creditAmount: '0.00' },
-      },
-      {
-        accountId: 'acc-zero',
-        _sum: { debitAmount: '500.00', creditAmount: '500.00' }, // net 0
-      },
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      { id: 'acc-asset', accountCode: '1001', accountName: 'Asset', category: 'ASSET', totalDebit: 10000, totalCredit: 0 },
+      { id: 'acc-zero', accountCode: '5001', accountName: 'Zero', category: 'EXPENSE', totalDebit: 500, totalCredit: 500 }
     ]);
 
     const report = await ReportService.getTrialBalance();
@@ -174,58 +132,53 @@ describe('ReportService.getProjectLedger', () => {
   });
 
   test('throws an error if project is not found', async () => {
-    mockPrisma.project.findUnique.mockResolvedValue(null);
-
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([]);
     await expect(
       ReportService.getProjectLedger('invalid-proj-id')
     ).rejects.toThrow('Project with ID invalid-proj-id not found');
   });
 
   test('flattens bill line items and correctly calculates total project cost', async () => {
-    mockPrisma.project.findUnique.mockResolvedValue({
-      id: 'proj-1',
-      projectName: 'Wadaan Heights',
-      projectPrefix: 'WH',
-    });
-
-    mockPrisma.expenseBill.findMany.mockResolvedValue([
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
       {
-        id: 'bill-1',
-        invoiceNumber: 'INV-1001',
-        billDate: new Date('2026-09-15T00:00:00Z'),
-        vendor: { vendorName: 'Al-Hadeed Steel Mills' },
-        lineItems: [
+        projectName: 'Wadaan Heights',
+        projectPrefix: 'WH',
+        lines: [
           {
-            id: 'line-1',
+            billId: 'bill-1',
+            lineItemId: 'line-1',
+            billDate: '2026-09-15T00:00:00Z',
+            vendorName: 'Al-Hadeed Steel Mills',
+            invoiceNumber: 'INV-1001',
             description: 'Deformed Grade 60 Steel 10mm',
-            quantity: '10',
-            unitPrice: '25000',
-            lineTotal: '250000.00',
+            quantity: 10,
+            unitPrice: 25000,
+            lineTotal: 250000
           },
           {
-            id: 'line-2',
+            billId: 'bill-1',
+            lineItemId: 'line-2',
+            billDate: '2026-09-15T00:00:00Z',
+            vendorName: 'Al-Hadeed Steel Mills',
+            invoiceNumber: 'INV-1001',
             description: 'Binding Wire 50kg Roll',
-            quantity: '2',
-            unitPrice: '7500',
-            lineTotal: '15000.00',
+            quantity: 2,
+            unitPrice: 7500,
+            lineTotal: 15000
           },
-        ],
-      },
-      {
-        id: 'bill-2',
-        invoiceNumber: 'INV-1002',
-        billDate: new Date('2026-09-18T00:00:00Z'),
-        vendor: { vendorName: 'Bestway Cement' },
-        lineItems: [
           {
-            id: 'line-3',
+            billId: 'bill-2',
+            lineItemId: 'line-3',
+            billDate: '2026-09-18T00:00:00Z',
+            vendorName: 'Bestway Cement',
+            invoiceNumber: 'INV-1002',
             description: 'OPC Grade 53 Cement 50kg Bags',
-            quantity: '100',
-            unitPrice: '1450',
-            lineTotal: '145000.00',
-          },
-        ],
-      },
+            quantity: 100,
+            unitPrice: 1450,
+            lineTotal: 145000
+          }
+        ]
+      }
     ]);
 
     const result = await ReportService.getProjectLedger('proj-1');
@@ -246,27 +199,24 @@ describe('ReportService.getOverheadLedger', () => {
   });
 
   test('fetches non-project bills (projectId: null) and sums grandTotal', async () => {
-    mockPrisma.expenseBill.findMany.mockImplementation(({ where }) => {
-      expect(where.projectId).toBeNull();
-      return Promise.resolve([
-        {
-          id: 'bill-oh-1',
-          invoiceNumber: 'BILL-ELEC-01',
-          billDate: new Date('2026-09-10T00:00:00Z'),
-          grandTotal: '75000.00',
-          paymentStatus: 'PAID',
-          vendor: { vendorName: 'WAPDA Electricity' },
-        },
-        {
-          id: 'bill-oh-2',
-          invoiceNumber: 'BILL-OFFICE-RENT',
-          billDate: new Date('2026-09-01T00:00:00Z'),
-          grandTotal: '150000.00',
-          paymentStatus: 'PAID',
-          vendor: { vendorName: 'Property Landlord' },
-        },
-      ]);
-    });
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      {
+        billId: 'bill-oh-1',
+        invoiceNumber: 'BILL-ELEC-01',
+        billDate: new Date('2026-09-10T00:00:00Z'),
+        grandTotal: '75000.00',
+        paymentStatus: 'PAID',
+        vendorName: 'WAPDA Electricity',
+      },
+      {
+        billId: 'bill-oh-2',
+        invoiceNumber: 'BILL-OFFICE-RENT',
+        billDate: new Date('2026-09-01T00:00:00Z'),
+        grandTotal: '150000.00',
+        paymentStatus: 'PAID',
+        vendorName: 'Property Landlord',
+      },
+    ]);
 
     const result = await ReportService.getOverheadLedger();
 

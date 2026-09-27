@@ -1,0 +1,134 @@
+[
+  {
+    "module": "Customers",
+    "name": "getAllCustomers",
+    "cold": "1069.02",
+    "warm": "1060.67"
+  },
+  {
+    "module": "Deals",
+    "name": "getAllDeals",
+    "cold": "4445.40",
+    "warm": "0.03"
+  },
+  {
+    "module": "Bills",
+    "name": "getAllBills",
+    "cold": "2357.47",
+    "warm": "2323.06"
+  },
+  {
+    "module": "Documents",
+    "name": "getDocumentArchive",
+    "cold": "5937.48",
+    "warm": "5718.76"
+  },
+  {
+    "module": "Journals",
+    "name": "getEntries",
+    "cold": "3833.83",
+    "warm": "2754.88"
+  },
+  {
+    "module": "Personal",
+    "name": "getAllContacts",
+    "cold": "1924.00",
+    "warm": "0.02"
+  },
+  {
+    "module": "Receipts",
+    "name": "getWaitingRoom",
+    "cold": "1276.14",
+    "warm": "1064.44"
+  },
+  {
+    "module": "Vendors",
+    "name": "getAllVendors",
+    "cold": "1894.88",
+    "warm": "1913.57"
+  },
+  {
+    "module": "Projects",
+    "name": "getAllProjects",
+    "cold": "3711.49",
+    "warm": "0.04"
+  },
+  {
+    "module": "Fifo",
+    "name": "getAllPayments",
+    "cold": "1563.58",
+    "warm": "1498.91"
+  },
+  {
+    "module": "Accounts",
+    "name": "getLiveBalances",
+    "cold": "1500.45",
+    "warm": "0.02"
+  },
+  {
+    "module": "Auth",
+    "name": "getLockoutStatus",
+    "cold": "1065.56",
+    "warm": "1259.38"
+  },
+  {
+    "module": "System",
+    "name": "getStatus",
+    "cold": "1894.15",
+    "warm": "1706.26"
+  },
+  {
+    "module": "Customers",
+    "name": "getCustomerById",
+    "cold": "5158.12",
+    "warm": "5128.10"
+  },
+  {
+    "module": "Deals",
+    "name": "getDealById",
+    "cold": "3033.51",
+    "warm": "2868.06"
+  },
+  {
+    "module": "Deals",
+    "name": "getCoClients",
+    "cold": "1926.85",
+    "warm": "1960.67"
+  },
+  {
+    "module": "Bills",
+    "name": "getBillById",
+    "cold": "1721.01",
+    "warm": "1736.79"
+  },
+  {
+    "module": "Vendors",
+    "name": "getUnpaidBillsByVendor",
+    "cold": "2088.03",
+    "warm": "1893.91"
+  },
+  {
+    "module": "Projects",
+    "name": "getProjectById",
+    "cold": "3179.18",
+    "warm": "0.05"
+  },
+  {
+    "module": "Projects",
+    "name": "getProjectTransactions",
+    "cold": "3316.83",
+    "warm": "3317.71"
+  },
+  {
+    "module": "Projects",
+    "name": "getProjectReport",
+    "cold": "2092.09",
+    "warm": "0.05"
+  },
+  {
+    "module": "Fifo",
+    "name": "getPaymentById",
+    "cold": "1325.55",
+    "warm": "1323.14"
+  }
+]

@@ -10,16 +10,16 @@ jest.mock('../config/db', () => ({
     $transaction: jest.fn(),
     deal: {
       findUnique: jest.fn(),
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     customer: {
       findUnique: jest.fn(),
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
       update: jest.fn(),
     },
     dealClient: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -27,11 +27,12 @@ jest.mock('../config/db', () => ({
       delete: jest.fn(),
     },
     dealInvoice: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
     },
     receipt: {
       create: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     account: {
       findFirst: jest.fn(),
@@ -242,67 +243,71 @@ describe('Multi-Client Deal & Co-Client Management', () => {
         fullName: 'Zeeshan CoBuyer',
         phone: '03009999999',
         walletBalance: new Decimal(50000),
-        deals: [
-          {
-            id: 'deal-primary',
-            dealType: 'WADAAN_SALE',
-            totalValue: new Decimal(5000000),
+      };
+      
+      const mockDeals = [
+        {
+          id: 'deal-primary',
+          dealType: 'WADAAN_SALE',
+          totalValue: new Decimal(5000000),
+          invoices: [
+            {
+              id: 'inv-1',
+              amount: new Decimal(2500000),
+              paidAmount: new Decimal(2500000),
+              paymentStatus: 'PAID',
+              receipt: {
+                customer: { id: 'cust-1', fullName: 'Zeeshan CoBuyer', phone: '03009999999' },
+              },
+            },
+          ],
+          coClients: [
+            {
+              id: 'dc-1',
+              customerId: 'cust-coclient-2',
+              shareLabel: '20% share',
+              customer: {
+                id: 'cust-coclient-2',
+                fullName: 'Partner User 2',
+                phone: '03001111111',
+                walletBalance: new Decimal(0),
+              },
+            },
+          ],
+          project: null,
+        },
+      ];
+
+      const mockDealClients = [
+        {
+          id: 'dc-co',
+          dealId: 'deal-other',
+          customerId: 'cust-1',
+          shareLabel: '50% Co-Buyer',
+          deal: {
+            id: 'deal-other',
+            dealType: 'CONSTRUCTION',
+            totalValue: new Decimal(10000000),
+            customer: { id: 'cust-primary-owner', fullName: 'Owner Client', phone: '03008888888' },
             invoices: [
               {
-                id: 'inv-1',
-                amount: new Decimal(2500000),
-                paidAmount: new Decimal(2500000),
-                paymentStatus: 'PAID',
-                receipt: {
-                  customer: { id: 'cust-1', fullName: 'Zeeshan CoBuyer', phone: '03009999999' },
-                },
+                id: 'inv-co-1',
+                amount: new Decimal(5000000),
+                paidAmount: new Decimal(0),
+                paymentStatus: 'UNPAID',
+                receipt: null,
               },
             ],
-            coClients: [
-              {
-                id: 'dc-1',
-                customerId: 'cust-coclient-2',
-                shareLabel: '20% share',
-                customer: {
-                  id: 'cust-coclient-2',
-                  fullName: 'Partner User 2',
-                  phone: '03001111111',
-                  walletBalance: new Decimal(0),
-                },
-              },
-            ],
+            coClients: [],
             project: null,
           },
-        ],
-        dealClients: [
-          {
-            id: 'dc-co',
-            dealId: 'deal-other',
-            customerId: 'cust-1',
-            shareLabel: '50% Co-Buyer',
-            deal: {
-              id: 'deal-other',
-              dealType: 'CONSTRUCTION',
-              totalValue: new Decimal(10000000),
-              customer: { id: 'cust-primary-owner', fullName: 'Owner Client', phone: '03008888888' },
-              invoices: [
-                {
-                  id: 'inv-co-1',
-                  amount: new Decimal(5000000),
-                  paidAmount: new Decimal(0),
-                  paymentStatus: 'UNPAID',
-                  receipt: null,
-                },
-              ],
-              coClients: [],
-              project: null,
-            },
-          },
-        ],
-        receipts: [],
-      };
+        },
+      ];
 
       (mockPrisma.customer.findUnique as jest.Mock).mockResolvedValue(mockCustomer);
+      (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue(mockDeals);
+      (mockPrisma.dealClient.findMany as jest.Mock).mockResolvedValue(mockDealClients);
+      (mockPrisma.receipt.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await CustomerService.getCustomerById('cust-1');
       expect(result.deals).toHaveLength(2);

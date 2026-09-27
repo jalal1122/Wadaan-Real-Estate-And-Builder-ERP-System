@@ -372,6 +372,10 @@ export class ProjectService {
    * Fetches all General Ledger transactions (JournalLines) linked to this project.
    */
   static async getProjectTransactions(id: string) {
+    const CACHE_KEY = `projects:${id}:transactions`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const project = await prisma.project.findUnique({
       where: { id },
       select: {
@@ -449,13 +453,16 @@ export class ProjectService {
       };
     });
 
-    return {
+    const result = {
       project,
       totalDebit: lines.reduce((sum, l) => sum.plus(new Decimal(l.debitAmount)), new Decimal(0)),
       totalCredit: lines.reduce((sum, l) => sum.plus(new Decimal(l.creditAmount)), new Decimal(0)),
       netBalance: runningBalance,
       transactions
     };
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 
   /**

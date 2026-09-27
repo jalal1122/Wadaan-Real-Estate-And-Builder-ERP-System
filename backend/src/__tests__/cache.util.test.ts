@@ -26,7 +26,7 @@ jest.mock('../config/db', () => ({
       findMany: jest.fn(),
       aggregate: jest.fn(),
     },
-    $queryRaw: jest.fn(),
+    $queryRaw: jest.fn().mockResolvedValue([]),
   },
 }));
 
@@ -114,23 +114,27 @@ describe('In-Memory Micro-Cache Engine (cache.util)', () => {
       (mockPrisma.dealInvoice.aggregate as jest.Mock).mockResolvedValue({ _sum: { amount: new Decimal(0) } });
       (mockPrisma.expenseBill.aggregate as jest.Mock).mockResolvedValue({ _sum: { pendingAmount: new Decimal(0) } });
 
+      (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+        { liquidCash: 120000.00, clientFundsHeld: 0, totalAR: 0, totalAP: 0 }
+      ]);
+
       // First call -> hits DB
       const firstResult = await ReportService.calculateSnapshot();
       expect(firstResult).toBeDefined();
       expect(firstResult.liquidCash).toBe('120000.00');
-      const firstCallCount = (mockPrisma.account.findMany as jest.Mock).mock.calls.length;
+      const firstCallCount = (mockPrisma.$queryRaw as jest.Mock).mock.calls.length;
       expect(firstCallCount).toBeGreaterThan(0);
 
       // Second call -> hits cache (no new DB calls)
       const secondResult = await ReportService.calculateSnapshot();
       expect(secondResult).toEqual(firstResult);
-      expect((mockPrisma.account.findMany as jest.Mock).mock.calls.length).toBe(firstCallCount);
+      expect((mockPrisma.$queryRaw as jest.Mock).mock.calls.length).toBe(firstCallCount);
 
       // Bust cache -> third call hits DB again
       bustCache('reports');
       const thirdResult = await ReportService.calculateSnapshot();
       expect(thirdResult).toEqual(firstResult);
-      expect((mockPrisma.account.findMany as jest.Mock).mock.calls.length).toBeGreaterThan(firstCallCount);
+      expect((mockPrisma.$queryRaw as jest.Mock).mock.calls.length).toBeGreaterThan(firstCallCount);
     });
   });
 });

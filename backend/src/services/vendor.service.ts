@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateVendorInput } from '../utils/validation.util';
+import { getCache, setCache } from '../utils/cache.util';
 
 export class VendorService {
   /**
@@ -20,6 +21,10 @@ export class VendorService {
    * Lists all suppliers with live calculated Total Outstanding balances.
    */
   static async getAllVendors() {
+    const CACHE_KEY = 'vendors:all';
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const vendors = await prisma.vendor.findMany({
       include: {
         expenseBills: {
@@ -32,7 +37,7 @@ export class VendorService {
       orderBy: { vendorName: 'asc' }
     });
 
-    return vendors.map((vendor) => {
+    const result = vendors.map((vendor) => {
       const totalOutstanding = vendor.expenseBills.reduce(
         (sum, bill) => sum.plus(new Decimal(bill.pendingAmount)),
         new Decimal(0)
@@ -52,12 +57,19 @@ export class VendorService {
         unpaidBillsCount: vendor.expenseBills.length
       };
     });
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 
   /**
    * Fetches unpaid/partial bills for a vendor in strict FIFO order (by billDate ascending).
    */
   static async getUnpaidBillsByVendor(vendorId: string) {
+    const CACHE_KEY = `vendors:${vendorId}:unpaidBills`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const vendor = await prisma.vendor.findUnique({
       where: { id: vendorId }
     });
@@ -87,11 +99,14 @@ export class VendorService {
       new Decimal(0)
     );
 
-    return {
+    const result = {
       vendorId: vendor.id,
       vendorName: vendor.vendorName,
       totalOutstanding,
       bills
     };
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 }

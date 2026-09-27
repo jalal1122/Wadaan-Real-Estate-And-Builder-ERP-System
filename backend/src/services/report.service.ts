@@ -597,6 +597,10 @@ export class ReportService {
     startDate?: Date,
     endDate?: Date
   ): Promise<ProjectLedgerReport> {
+    const CACHE_KEY = `reports:project-ledger:${projectId}:${startDate?.toISOString() ?? 'all'}:${endDate?.toISOString() ?? 'all'}`;
+    const cached = getCache<ProjectLedgerReport>(CACHE_KEY);
+    if (cached) return cached;
+
     const startFilter = startDate ? Prisma.sql`AND eb."billDate" >= ${startDate}` : Prisma.empty;
     const endFilter = endDate ? Prisma.sql`AND eb."billDate" <= ${endDate}` : Prisma.empty;
 
@@ -671,7 +675,7 @@ export class ReportService {
       });
     }
 
-    return {
+    const result: ProjectLedgerReport = {
       project: {
         id: row.projectId,
         projectName: row.projectName,
@@ -684,6 +688,9 @@ export class ReportService {
       lineItems,
       totalProjectCost: totalCost.toFixed(2)
     };
+
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 
   /**

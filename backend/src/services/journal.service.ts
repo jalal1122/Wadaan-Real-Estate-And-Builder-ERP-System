@@ -6,7 +6,7 @@ import {
   CreateJournalInput,
   DoubleEntryValidator
 } from '../utils/validation.util';
-import { bustCache } from '../utils/cache.util';
+import { bustCache, getCache, setCache } from '../utils/cache.util';
 
 export class JournalService {
   /**
@@ -206,6 +206,10 @@ export class JournalService {
     page: number = 1,
     limit: number = 20
   ): Promise<{ entries: JournalEntry[]; total: number; page: number; limit: number }> {
+    const CACHE_KEY = `journals:entries:page:${page}:limit:${limit}`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const skip = (page - 1) * limit;
 
     const [entries, total] = await Promise.all([
@@ -227,6 +231,8 @@ export class JournalService {
       prisma.journalEntry.count()
     ]);
 
-    return { entries, total, page, limit };
+    const result = { entries, total, page, limit };
+    setCache(CACHE_KEY, result, 60_000);
+    return result;
   }
 }

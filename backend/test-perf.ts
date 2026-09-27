@@ -11,9 +11,15 @@ async function run() {
   await prisma.$queryRaw`SELECT 1`;
 
   const bench = async (name: string, fn: () => Promise<any>) => {
-    console.time(name);
+    // 1. Cold start (bypasses empty cache)
+    console.time(`${name} (Cold)`);
     await fn();
-    console.timeEnd(name);
+    console.timeEnd(`${name} (Cold)`);
+
+    // 2. Warm start (hits the memory cache)
+    console.time(`${name} (Cached)`);
+    await fn();
+    console.timeEnd(`${name} (Cached)`);
   };
 
   await bench('calculateSnapshot', () => ReportService.calculateSnapshot());

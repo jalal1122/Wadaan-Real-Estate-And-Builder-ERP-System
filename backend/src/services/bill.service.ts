@@ -4,7 +4,7 @@ import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateBillInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
-import { bustCache } from '../utils/cache.util';
+import { bustCache, getCache, setCache } from '../utils/cache.util';
 
 export interface BillFilter {
   vendorId?: string;
@@ -227,12 +227,16 @@ export class BillService {
    * Fetches all bills with optional filtering.
    */
   static async getAllBills(filter?: BillFilter) {
+    const CACHE_KEY = `bills:all:${JSON.stringify(filter || {})}`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const where: any = {};
     if (filter?.vendorId) where.vendorId = filter.vendorId;
     if (filter?.projectId) where.projectId = filter.projectId;
     if (filter?.paymentStatus) where.paymentStatus = filter.paymentStatus;
 
-    return await prisma.expenseBill.findMany({
+    const results = await prisma.expenseBill.findMany({
       where,
       include: {
         vendor: true,
@@ -241,12 +245,19 @@ export class BillService {
       },
       orderBy: { billDate: 'desc' }
     });
+
+    setCache(CACHE_KEY, results, 60_000);
+    return results;
   }
 
   /**
    * Fetches a single bill by ID.
    */
   static async getBillById(id: string) {
+    const CACHE_KEY = `bills:${id}`;
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const bill = await prisma.expenseBill.findUnique({
       where: { id },
       include: {
@@ -260,6 +271,7 @@ export class BillService {
       throw new AppError('Bill not found', 404, 'BILL_NOT_FOUND');
     }
 
+    setCache(CACHE_KEY, bill, 60_000);
     return bill;
   }
 }
