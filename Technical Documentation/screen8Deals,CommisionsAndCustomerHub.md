@@ -93,6 +93,33 @@ Screen 8 perfectly organizes all your revenue streams, client debt, and middlema
   3. Drawer shows their wallet balance and all deals where they are a participant (primary or co-buyer).
   4. User selects the invoice and applies the advance via `POST /customers/:coClientId/apply-wallet`.
 
+### File Transfer — Cache Invalidation Contract (v3.6.0)
+
+**Issue (Fixed)**: After `POST /deals/:dealId/transfer`, the Projects page (Screen 4) was still displaying the old client name, and the WH Project Print Report showed both the old and new client.
+
+**Root Cause**: `useTransferFile.onSuccess()` in `useDeals.ts` was not invalidating the React Query `['projects']` cache key. The backend `executeFileTransfer()` correctly updates `deal.customerId` in the database, and `getProjectReport()` joins `deal.customer` live — but the frontend was serving stale project data from cache.
+
+**Fix Applied (2026-09-27)**: Added `queryClient.invalidateQueries({ queryKey: ['projects'] })` to `useTransferFile.onSuccess()`.
+
+**Cache Invalidation Contract after File Transfer**:
+| Cache Key | Reason |
+|---|---|
+| `['deals']` | Deal's customerId changed |
+| `['customers']` | Old/new customer deal counts change |
+| `['projects']` | ✅ NEW — ProjectCard `clientInfo.customerName` and PDF `clientReceipts` derive from project→deals→customer |
+| `['financial-snapshot']` | AR balances may shift |
+| `['journals']` | Transfer fee GL entry created |
+| `['accounts']` | Account balance changes from fee journal |
+
+**Manual Verification Steps**:
+1. Create a deal for Client Tariq, link to Project X
+2. Transfer the deal to Client Chaudri Aslam (`POST /deals/:id/transfer`)
+3. Navigate to Projects → Project X card must show "Chaudri Aslam"
+4. Open Print Report for Project X → only "Chaudri Aslam" appears in Client Receipts
+
+**Automated Test**: `page.test.tsx` Test 15 — `useTransferFile onSuccess invalidates ["projects"] cache so ProjectCard and PDF report show new client`.
+
+
 
 
 
