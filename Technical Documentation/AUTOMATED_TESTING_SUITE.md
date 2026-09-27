@@ -1,29 +1,30 @@
 # Automated Testing Suite & Quality Assurance Specification — Wadaan ERP
 
-> **Version**: 3.6.0  
-> **Status**: Verified & Passing (294 Tests across 42 Test Suites)  
+> **Version**: 3.7.0  
+> **Status**: Verified & Passing (300 Tests across 43 Test Suites)  
 > **Coverage Scope**: Express/Prisma Backend (Jest) + Next.js/React Frontend (Vitest)
 
 ---
 
 ## 1. Executive Summary
 
-Wadaan Real Estate and Builders ERP employs a two-tier automated testing architecture ensuring strict double-entry accounting integrity, ACID transaction resilience, responsive UI state synchronization, and zero regression across multi-client workflows.
+Wadaan Real Estate and Builders ERP employs a two-tier automated testing architecture ensuring strict double-entry accounting integrity, ACID transaction resilience, responsive UI state synchronization, and zero regression across multi-client workflows and lightning-fast micro-cache performance layers.
 
 | Environment | Framework | Test Suites | Total Tests | Execution Time | Status |
 |---|---|---|---|---|---|
-| **Backend Core** | Jest + ts-jest (Node.js/Prisma Mocks) | **13** | **93** | ~33s | ✅ 100% Passed |
-| **Frontend UI** | Vitest + React Testing Library (JSDOM) | **29** | **201** | ~51s | ✅ 100% Passed |
-| **Total Suite** | Full Stack Coverage | **42** | **294** | ~84s | ✅ **ALL PASSING** |
+| **Backend Core** | Jest + ts-jest (Node.js/Prisma Mocks) | **14** | **99** | ~18s | ✅ 100% Passed |
+| **Frontend UI** | Vitest + React Testing Library (JSDOM) | **29** | **201** | ~41s | ✅ 100% Passed |
+| **Total Suite** | Full Stack Coverage | **43** | **300** | ~59s | ✅ **ALL PASSING** |
 
 ---
 
-## 2. Backend Automated Test Matrix (13 Suites, 93 Tests)
+## 2. Backend Automated Test Matrix (14 Suites, 99 Tests)
 
 Located in `backend/src/__tests__/`:
 
 | Suite File | Scope / Service Under Test | Tests | Key Edge Cases & Business Rules Verified |
 |---|---|---|---|
+| `cache.util.test.ts` | `MemoryCache` & Multi-Tier Invalidation | **6** | • Micro-cache hit/miss and TTL expiration<br>• Prefix-based cache eviction (`bustCache('reports')`, `bustCache('accounts')`)<br>• Full cache eviction (`clearCache`)<br>• Service integration: verifies zero redundant DB calls on repeated report requests and automatic cache busting on mutations |
 | `deal.service.test.ts` | `DealService` (Contracts & File Transfer) | **9** | • DS-1: Happy-path transfer to new owner<br>• DS-2: Fee assessment with automated GL journal (DR AR 1100 / CR Revenue 4000)<br>• DS-3: Rejection of `SAME_CUSTOMER_TRANSFER`<br>• DS-4: Rejection of `ERR_PENDING_FUNDS_LOCKED` when cheque is un-cleared<br>• DS-5/6: `DEAL_NOT_FOUND` and `NEW_CUSTOMER_NOT_FOUND` guards<br>• DS-7: Brokerage contract requiring `commissionAmount`<br>• DS-8: `INVOICES_SUM_MISMATCH` mathematical rejection<br>• DS-9: Project attachment restricted to `ACTIVE` projects |
 | `receipt.service.test.ts` | `ReceiptService` (Cash, Cheque & Waiting Room) | **8** | • RS-1: Immediate cash settlement (invoices marked `PAID`, GL posted)<br>• RS-2: Cheque logged to Waiting Room (`PENDING_CLEARANCE`, no premature GL)<br>• RS-3: Overpayment excess credited to Customer `walletBalance` and advances (2100)<br>• RS-4: Registered co-clients permitted to pay primary client invoices<br>• RS-5: Third-party payer rejection (`INVOICE_CUSTOMER_MISMATCH`)<br>• RS-6: `INVOICE_ALREADY_PAID` rejection<br>• RS-7: Bank clearance settlement (`CLEARED`, GL posted)<br>• RS-8: Cheque bounce reversal (invoices reset to `UNPAID`, zero ledger contamination) |
 | `deal.coclient.test.ts` | `DealService` (Multi-Client & Co-Owners) | **11** | • Co-client addition, update, and removal<br>• Prevention of primary owner as co-client<br>• Duplicate co-client prevention<br>• Multi-client receipt allocation |
@@ -70,7 +71,7 @@ Located in `frontend/src/`:
 ## 4. Running the Automated Test Suites
 
 ### Backend Test Execution
-To run all 93 backend tests:
+To run all 99 backend tests:
 ```bash
 npm test --prefix backend
 ```

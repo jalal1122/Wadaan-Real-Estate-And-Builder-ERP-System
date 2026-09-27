@@ -217,6 +217,9 @@ export class BillService {
 
     bustCache('projects');
     bustCache('deals');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
     return createdBillResult;
   }
 

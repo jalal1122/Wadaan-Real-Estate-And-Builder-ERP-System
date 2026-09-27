@@ -3,6 +3,7 @@ import { AccountCategory } from '@prisma/client';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { FiscalYearUtility } from '../utils/fiscal.util';
+import { getCache, setCache } from '../utils/cache.util';
 
 export interface LedgerTransactionRow {
   id: string;
@@ -50,6 +51,9 @@ export class LedgerService {
     startDate?: Date,
     endDate?: Date
   ): Promise<LedgerStatement> {
+    const CACHE_KEY = `ledger:${accountId}:${startDate?.toISOString() ?? 'default'}:${endDate?.toISOString() ?? 'now'}`;
+    const cached = getCache<LedgerStatement>(CACHE_KEY);
+    if (cached) return cached;
     // 1. Verify account existence (supports either UUID id or accountCode)
     const account = await prisma.account.findFirst({
       where: {
@@ -165,7 +169,7 @@ export class LedgerService {
       });
     }
 
-    return {
+    const result: LedgerStatement = {
       account: {
         id: account.id,
         accountCode: account.accountCode,
@@ -183,5 +187,8 @@ export class LedgerService {
       totalCredits: totalCredits.toFixed(2),
       transactions: transactionRows
     };
+
+    setCache(CACHE_KEY, result, 30_000); // 30s TTL
+    return result;
   }
 }

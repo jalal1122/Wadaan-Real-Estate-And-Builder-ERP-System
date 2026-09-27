@@ -34,7 +34,7 @@ export const useExecutiveSnapshot = () => {
     queryFn: fetchExecutiveSnapshot,
     retry: false,
     refetchInterval: (query) => (query.state.status === 'error' ? false : 30000),
-    staleTime: 15000,
+    staleTime: 30000, // 30 seconds — aligned with server-side micro-cache
   });
 };
 
@@ -60,7 +60,7 @@ export const useAgingRadar = () => {
     queryFn: fetchAgingRadar,
     retry: false,
     refetchInterval: (query) => (query.state.status === 'error' ? false : 60000),
-    staleTime: 30000,
+    staleTime: 60000, // 60 seconds — aligned with server-side cache
   });
 };
 
@@ -86,7 +86,7 @@ export const useTrialBalance = (startDate?: string, endDate?: string) => {
   return useQuery<TrialBalanceReport, Error>({
     queryKey: ['trial-balance', { startDate, endDate }],
     queryFn: () => fetchTrialBalance(startDate, endDate),
-    staleTime: 1000 * 30, // 30 seconds — financial data should stay fresh
+    staleTime: 1000 * 60, // 60 seconds — aligned with server-side cache
     refetchOnWindowFocus: true,
   });
 };
@@ -104,7 +104,7 @@ export const useAccountLedger = (
     queryKey: ['account-ledger', accountId, { startDate, endDate }],
     queryFn: () => fetchAccountLedger(accountId!, startDate, endDate),
     enabled: Boolean(accountId),
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60, // 60 seconds — aligned with server-side cache
   });
 };
 
@@ -121,7 +121,7 @@ export const useProjectLedger = (
     queryKey: ['reports', 'project-ledger', projectId, { startDate, endDate }],
     queryFn: () => fetchProjectLedger(projectId!, startDate, endDate),
     enabled: Boolean(projectId),
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60 * 2, // 2 minutes — aligned with server-side cache
   });
 };
 
@@ -132,7 +132,7 @@ export const useOverheadLedger = (startDate?: string, endDate?: string) => {
   return useQuery<OverheadLedgerReport, Error>({
     queryKey: ['reports', 'overhead-ledger', { startDate, endDate }],
     queryFn: () => fetchOverheadLedger(startDate, endDate),
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60 * 2, // 2 minutes — aligned with server-side cache
   });
 };
 
@@ -143,7 +143,7 @@ export const useEquityLedger = (startDate?: string, endDate?: string) => {
   return useQuery<EquityLedgerReport, Error>({
     queryKey: ['reports', 'equity-drawings', { startDate, endDate }],
     queryFn: () => fetchEquityLedger(startDate, endDate),
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60 * 2, // 2 minutes — aligned with server-side cache
   });
 };
 

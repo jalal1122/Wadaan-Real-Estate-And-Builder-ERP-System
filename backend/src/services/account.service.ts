@@ -3,6 +3,7 @@ import { AccountCategory, Account } from '@prisma/client';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateAccountInput, UpdateAccountInput } from '../utils/validation.util';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export interface AccountWithBalance {
   id: string;
@@ -51,6 +52,10 @@ export class AccountService {
    *   for transactions where entryDate >= fiscalStartDate.
    */
   static async getLiveBalances(fiscalStartDate?: Date): Promise<LiveBalancesResult> {
+    const CACHE_KEY = `accounts:live:${fiscalStartDate?.toISOString() ?? 'all'}`;
+    const cached = getCache<LiveBalancesResult>(CACHE_KEY);
+    if (cached) return cached;
+
     // 1. Fetch all active accounts in the system
     const allAccounts = await prisma.account.findMany({
       where: { isArchived: false },
@@ -189,7 +194,7 @@ export class AccountService {
       }
     }
 
-    return {
+    const result: LiveBalancesResult = {
       accounts: accountsWithBalance,
       grouped,
       summary: {
@@ -200,6 +205,9 @@ export class AccountService {
         totalExpenses: summaryDecimals.totalExpenses.toFixed(2)
       }
     };
+
+    setCache(CACHE_KEY, result, 60_000); // 60s TTL
+    return result;
   }
 
   /**
@@ -227,6 +235,7 @@ export class AccountService {
       }
     });
 
+    bustCache('accounts');
     return newAccount;
   }
 
@@ -266,6 +275,7 @@ export class AccountService {
       }
     });
 
+    bustCache('accounts');
     return updated;
   }
 
@@ -309,6 +319,7 @@ export class AccountService {
         data: { isArchived: true }
       });
 
+      bustCache('accounts');
       return {
         message: `Account '${account.accountName}' (${account.accountCode}) has transaction history and was archived.`,
         action: 'ARCHIVED'
@@ -320,6 +331,7 @@ export class AccountService {
       where: { id }
     });
 
+    bustCache('accounts');
     return {
       message: `Account '${account.accountName}' (${account.accountCode}) was deleted successfully.`,
       action: 'DELETED'

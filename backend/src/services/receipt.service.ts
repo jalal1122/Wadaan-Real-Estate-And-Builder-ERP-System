@@ -236,6 +236,9 @@ export class ReceiptService {
     bustCache('deals');
     bustCache('projects');
     bustCache('customers');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
     return inflowResult;
   }
 
@@ -377,6 +380,9 @@ export class ReceiptService {
     bustCache('deals');
     bustCache('projects');
     bustCache('customers');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
     return settlementResult;
   }
 
@@ -435,6 +441,9 @@ export class ReceiptService {
     bustCache('deals');
     bustCache('projects');
     bustCache('customers');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
     return bounceResult;
   }
 

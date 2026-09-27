@@ -4,6 +4,7 @@ import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreatePaymentInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
+import { bustCache } from '../utils/cache.util';
 
 export interface SettledBillReport {
   billId: string;
@@ -60,7 +61,7 @@ export class FifoService {
     }
 
     // 3. Execute atomic payment run in a transaction
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Find AP account (2000)
       const apAccount = await tx.account.findUnique({
         where: { accountCode: '2000' }
@@ -256,6 +257,13 @@ export class FifoService {
         remainingVendorOutstanding: totalRemainingOutstanding
       };
     }, { maxWait: 10000, timeout: 30000 });
+
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
+    bustCache('projects');
+    bustCache('deals');
+    return result;
   }
 
   /**

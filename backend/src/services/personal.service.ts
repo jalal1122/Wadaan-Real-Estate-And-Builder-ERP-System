@@ -7,12 +7,17 @@ import {
   AddPersonalRepaymentInput
 } from '../utils/validation.util';
 import { PersonalTxDirection, PersonalLoanStatus } from '@prisma/client';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class PersonalService {
   /**
    * Fetches all registered personal contacts with aggregated ledger metrics.
    */
   static async getAllContacts() {
+    const CACHE_KEY = 'personal:contacts:all';
+    const cached = getCache<any>(CACHE_KEY);
+    if (cached) return cached;
+
     const contacts = await prisma.personalContact.findMany({
       include: {
         loans: {
@@ -88,7 +93,7 @@ export class PersonalService {
     const globalOutstandingReceived = globalTotalReceived.minus(globalTotalReceivedSettled);
     const globalNetPosition = globalOutstandingGiven.minus(globalOutstandingReceived);
 
-    return {
+    const result = {
       kpi: {
         totalGivenOutstanding: globalOutstandingGiven,
         totalReceivedOutstanding: globalOutstandingReceived,
@@ -98,6 +103,9 @@ export class PersonalService {
       },
       contacts: contactSummaries
     };
+
+    setCache(CACHE_KEY, result, 120_000); // 2-minute TTL
+    return result;
   }
 
   /**
@@ -178,7 +186,7 @@ export class PersonalService {
    * Creates a new personal contact.
    */
   static async createContact(data: CreatePersonalContactInput) {
-    return await prisma.personalContact.create({
+    const created = await prisma.personalContact.create({
       data: {
         name: data.name.trim(),
         phone: data.phone?.trim() || null,
@@ -186,6 +194,9 @@ export class PersonalService {
         notes: data.notes?.trim() || null
       }
     });
+
+    bustCache('personal:contacts');
+    return created;
   }
 
   /**
@@ -197,7 +208,7 @@ export class PersonalService {
       throw new AppError('Personal contact not found', 404, 'CONTACT_NOT_FOUND');
     }
 
-    return await prisma.personalContact.update({
+    const updated = await prisma.personalContact.update({
       where: { id },
       data: {
         ...(data.name && { name: data.name.trim() }),
@@ -206,6 +217,9 @@ export class PersonalService {
         ...(data.notes !== undefined && { notes: data.notes?.trim() || null })
       }
     });
+
+    bustCache('personal:contacts');
+    return updated;
   }
 
   /**
@@ -217,9 +231,12 @@ export class PersonalService {
       throw new AppError('Personal contact not found', 404, 'CONTACT_NOT_FOUND');
     }
 
-    return await prisma.personalContact.delete({
+    const deleted = await prisma.personalContact.delete({
       where: { id }
     });
+
+    bustCache('personal:contacts');
+    return deleted;
   }
 
   /**
@@ -233,7 +250,7 @@ export class PersonalService {
 
     const principal = new Decimal(data.principalAmount);
 
-    return await prisma.personalLoan.create({
+    const created = await prisma.personalLoan.create({
       data: {
         contactId,
         direction: data.direction as PersonalTxDirection,
@@ -244,6 +261,9 @@ export class PersonalService {
         loanDate: new Date(data.loanDate)
       }
     });
+
+    bustCache('personal:contacts');
+    return created;
   }
 
   /**
@@ -301,6 +321,7 @@ export class PersonalService {
         }
       });
 
+      bustCache('personal:contacts');
       return {
         loan: updatedLoan,
         repayment
@@ -317,8 +338,11 @@ export class PersonalService {
       throw new AppError('Personal loan not found', 404, 'LOAN_NOT_FOUND');
     }
 
-    return await prisma.personalLoan.delete({
+    const deleted = await prisma.personalLoan.delete({
       where: { id: loanId }
     });
+
+    bustCache('personal:contacts');
+    return deleted;
   }
 }
