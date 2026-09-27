@@ -404,71 +404,43 @@ export class ReportService {
     const cached = getCache<NetIncomeReport>(CACHE_KEY);
     if (cached) return cached;
 
-    // 1. Gross Profit from Deals created in period
-    const dealRows = await prisma.$queryRaw<RawDealMarginRow[]>`
+
+    // Combined Single Query for True Net Income components
+    const rows = await prisma.$queryRaw<
+      Array<{
+        grossDealProfit: Decimal | number | string;
+        brokerageCommissions: Decimal | number | string;
+        generalOverhead: Decimal | number | string;
+      }>
+    >`
       SELECT
-        d.id            AS "dealId",
-        d."dealType",
-        d."totalValue",
-        c."fullName"    AS "customerName",
-        p."projectName",
-        COALESCE(SUM(di.amount) FILTER (WHERE di."paymentStatus" = 'PAID'), 0) AS "revenueCollected",
         COALESCE((
-          SELECT SUM(eb."grandTotal")
-          FROM "ExpenseBill" eb
-          WHERE eb."projectId" = d."projectId"
-        ), 0) AS "totalProjectCost"
-      FROM "Deal" d
-      JOIN "Customer" c ON d."customerId" = c.id
-      LEFT JOIN "Project" p ON d."projectId" = p.id
-      LEFT JOIN "DealInvoice" di ON di."dealId" = d.id
-      WHERE d."createdAt" >= ${start} AND d."createdAt" <= ${end}
-      GROUP BY d.id, d."dealType", d."totalValue", c."fullName", p."projectName", d."createdAt"
+          SELECT SUM(revenue - cost) FROM (
+            SELECT
+              COALESCE(SUM(di.amount) FILTER (WHERE di."paymentStatus" = 'PAID'), 0) AS revenue,
+              COALESCE((SELECT SUM(eb."grandTotal") FROM "ExpenseBill" eb WHERE eb."projectId" = d."projectId"), 0) AS cost
+            FROM "Deal" d
+            LEFT JOIN "DealInvoice" di ON di."dealId" = d.id
+            WHERE d."createdAt" >= ${start} AND d."createdAt" <= ${end}
+            GROUP BY d.id
+          ) sub WHERE revenue > 0
+        ), 0) AS "grossDealProfit",
+
+        COALESCE((
+          SELECT SUM("commissionAmount") FROM "Deal"
+          WHERE "dealType" = 'BROKERAGE' AND "createdAt" >= ${start} AND "createdAt" <= ${end}
+        ), 0) AS "brokerageCommissions",
+
+        COALESCE((
+          SELECT SUM("grandTotal") FROM "ExpenseBill"
+          WHERE "projectId" IS NULL AND "billDate" >= ${start} AND "billDate" <= ${end}
+        ), 0) AS "generalOverhead"
     `;
 
-    let grossDealProfit = new Decimal(0);
-    for (const row of dealRows) {
-      const revenue = new Decimal(row.revenueCollected ?? 0);
-      const cost = new Decimal(row.totalProjectCost ?? 0);
-      // Capitalized WIP asset guardrail: exclude projects that have zero recognized revenue
-      if (!revenue.isZero()) {
-        grossDealProfit = grossDealProfit.plus(revenue.minus(cost));
-      }
-    }
-
-    // 2. Brokerage commissions in period
-    const brokerageAgg = await prisma.deal.aggregate({
-      _sum: {
-        commissionAmount: true
-      },
-      where: {
-        dealType: DealType.BROKERAGE,
-        createdAt: {
-          gte: start,
-          lte: end
-        }
-      }
-    });
-    const brokerageCommissions = brokerageAgg._sum.commissionAmount
-      ? new Decimal(brokerageAgg._sum.commissionAmount)
-      : new Decimal(0);
-
-    // 3. General Office Overhead in period (ExpenseBills without projectId)
-    const overheadAgg = await prisma.expenseBill.aggregate({
-      _sum: {
-        grandTotal: true
-      },
-      where: {
-        projectId: null,
-        billDate: {
-          gte: start,
-          lte: end
-        }
-      }
-    });
-    const generalOverhead = overheadAgg._sum.grandTotal
-      ? new Decimal(overheadAgg._sum.grandTotal)
-      : new Decimal(0);
+    const row = rows[0];
+    const grossDealProfit = new Decimal(row?.grossDealProfit || 0);
+    const brokerageCommissions = new Decimal(row?.brokerageCommissions || 0);
+    const generalOverhead = new Decimal(row?.generalOverhead || 0);
 
     // 4. Net Income formula
     const netIncome = grossDealProfit.plus(brokerageCommissions).minus(generalOverhead);
@@ -625,64 +597,85 @@ export class ReportService {
     startDate?: Date,
     endDate?: Date
   ): Promise<ProjectLedgerReport> {
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, projectName: true, projectPrefix: true }
-    });
+    const startFilter = startDate ? Prisma.sql`AND eb."billDate" >= ${startDate}` : Prisma.empty;
+    const endFilter = endDate ? Prisma.sql`AND eb."billDate" <= ${endDate}` : Prisma.empty;
 
-    if (!project) {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        projectId: string;
+        projectName: string;
+        projectPrefix: string;
+        lines: Array<{
+          billId: string;
+          lineItemId: string;
+          billDate: string;
+          vendorName: string;
+          invoiceNumber: string;
+          description: string;
+          quantity: string | number | Decimal;
+          unitPrice: string | number | Decimal;
+          lineTotal: string | number | Decimal;
+        }>;
+      }>
+    >`
+      SELECT 
+        p.id AS "projectId", 
+        p."projectName", 
+        p."projectPrefix",
+        COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'billId', eb.id,
+              'lineItemId', bli.id,
+              'billDate', eb."billDate",
+              'vendorName', COALESCE(v."vendorName", 'Direct Vendor'),
+              'invoiceNumber', eb."invoiceNumber",
+              'description', bli.description,
+              'quantity', bli.quantity,
+              'unitPrice', bli."unitPrice",
+              'lineTotal', bli."lineTotal"
+            ) ORDER BY eb."billDate" DESC
+          )
+          FROM "ExpenseBill" eb
+          JOIN "BillLineItem" bli ON bli."billId" = eb.id
+          LEFT JOIN "Vendor" v ON v.id = eb."vendorId"
+          WHERE eb."projectId" = p.id
+            ${startFilter} ${endFilter}
+        ), '[]'::json) AS lines
+      FROM "Project" p
+      WHERE p.id = ${projectId}
+    `;
+
+    const row = rows[0];
+    if (!row) {
       throw new Error(`Project with ID ${projectId} not found`);
     }
-
-    const where: Prisma.ExpenseBillWhereInput = {
-      projectId
-    };
-
-    if (startDate || endDate) {
-      where.billDate = {};
-      if (startDate) where.billDate.gte = startDate;
-      if (endDate) where.billDate.lte = endDate;
-    }
-
-    const bills = await prisma.expenseBill.findMany({
-      where,
-      include: {
-        vendor: { select: { vendorName: true } },
-        lineItems: true
-      },
-      orderBy: { billDate: 'desc' }
-    });
 
     let totalCost = new Decimal(0);
     const lineItems: ProjectLedgerLineItem[] = [];
 
-    for (const bill of bills) {
-      const vendorName = bill.vendor?.vendorName || 'Direct Vendor';
-      const billDateStr = bill.billDate.toISOString();
+    for (const line of row.lines) {
+      const lineTotalDec = new Decimal(line.lineTotal?.toString() || '0');
+      totalCost = totalCost.plus(lineTotalDec);
 
-      for (const line of bill.lineItems) {
-        const lineTotalDec = new Decimal(line.lineTotal.toString());
-        totalCost = totalCost.plus(lineTotalDec);
-
-        lineItems.push({
-          billId: bill.id,
-          lineItemId: line.id,
-          billDate: billDateStr,
-          vendorName,
-          invoiceNumber: bill.invoiceNumber,
-          description: line.description,
-          quantity: line.quantity.toString(),
-          unitPrice: line.unitPrice.toString(),
-          lineTotal: lineTotalDec.toFixed(2)
-        });
-      }
+      lineItems.push({
+        billId: line.billId,
+        lineItemId: line.lineItemId,
+        billDate: new Date(line.billDate).toISOString(),
+        vendorName: line.vendorName,
+        invoiceNumber: line.invoiceNumber,
+        description: line.description,
+        quantity: line.quantity.toString(),
+        unitPrice: line.unitPrice.toString(),
+        lineTotal: lineTotalDec.toFixed(2)
+      });
     }
 
     return {
       project: {
-        id: project.id,
-        projectName: project.projectName,
-        projectPrefix: project.projectPrefix
+        id: row.projectId,
+        projectName: row.projectName,
+        projectPrefix: row.projectPrefix
       },
       period: {
         startDate: startDate ? startDate.toISOString() : undefined,
@@ -705,38 +698,47 @@ export class ReportService {
     const cached = getCache<OverheadLedgerReport>(CACHE_KEY);
     if (cached) return cached;
 
-    const where: Prisma.ExpenseBillWhereInput = {
-      projectId: null
-    };
+    const startFilter = startDate ? Prisma.sql`AND eb."billDate" >= ${startDate}` : Prisma.empty;
+    const endFilter = endDate ? Prisma.sql`AND eb."billDate" <= ${endDate}` : Prisma.empty;
 
-    if (startDate || endDate) {
-      where.billDate = {};
-      if (startDate) where.billDate.gte = startDate;
-      if (endDate) where.billDate.lte = endDate;
-    }
-
-    const bills = await prisma.expenseBill.findMany({
-      where,
-      include: {
-        vendor: { select: { vendorName: true } }
-      },
-      orderBy: { billDate: 'desc' }
-    });
+    const rows = await prisma.$queryRaw<
+      Array<{
+        billId: string;
+        billDate: string;
+        vendorName: string;
+        invoiceNumber: string;
+        grandTotal: string | number | Decimal;
+        paymentStatus: PaymentStatus;
+      }>
+    >`
+      SELECT
+        eb.id AS "billId",
+        eb."billDate",
+        COALESCE(v."vendorName", 'General Supplier') AS "vendorName",
+        eb."invoiceNumber",
+        eb."grandTotal",
+        eb."paymentStatus"
+      FROM "ExpenseBill" eb
+      LEFT JOIN "Vendor" v ON v.id = eb."vendorId"
+      WHERE eb."projectId" IS NULL
+        ${startFilter} ${endFilter}
+      ORDER BY eb."billDate" DESC
+    `;
 
     let totalOverhead = new Decimal(0);
     const ledgerItems: OverheadLedgerItem[] = [];
 
-    for (const bill of bills) {
-      const grandTotalDec = new Decimal(bill.grandTotal.toString());
-      totalOverhead = totalOverhead.plus(grandTotalDec);
+    for (const row of rows) {
+      const gt = new Decimal(row.grandTotal?.toString() || '0');
+      totalOverhead = totalOverhead.plus(gt);
 
       ledgerItems.push({
-        billId: bill.id,
-        billDate: bill.billDate.toISOString(),
-        vendorName: bill.vendor?.vendorName || 'General Supplier',
-        invoiceNumber: bill.invoiceNumber,
-        grandTotal: grandTotalDec.toFixed(2),
-        paymentStatus: bill.paymentStatus
+        billId: row.billId,
+        billDate: new Date(row.billDate).toISOString(),
+        vendorName: row.vendorName,
+        invoiceNumber: row.invoiceNumber,
+        grandTotal: gt.toFixed(2),
+        paymentStatus: row.paymentStatus
       });
     }
 
@@ -853,8 +855,10 @@ export class ReportService {
       };
     };
 
-    const arshadSummary = await fetchPartnerLines('Arshad Khalil', '3010', arshadAcc);
-    const zeeshanSummary = await fetchPartnerLines('Zeeshan Yousafzai', '3020', zeeshanAcc);
+    const [arshadSummary, zeeshanSummary] = await Promise.all([
+      fetchPartnerLines('Arshad Khalil', '3010', arshadAcc),
+      fetchPartnerLines('Zeeshan Yousafzai', '3020', zeeshanAcc)
+    ]);
 
     const grandTotal = new Decimal(arshadSummary.totalDrawings)
       .plus(new Decimal(zeeshanSummary.totalDrawings))

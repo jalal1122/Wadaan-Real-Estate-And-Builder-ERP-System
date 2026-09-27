@@ -7,17 +7,28 @@ async function run() {
   await prisma.$connect();
   console.timeEnd('DB Connect');
 
-  console.time('calculateSnapshot');
-  await ReportService.calculateSnapshot();
-  console.timeEnd('calculateSnapshot');
+  // Warmup
+  await prisma.$queryRaw`SELECT 1`;
 
-  console.time('getLiveBalances');
-  await AccountService.getLiveBalances();
-  console.timeEnd('getLiveBalances');
+  const bench = async (name: string, fn: () => Promise<any>) => {
+    console.time(name);
+    await fn();
+    console.timeEnd(name);
+  };
 
-  console.time('getAgingRadar');
-  await ReportService.getAgingRadar();
-  console.timeEnd('getAgingRadar');
+  await bench('calculateSnapshot', () => ReportService.calculateSnapshot());
+  await bench('getLiveBalances', () => AccountService.getLiveBalances());
+  await bench('getAgingRadar', () => ReportService.getAgingRadar());
+  await bench('getTrialBalance', () => ReportService.getTrialBalance());
+  await bench('calculateDealMargins', () => ReportService.calculateDealMargins());
+  await bench('calculateTrueNetIncome', () => ReportService.calculateTrueNetIncome());
+  await bench('getOverheadLedger', () => ReportService.getOverheadLedger());
+  await bench('getEquityLedger', () => ReportService.getEquityLedger());
+
+  const projects = await prisma.project.findFirst();
+  if (projects) {
+    await bench('getProjectLedger', () => ReportService.getProjectLedger(projects.id));
+  }
 
   process.exit(0);
 }
