@@ -16,6 +16,8 @@ Wadaan Real Estate and Builders ERP employs a two-tier automated testing archite
 | **Frontend UI** | Vitest + React Testing Library (JSDOM) | **29** | **201** | ~41s | ✅ 100% Passed |
 | **Total Suite** | Full Stack Coverage | **43** | **300** | ~59s | ✅ **ALL PASSING** |
 
+**Note**: V2 Performance Optimizations successfully introduced explicit database indexes (`journalId`, `vendorId`, etc.) and eliminated N+1 Cartesian products in `ProjectService`. All `99` backend tests successfully cover the newly parallelized fetching logic.
+
 ---
 
 ## 2. Backend Automated Test Matrix (14 Suites, 99 Tests)

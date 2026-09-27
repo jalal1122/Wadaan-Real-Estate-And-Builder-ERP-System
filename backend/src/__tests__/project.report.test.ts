@@ -7,8 +7,15 @@ jest.mock('../config/db', () => ({
   prisma: {
     project: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
     journalLine: {
+      findMany: jest.fn(),
+    },
+    expenseBill: {
+      findMany: jest.fn(),
+    },
+    deal: {
       findMany: jest.fn(),
     },
   },
@@ -23,6 +30,9 @@ describe('ProjectService.getProjectReport', () => {
 
   test('1. throws PROJECT_NOT_FOUND (404) if project id does not exist', async () => {
     (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue([]);
 
     await expect(ProjectService.getProjectReport('non-existent-id')).rejects.toMatchObject({
       statusCode: 404,
@@ -132,6 +142,9 @@ describe('ProjectService.getProjectReport', () => {
     };
 
     (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(mockProject);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue(mockProject.expenseBills);
+    (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue(mockProject.deals);
+    (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue(mockProject.journalLines);
 
     const report = await ProjectService.getProjectReport('proj-1');
 
@@ -184,6 +197,9 @@ describe('ProjectService.getProjectReport', () => {
     };
 
     (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(mockProject);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue(mockProject.expenseBills);
+    (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue(mockProject.deals);
+    (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue(mockProject.journalLines);
 
     const report = await ProjectService.getProjectReport('proj-1');
     const payment = report.clientReceipts[0].payments[0];
@@ -265,6 +281,9 @@ describe('ProjectService.getProjectReport', () => {
     };
 
     (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(mockProject);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue(mockProject.expenseBills);
+    (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue(mockProject.deals);
+    (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue(mockProject.journalLines);
 
     const report = await ProjectService.getProjectReport('proj-1');
 
@@ -300,6 +319,9 @@ describe('ProjectService.getProjectReport', () => {
     };
 
     (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(mockEmptyProject);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue(mockEmptyProject.expenseBills);
+    (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue(mockEmptyProject.deals);
+    (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue(mockEmptyProject.journalLines);
 
     const report = await ProjectService.getProjectReport('proj-empty');
 

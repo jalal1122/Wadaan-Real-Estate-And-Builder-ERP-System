@@ -14,6 +14,12 @@ jest.mock('../config/db', () => ({
     journalLine: {
       findMany: jest.fn(),
     },
+    expenseBill: {
+      findMany: jest.fn(),
+    },
+    deal: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -152,6 +158,9 @@ describe('ProjectService', () => {
   describe('getProjectById', () => {
     test('6. throws PROJECT_NOT_FOUND (404) when project does not exist', async () => {
       (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue([]);
 
       await expect(ProjectService.getProjectById('non-existent-id')).rejects.toMatchObject({
         statusCode: 404,

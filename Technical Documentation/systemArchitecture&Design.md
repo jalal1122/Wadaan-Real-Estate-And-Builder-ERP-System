@@ -88,3 +88,6 @@ Tier 2: Frontend Client-Side Stale-Time Synchronization (`TanStack Query`)
 - Query hooks (`useTrialBalance`, `useAccountLedger`, `useOverheadLedger`, `useEquityLedger`, `useProjectReport`, `useProjectTransactions`, `useExecutiveSnapshot`, `useAgingRadar`) have their `staleTime` tuned to match backend cache lifetimes (30s to 120s).
 - Switching between tabs and pages re-uses fresh cached data instantly with zero layout shifts, while mutations seamlessly trigger React Query `queryClient.invalidateQueries()` for immediate synchronized updates.
 
+Tier 3: Database Query & Index Optimization
+To support cache misses with maximum performance, the database schema implements explicit indexing for all relational foreign keys (`journalId`, `vendorId`, `receiptId`, `contactId`, etc.), bypassing PostgreSQL's default sequential scanning. At the application level, complex multi-entity reports (`getProjectReport`) fetch disjoint data sets via parallelized flat queries (`Promise.all`), assembling deeply nested structures in Node.js memory to actively prevent Prisma Cartesian-product overhead.
+

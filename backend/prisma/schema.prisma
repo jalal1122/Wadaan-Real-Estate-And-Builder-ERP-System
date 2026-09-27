@@ -96,6 +96,7 @@ model JournalLine {
 
   @@index([projectId])
   @@index([accountId])
+  @@index([journalId])
 }
 
 model Project {
@@ -141,6 +142,7 @@ model ExpenseBill {
 
   @@unique([vendorId, invoiceNumber])
   @@index([projectId])
+  @@index([vendorId])
 }
 
 model BillLineItem {
@@ -153,6 +155,8 @@ model BillLineItem {
   
   // Relationships
   bill        ExpenseBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([billId])
 }
 
 model VendorPayment {
@@ -228,6 +232,7 @@ model DealInvoice {
   receipt       Receipt?      @relation(fields: [receiptId], references: [id], onDelete: SetNull)
 
   @@index([dealId, paymentStatus])
+  @@index([receiptId])
 }
 
 model Receipt {
@@ -286,6 +291,8 @@ model PersonalLoan {
   updatedAt       DateTime            @updatedAt
   repayments      PersonalRepayment[]
   contact         PersonalContact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
 }
 
 model PersonalRepayment {
@@ -296,4 +303,6 @@ model PersonalRepayment {
   notes      String?
   createdAt  DateTime     @default(now())
   loan       PersonalLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
 }

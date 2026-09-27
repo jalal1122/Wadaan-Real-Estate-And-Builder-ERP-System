@@ -247,33 +247,43 @@ export class ProjectService {
     const cached = getCache<any>(CACHE_KEY);
     if (cached) return cached;
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        expenseBills: {
-          include: {
-            lineItems: true,
-            vendor: true
-          },
-          orderBy: { billDate: 'desc' }
+    const [projectRaw, expenseBills, journalLines, deals] = await Promise.all([
+      prisma.project.findUnique({
+        where: { id }
+      }),
+      prisma.expenseBill.findMany({
+        where: { projectId: id },
+        include: {
+          lineItems: true,
+          vendor: true
         },
-        journalLines: {
-          include: {
-            account: true
-          }
-        },
-        deals: {
-          include: {
-            customer: true,
-            invoices: true
-          }
+        orderBy: { billDate: 'desc' }
+      }),
+      prisma.journalLine.findMany({
+        where: { projectId: id },
+        include: {
+          account: true
         }
-      }
-    });
+      }),
+      prisma.deal.findMany({
+        where: { projectId: id },
+        include: {
+          customer: true,
+          invoices: true
+        }
+      })
+    ]);
 
-    if (!project) {
+    if (!projectRaw) {
       throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
     }
+
+    const project = {
+      ...projectRaw,
+      expenseBills,
+      journalLines,
+      deals
+    };
 
     const spentToDate = (project.journalLines && project.journalLines.length > 0)
       ? project.journalLines.reduce((sum, line) => {
@@ -457,71 +467,81 @@ export class ProjectService {
     const cached = getCache<ProjectReportResult>(CACHE_KEY);
     if (cached) return cached;
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        expenseBills: {
-          include: {
-            vendor: true,
-            lineItems: true
-          },
-          orderBy: { billDate: 'asc' }
+    const [projectRaw, expenseBills, deals, journalLines] = await Promise.all([
+      prisma.project.findUnique({
+        where: { id }
+      }),
+      prisma.expenseBill.findMany({
+        where: { projectId: id },
+        include: {
+          vendor: true,
+          lineItems: true
         },
-        deals: {
-          include: {
-            customer: true,
-            invoices: {
-              include: {
-                receipt: {
-                  include: { customer: true }
-                }
-              },
-              orderBy: { dueDate: 'asc' }
+        orderBy: { billDate: 'asc' }
+      }),
+      prisma.deal.findMany({
+        where: { projectId: id },
+        include: {
+          customer: true,
+          invoices: {
+            include: {
+              receipt: {
+                include: { customer: true }
+              }
+            },
+            orderBy: { dueDate: 'asc' }
+          }
+        }
+      }),
+      prisma.journalLine.findMany({
+        where: { projectId: id },
+        include: {
+          journal: {
+            select: {
+              id: true,
+              entryNumber: true,
+              entryDate: true,
+              description: true
+            }
+          },
+          account: {
+            select: {
+              id: true,
+              accountCode: true,
+              accountName: true,
+              category: true
+            }
+          },
+          vendor: {
+            select: {
+              id: true,
+              vendorName: true
+            }
+          },
+          customer: {
+            select: {
+              id: true,
+              fullName: true
             }
           }
         },
-        journalLines: {
-          include: {
-            journal: {
-              select: {
-                id: true,
-                entryNumber: true,
-                entryDate: true,
-                description: true
-              }
-            },
-            account: {
-              select: {
-                id: true,
-                accountCode: true,
-                accountName: true,
-                category: true
-              }
-            },
-            vendor: {
-              select: {
-                id: true,
-                vendorName: true
-              }
-            },
-            customer: {
-              select: {
-                id: true,
-                fullName: true
-              }
-            }
-          },
-          orderBy: [
-            { journal: { entryDate: 'asc' } },
-            { id: 'asc' }
-          ]
-        }
-      }
-    });
+        orderBy: [
+          { journal: { entryDate: 'asc' } },
+          { id: 'asc' }
+        ]
+      })
+    ]);
 
-    if (!project) {
+    if (!projectRaw) {
       throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
     }
+
+    const project = {
+      ...projectRaw,
+      expenseBills,
+      deals,
+      journalLines
+    };
 
     // 1. Calculate spent to date from journal lines (WIP/Expense), with fallback to expenseBills
     const spentToDate = (project.journalLines && project.journalLines.length > 0)
