@@ -4,6 +4,7 @@ import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateBillInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
+import { bustCache } from '../utils/cache.util';
 
 export interface BillFilter {
   vendorId?: string;
@@ -106,7 +107,7 @@ export class BillService {
     const billDate = data.billDate ? new Date(data.billDate) : new Date();
 
     // 6. Execute atomic creation and GL posting
-    return await prisma.$transaction(async (tx) => {
+    const createdBillResult = await prisma.$transaction(async (tx) => {
       // Find debit account: 1200 (WIP) for project, 5000 (COGS/Expense) for overhead
       const debitAccountCode = data.projectId ? '1200' : '5000';
       const debitAccount = await tx.account.findUnique({
@@ -213,6 +214,10 @@ export class BillService {
         journalEntry
       };
     }, { maxWait: 10000, timeout: 30000 });
+
+    bustCache('projects');
+    bustCache('deals');
+    return createdBillResult;
   }
 
   /**

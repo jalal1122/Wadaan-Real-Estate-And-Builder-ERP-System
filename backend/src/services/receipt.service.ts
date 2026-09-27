@@ -3,6 +3,7 @@ import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateReceiptInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
+import { bustCache } from '../utils/cache.util';
 
 export class ReceiptService {
   /**
@@ -13,7 +14,7 @@ export class ReceiptService {
    * - Overpayment: Excess amount is safely routed to Customer.walletBalance (CR Customer Advances 2100).
    */
   static async logInflow(data: CreateReceiptInput) {
-    return prisma.$transaction(
+    const inflowResult = await prisma.$transaction(
       async (tx) => {
         // 1. Verify customer exists
         const customer = await tx.customer.findUnique({
@@ -231,6 +232,11 @@ export class ReceiptService {
       },
       { maxWait: 10000, timeout: 30000 }
     );
+
+    bustCache('deals');
+    bustCache('projects');
+    bustCache('customers');
+    return inflowResult;
   }
 
   /**
@@ -238,7 +244,7 @@ export class ReceiptService {
    * Screen 9 (The Cash & Cheque Gateway).
    */
   static async settlePendingCheque(receiptId: string, targetBankAccountId: string) {
-    return prisma.$transaction(
+    const settlementResult = await prisma.$transaction(
       async (tx) => {
         // 1. Verify receipt is PENDING
         const receipt = await tx.receipt.findUnique({
@@ -367,6 +373,11 @@ export class ReceiptService {
       },
       { maxWait: 10000, timeout: 30000 }
     );
+
+    bustCache('deals');
+    bustCache('projects');
+    bustCache('customers');
+    return settlementResult;
   }
 
   /**
@@ -375,7 +386,7 @@ export class ReceiptService {
    * No journal entry was ever made, so no GL reversal needed.
    */
   static async bounceCheque(receiptId: string) {
-    return prisma.$transaction(
+    const bounceResult = await prisma.$transaction(
       async (tx) => {
         const receipt = await tx.receipt.findUnique({
           where: { id: receiptId }
@@ -420,6 +431,11 @@ export class ReceiptService {
       },
       { maxWait: 10000, timeout: 30000 }
     );
+
+    bustCache('deals');
+    bustCache('projects');
+    bustCache('customers');
+    return bounceResult;
   }
 
   /**
