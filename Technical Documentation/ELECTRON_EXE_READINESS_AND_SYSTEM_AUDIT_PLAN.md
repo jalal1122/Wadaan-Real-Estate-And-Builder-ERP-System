@@ -62,7 +62,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **04** | **Module 0: Auth Vault & Setup (Screen 0)** | ✅ **COMPLETE** | 100% (23/23 tests) | Fast PIN login (<0.01ms HMAC), progressive 30s-120s lockout, Master Recovery Key modal, local/desktop HTTP cookie compatibility (`isSecure` loopback check), Go-Live setup wizard. |
 | **05** | **Module 1: Chart of Accounts (Screen 1)** | ✅ **COMPLETE** | 100% (33/33 tests) | 5 account categories, live dynamic balance aggregation, 3-tier deletion guard (system, active soft-archive, zero-activity purge), slide-out ledger drawer A4 print. |
 | **06** | **Module 1b: General Journal Entry (Screen 2)** | ✅ **COMPLETE** | 100% (13/13 tests) | Strict zero-sum balance ($\Delta = 0.00$), mutual debit/credit clearing, system lock protection, party tagging, reversal engine. |
-| **07** | Module 1c: Live Trial Balance (Screen 3) | ⏳ Queued | 8/8 tests passing | Real-time debit=credit reconciliation, period filtering. |
+| **07** | **Module 1c: Live Trial Balance (Screen 3)** | ✅ **COMPLETE** | 100% (21/21 tests) | Cumulative balance sheet vs period P&L aggregation, contra-equity drawings, PKT timezone safety, A4 letterhead printing, drill-down ledger drawer. |
 | **08** | Module 2: Projects & WIP Ledger (Screen 4) | ⏳ Queued | 24/24 tests passing | Cost center breakdown, WIP capitalization, transaction drawer. |
 | **09** | Module 2b/2c: Payables, Payment Run & CPV | ⏳ Queued | 32/32 tests passing | FIFO invoice waterfall, cheque clearance, native A4 dual voucher. |
 | **10** | Module 3: Deal Hub & Customer Khaata | ⏳ Queued | 33/33 tests passing | Milestone zero-sum math, co-client management, advance wallet. |
@@ -218,23 +218,26 @@ graph TD
 
 ---
 
-### PIECE 7: Module 1c — Live Trial Balance & Period Presets (Screen 3)
+### PIECE 7: Module 1c — Live Trial Balance & Period Presets (Screen 3) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/trial-balance/page.tsx`, `AccountLedgerPanel.tsx`
-  - Backend: `backend/src/services/report.service.ts` (`calculateTrialBalance`), `backend/src/services/ledger.service.ts`
-- **Core Responsibilities:**
-  1. Real-time Trial Balance compilation querying live GL debits and credits across all 5 account classes.
-  2. Total debits must equal total credits with a large institutional balanced status indicator badge.
-  3. Preset date filters (`This Month`, `Last Month`, `This Fiscal Year`, `All Time`, `Custom Range`).
-  4. Contra-equity handling: Partner drawings debited against equity (`3010-xx`) render correctly as debit balances reducing net capital.
-  5. Account drill-down drawer: Clicking any row opens an itemized transaction ledger for that specific account.
-  6. Direct print view (`window.print()` / `@media print` layout).
-- **Electron vs Browser Compatibility Checks:**
-  - Timezone-resilient date parsing: Ensures queries for "This Month" accurately capture local date boundaries without UTC day-shift drops.
-  - High-resolution print styles ensuring tables do not truncate or hide columns on A4 paper.
-- **Testing & Verification:**
-  - Automated tests: `TrialBalance.test.tsx`, `AccountLedgerPanel.test.tsx`, `report.service.test.ts`.
-  - Manual Guide: Tests D-1 through D-8.
+  - Frontend: `src/app/(dashboard)/trial-balance/page.tsx`, `TrialBalance.test.tsx`, `src/components/accounting/AccountLedgerPanel.tsx`, `AccountLedgerPanel.test.tsx`
+  - Backend: `backend/src/controllers/report.controller.ts`, `backend/src/services/report.service.ts` (`getTrialBalance`), `backend/src/routes/report.routes.ts`, `backend/src/__tests__/report.service.test.ts`
+- **Implemented & Verified Capabilities:**
+  1. **Dual Boundary Aggregation (Balance Sheet vs P&L):**
+     - `ASSET`, `LIABILITY`, `EQUITY` aggregate cumulatively from origin up to `periodEnd` (`entryDate <= periodEnd`), regardless of `startDate`.
+     - `REVENUE`, `EXPENSE` aggregate strictly within `periodStart` to `periodEnd` (`entryDate >= periodStart AND entryDate <= periodEnd`).
+  2. **Mathematical Zero-Sum Proof & Column Placement:**
+     - `ASSET` / `EXPENSE`: Net debit normal; if negative (contra-asset), placed into Credit column.
+     - `LIABILITY` / `EQUITY` / `REVENUE`: Net credit normal; if negative (contra-equity partner drawings), placed into Debit column.
+     - Verified: `isBalanced = grandTotalDebit.equals(grandTotalCredit)`.
+     - Zero-balance accounts are automatically suppressed from output.
+  3. **Desktop & Electron Compatibility Checks:**
+     - Date parsing safety: `formatUTCDate` prevents UTC -5 hour day-shift rollovers under Pakistan Standard Time (PKT UTC+5).
+     - Preset filters: `All Time`, `This Month`, `This Year (FY)` (July 1 to June 30), and `Custom Range`.
+     - Print engine: Dedicated `.print-only` institutional header with Wadaan letterhead, generation timestamp, summary KPI cards, and `@media print` layout isolation.
+     - Ledger drill-down: Clicking any account row opens `AccountLedgerPanel` for chronological transaction review.
+  4. **Automated Test Verification:**
+     - 100% passing tests (21/21 tests): `TrialBalance.test.tsx` (8/8 UI tests) + `AccountLedgerPanel.test.tsx` (3/3 UI tests) + `report.service.test.ts` (10/10 backend tests covering cumulative assets, windowed revenue, zero-sum balance, and zero-account filtering). Manual tests D-1 through D-8 verified.
 
 ---
 
