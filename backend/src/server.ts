@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import { globalErrorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import systemRoutes from './routes/system.routes';
@@ -23,9 +25,38 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+// Allowed origins for desktop and browser clients
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:4000',
+  'http://127.0.0.1:4000',
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (Electron file/internal desktop requests, mobile, curl)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Allow loopback origins on any port
+      if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(cookieParser());
+
+// Lightweight health check endpoint for process supervisor & Electron startup checks
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
@@ -41,6 +72,30 @@ app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/documents', documentRoutes);
 app.use('/api/v1/personal', personalRoutes);
 app.use('/api/v1/assets', assetRoutes);
+
+// Static frontend serving (for Electron production bundle or standalone executable)
+const frontendOutDir = process.env.FRONTEND_STATIC_PATH || path.resolve(__dirname, '../../frontend/out');
+if (fs.existsSync(frontendOutDir)) {
+  console.log(`[Express] Mounting static frontend bundle from ${frontendOutDir}`);
+  app.use(express.static(frontendOutDir, { extensions: ['html'] }));
+
+  // HTML5 History API fallback for client-side navigation
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path === '/health') {
+      return next();
+    }
+    const cleanPath = req.path.replace(/^\//, '').replace(/\/$/, '');
+    const specificHtml = path.join(frontendOutDir, `${cleanPath}.html`);
+    if (cleanPath && fs.existsSync(specificHtml)) {
+      return res.sendFile(specificHtml);
+    }
+    const indexPath = path.join(frontendOutDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
+}
 
 // Global Error Handler
 app.use(globalErrorHandler);

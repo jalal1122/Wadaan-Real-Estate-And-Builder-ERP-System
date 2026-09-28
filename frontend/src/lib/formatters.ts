@@ -6,9 +6,12 @@
  * Formats a numeric value or numeric string into Pakistani Rupee (PKR) currency format.
  * Example: 1500000 -> "PKR 1,500,000" or "Rs. 1,500,000" depending on locale output.
  */
-export const formatPKR = (value: string | number): string => {
+export const formatPKR = (value?: string | number | null): string => {
+  if (value === null || value === undefined) {
+    return 'PKR 0';
+  }
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (num === null || num === undefined || isNaN(num)) {
+  if (isNaN(num)) {
     return 'PKR 0';
   }
   return new Intl.NumberFormat('en-PK', {

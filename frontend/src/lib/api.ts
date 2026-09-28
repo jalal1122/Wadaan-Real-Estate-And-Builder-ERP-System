@@ -2,7 +2,20 @@ import axios, { AxiosError } from 'axios';
 import { ApiErrorPayload, ApiErrorResponse } from '../types/api';
 import { queryClient } from './queryClient';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+export const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    // When served by Express in packaged Electron or production desktop bundle
+    if (window.location.port === '4000' || window.location.origin.includes(':4000')) {
+      return `${window.location.origin}/api/v1`;
+    }
+  }
+  return 'http://localhost:4000/api/v1';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,6 +23,16 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Dynamic request interceptor to align origin when running in packaged desktop
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.port === '4000' || window.location.origin.includes(':4000')) {
+      config.baseURL = `${window.location.origin}/api/v1`;
+    }
+  }
+  return config;
 });
 
 // Global Axios response interceptor for unified error parsing & 401 session expiry redirect

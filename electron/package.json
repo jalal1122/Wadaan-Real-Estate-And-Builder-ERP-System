@@ -1,15 +1,92 @@
 {
-  "name": "electron",
+  "name": "wadaan-erp-desktop",
   "version": "1.0.0",
-  "description": "",
+  "description": "Wadaan Real Estate & Builders ERP - Desktop Suite",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "electron .",
+    "dist": "electron-builder --win"
   },
   "keywords": [],
-  "author": "",
+  "author": "Wadaan Real Estate & Builders",
   "license": "ISC",
   "type": "commonjs",
+  "build": {
+    "appId": "com.wadaan.erp",
+    "productName": "Wadaan Real Estate & Builders ERP",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist",
+        "to": "backend/dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../backend/prisma",
+        "to": "backend/prisma",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!**/*.map",
+          "!**/@types/**"
+        ]
+      },
+      {
+        "from": "../backend/.env",
+        "to": "backend/.env"
+      },
+      {
+        "from": "../frontend/out",
+        "to": "frontend/out",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Wadaan-ERP-Setup-${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Wadaan Real Estate & Builders ERP"
+    },
+    "portable": {
+      "artifactName": "Wadaan-ERP-Portable-${version}.${ext}"
+    }
+  },
   "devDependencies": {
     "electron": "^44.1.1",
     "electron-builder": "^26.15.3"

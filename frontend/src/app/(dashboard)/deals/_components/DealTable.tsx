@@ -281,7 +281,7 @@ export const DealTable: React.FC<DealTableProps> = ({
                               )}
                               {Number(cc.customer.walletBalance) > 0 && (
                                 <span className="text-emerald-700 font-bold">
-                                  • Adv: {formatPKR(cc.customer.walletBalance)}
+                                  • Adv: {formatPKR(cc.customer.walletBalance ?? 0)}
                                 </span>
                               )}
                             </button>

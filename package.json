@@ -7,6 +7,8 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:electron": "cd electron && npm start",
+    "start:desktop": "cd electron && npm start",
     "build:ui": "cd frontend && npm run build",
     "build:api": "cd backend && npx tsc",
     "build:windows": "npm run build:ui && npm run build:api && cd electron && npm run dist"

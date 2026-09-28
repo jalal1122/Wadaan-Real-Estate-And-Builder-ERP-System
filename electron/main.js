@@ -1,15 +1,179 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const http = require('http');
+const { fork, execSync } = require('child_process');
 
-let mainWindow;
+// Dual Environment Detection
+const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
+const BACKEND_PORT = process.env.PORT || 4000;
+const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
+const DEV_URL = 'http://localhost:3000';
+
+let mainWindow = null;
+let backendProcess = null;
+
+// Single-Instance Lock: prevents duplicate processes and port collision
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('[Electron] Another instance is already running. Quitting duplicate.');
+  app.quit();
+  process.exit(0);
+}
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
+/**
+ * Checks if an HTTP server is actively responding on the given URL.
+ */
+function isServerAlive(url, timeoutMs = 1000) {
+  return new Promise((resolve) => {
+    try {
+      const parsedUrl = new URL(url);
+      const req = http.get(
+        {
+          hostname: parsedUrl.hostname,
+          port: parsedUrl.port,
+          path: parsedUrl.pathname,
+          timeout: timeoutMs,
+        },
+        (res) => {
+          resolve(res.statusCode >= 200 && res.statusCode < 400);
+        }
+      );
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+/**
+ * Polls an HTTP endpoint until it returns a healthy response or times out.
+ */
+async function waitForServer(url, maxTimeoutMs = 15000, intervalMs = 250) {
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxTimeoutMs) {
+    const alive = await isServerAlive(url, intervalMs);
+    if (alive) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return false;
+}
+
+/**
+ * Supervised backend lifecycle manager. Spawns Express server in production.
+ */
+async function startBackend() {
+  const isAlive = await isServerAlive(`${BACKEND_URL}/health`, 800);
+  if (isAlive) {
+    console.log(`[Electron Supervisor] Backend is already responding on port ${BACKEND_PORT}.`);
+    return true;
+  }
+
+  let serverScript;
+  let backendCwd;
+
+  if (app.isPackaged) {
+    serverScript = path.join(process.resourcesPath, 'backend', 'dist', 'server.js');
+    backendCwd = path.join(process.resourcesPath, 'backend');
+  } else {
+    serverScript = path.resolve(__dirname, '../backend/dist/server.js');
+    backendCwd = path.resolve(__dirname, '../backend');
+  }
+
+  if (!fs.existsSync(serverScript)) {
+    console.warn(`[Electron Supervisor] Backend script not found at ${serverScript}.`);
+    if (isDev) {
+      console.log('[Electron Supervisor] Development mode: assuming external dev server.');
+      return true;
+    }
+    throw new Error(`Executable core missing at: ${serverScript}`);
+  }
+
+  const frontendStaticPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'frontend', 'out')
+    : path.resolve(__dirname, '../frontend/out');
+
+  console.log(`[Electron Supervisor] Spawning backend supervisor at ${serverScript}...`);
+  backendProcess = fork(serverScript, [], {
+    cwd: backendCwd,
+    env: {
+      ...process.env,
+      PORT: String(BACKEND_PORT),
+      NODE_ENV: isDev ? 'development' : 'production',
+      FRONTEND_STATIC_PATH: frontendStaticPath,
+    },
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+  });
+
+  if (backendProcess.stdout) {
+    backendProcess.stdout.on('data', (chunk) => {
+      console.log(`[Backend API] ${chunk.toString().trim()}`);
+    });
+  }
+
+  if (backendProcess.stderr) {
+    backendProcess.stderr.on('data', (chunk) => {
+      console.error(`[Backend ERR] ${chunk.toString().trim()}`);
+    });
+  }
+
+  backendProcess.on('exit', (code, signal) => {
+    console.log(`[Electron Supervisor] Backend exited with code ${code}, signal ${signal}`);
+    backendProcess = null;
+  });
+
+  console.log('[Electron Supervisor] Waiting for backend to become healthy...');
+  const ready = await waitForServer(`${BACKEND_URL}/health`, 15000);
+  if (!ready) {
+    throw new Error('Backend engine failed to respond within 15 seconds.');
+  }
+  console.log('[Electron Supervisor] Backend is healthy and ready.');
+  return true;
+}
+
+/**
+ * Cleanly terminates child backend process to avoid orphaned processes.
+ */
+function stopBackend() {
+  if (backendProcess && !backendProcess.killed) {
+    console.log('[Electron Supervisor] Terminating backend process...');
+    try {
+      if (process.platform === 'win32') {
+        execSync(`taskkill /pid ${backendProcess.pid} /T /F`);
+      } else {
+        backendProcess.kill('SIGTERM');
+      }
+    } catch {
+      try {
+        backendProcess.kill('SIGKILL');
+      } catch {}
+    }
+    backendProcess = null;
+  }
+}
 
 function createWindow() {
+  const iconPath = path.join(__dirname, 'icon.ico');
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 768,
+    show: false, // Prevents white flash before CSS loads
+    backgroundColor: '#0F172A', // Wadaan Brand dark theme
     title: 'Wadaan Real Estate & Builders - ERP',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -17,11 +181,23 @@ function createWindow() {
     },
   });
 
-  const devUrl = 'http://localhost:3000';
-  mainWindow.loadURL(devUrl).catch(() => {
-    // If dev server not yet up, load fallback or wait
-    console.log('Waiting for Next.js dev server...');
+  const targetUrl = isDev ? DEV_URL : BACKEND_URL;
+  console.log(`[Electron] Loading target URL: ${targetUrl}`);
+
+  mainWindow.loadURL(targetUrl).catch((err) => {
+    console.log(`[Electron] Initial loadURL caught: ${err.message}. Waiting for server...`);
   });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  if (isDev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  } else {
+    Menu.setApplicationMenu(null);
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -1053,8 +1229,17 @@ ipcMain.handle('export-backup', async () => {
   return { success: true, message: 'Backup export stub invoked.' };
 });
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  try {
+    await startBackend();
+    createWindow();
+  } catch (err) {
+    dialog.showErrorBox(
+      'Wadaan ERP Engine Startup Failure',
+      `Failed to initialize local services: ${err.message}\n\nPlease check system logs or contact administrator.`
+    );
+    app.quit();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1063,7 +1248,12 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  stopBackend();
+});
+
 app.on('window-all-closed', () => {
+  stopBackend();
   if (process.platform !== 'darwin') {
     app.quit();
   }

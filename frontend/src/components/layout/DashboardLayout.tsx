@@ -17,6 +17,7 @@ import {
   Archive,
   UserRound,
   Warehouse,
+  WifiOff,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -42,6 +43,23 @@ const NAV_ITEMS: NavItem[] = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { currentUser, logout, isLoggingOut } = useAuth();
+  const [isOnline, setIsOnline] = React.useState(true);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, []);
 
   const getInitials = (name?: string) => {
     if (!name) return 'CA';
@@ -51,7 +69,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#F9FAFB] text-slate-900 overflow-hidden font-sans antialiased">
+    <div className="flex h-screen w-full bg-[#F9FAFB] text-slate-900 overflow-hidden font-sans antialiased flex-col">
+      {!isOnline && (
+        <div className="no-print bg-amber-500 text-slate-950 px-4 py-1.5 text-xs font-semibold flex items-center justify-center gap-2 shadow-inner select-none z-50">
+          <WifiOff className="w-4 h-4 text-slate-950" />
+          <span>Offline Notice: Internet connection lost. Remote database sync is paused.</span>
+        </div>
+      )}
+      <div className="flex flex-1 overflow-hidden">
       {/* LEFT SIDEBAR */}
       <aside
         id="app-sidebar"
@@ -174,6 +199,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </div>
         </main>
+      </div>
       </div>
     </div>
   );
