@@ -190,6 +190,7 @@ export class SystemService {
         // 5. Active Projects & Construction WIP Hydration
         const projectMap = new Map<string, string>(); // projectName or prefix -> projectId
         let totalWIP = new Decimal(0);
+        const projectWipLines: { projectId: string; projectName: string; amount: Decimal }[] = [];
 
         for (const p of payload.activeProjects) {
           const boqVal = p.masterBOQ !== undefined ? p.masterBOQ : (p.boq ?? 0);
@@ -209,6 +210,11 @@ export class SystemService {
 
           if (spentVal.gt(0)) {
             totalWIP = totalWIP.plus(spentVal);
+            projectWipLines.push({
+              projectId: createdProject.id,
+              projectName: p.name,
+              amount: spentVal
+            });
           }
         }
 
@@ -324,15 +330,25 @@ export class SystemService {
         const totalLiabilities = totalAP;
         const ownersEquity = totalAssets.minus(totalLiabilities);
 
-        const journalLines: { accountId: string; debitAmount: Decimal; creditAmount: Decimal }[] = [];
+        const journalLines: { accountId: string; debitAmount: Decimal; creditAmount: Decimal; projectId?: string | null; memo?: string | null }[] = [];
 
         // Cash & Bank balances (Debits)
         for (const bl of bankJournalLines) {
           journalLines.push(bl);
         }
 
-        // Construction WIP (Debit)
-        if (totalWIP.gt(0)) {
+        // Construction WIP (Debit) - attribute to each project with opening WIP spending
+        if (projectWipLines.length > 0) {
+          for (const pw of projectWipLines) {
+            journalLines.push({
+              accountId: accountMap.get('1200')!,
+              debitAmount: pw.amount,
+              creditAmount: new Decimal(0),
+              projectId: pw.projectId,
+              memo: `Opening Construction WIP - ${pw.projectName}`
+            });
+          }
+        } else if (totalWIP.gt(0)) {
           journalLines.push({
             accountId: accountMap.get('1200')!,
             debitAmount: totalWIP,
@@ -401,7 +417,9 @@ export class SystemService {
               create: journalLines.map((line) => ({
                 accountId: line.accountId,
                 debitAmount: line.debitAmount,
-                creditAmount: line.creditAmount
+                creditAmount: line.creditAmount,
+                projectId: line.projectId || null,
+                memo: line.memo || null
               }))
             }
           }
