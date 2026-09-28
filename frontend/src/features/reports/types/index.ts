@@ -169,12 +169,15 @@ export interface EquityDrawingLineItem {
   memo: string;
   accountCode: string;
   amount: string;
+  partyName?: string | null;
+  projectName?: string | null;
 }
 
 export interface PartnerDrawingSummary {
   partnerName: string;
   accountCode: string;
   accountName: string;
+  isProvisioned?: boolean;
   lines: EquityDrawingLineItem[];
   totalDrawings: string;
 }
@@ -186,6 +189,7 @@ export interface EquityLedgerReport {
   };
   arshad: PartnerDrawingSummary;
   zeeshan: PartnerDrawingSummary;
+  general?: PartnerDrawingSummary;
   grandTotal: string;
 }
 

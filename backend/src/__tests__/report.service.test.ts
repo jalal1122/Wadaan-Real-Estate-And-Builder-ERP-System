@@ -232,47 +232,112 @@ describe('ReportService.getEquityLedger', () => {
     jest.clearAllMocks();
   });
 
-  test('fetches partner drawings debited against equity accounts and handles missing accounts gracefully', async () => {
+  test('attributes partner drawings debited against specific partner accounts and handles unprovisioned accounts', async () => {
     mockPrisma.account.findMany.mockResolvedValue([
       {
         id: 'acc-arshad',
         accountCode: '3010-01',
-        accountName: 'Owner Drawings & Distributions',
+        accountName: 'Arshad Khalil — Drawings & Distributions',
         category: AccountCategory.EQUITY,
       },
     ]);
 
-    mockPrisma.journalLine.findMany.mockImplementation(({ where }) => {
-      if (where.accountId === 'acc-arshad') {
-        return Promise.resolve([
-          {
-            id: 'line-draw-1',
-            debitAmount: '200000.00',
-            memo: 'Cheque #991024 personal withdrawal',
-            journal: {
-              entryNumber: 'JV-MOD1-002',
-              entryDate: new Date('2026-09-08T14:30:00Z'),
-              description: 'Owner monthly drawing',
+    mockPrisma.journalLine.findMany.mockResolvedValue([
+      {
+        id: 'line-draw-1',
+        accountId: 'acc-arshad',
+        debitAmount: '200000.00',
+        memo: 'Cheque #991024 personal withdrawal',
+        account: {
+          accountCode: '3010-01',
+          accountName: 'Arshad Khalil — Drawings & Distributions',
+        },
+        journal: {
+          entryNumber: 'JV-MOD1-002',
+          entryDate: new Date('2026-09-08T14:30:00Z'),
+          description: 'Owner monthly drawing',
+          lines: [
+            {
+              vendor: { vendorName: 'Ali Hardware' },
+              customer: null,
+              project: { projectName: 'Wadaan Heights', projectPrefix: 'WH' },
             },
-          },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+          ],
+        },
+        vendor: null,
+        customer: null,
+        project: null,
+      },
+    ]);
 
     const result = await ReportService.getEquityLedger();
 
     // Arshad should have the drawing from 3010-01
+    expect(result.arshad.isProvisioned).toBe(true);
     expect(result.arshad.lines).toHaveLength(1);
     expect(result.arshad.lines[0].reference).toBe('JV-MOD1-002');
     expect(result.arshad.lines[0].amount).toBe('200000.00');
+    expect(result.arshad.lines[0].partyName).toBe('Ali Hardware (Vendor)');
+    expect(result.arshad.lines[0].projectName).toBe('Wadaan Heights (WH)');
     expect(result.arshad.totalDrawings).toBe('200000.00');
 
-    // Zeeshan account 3020 does not exist in DB yet - should gracefully return empty array
+    // Zeeshan account 3020 does not exist in DB yet - should gracefully return unprovisioned empty state
+    expect(result.zeeshan.isProvisioned).toBe(false);
+    expect(result.zeeshan.accountName).toBe('Not Provisioned in Chart of Accounts');
     expect(result.zeeshan.lines).toEqual([]);
     expect(result.zeeshan.totalDrawings).toBe('0.00');
 
-    // Grand total = Arshad + Zeeshan = 200,000.00
+    // Grand total = Arshad (200k) + Zeeshan (0) = 200,000.00
     expect(result.grandTotal).toBe('200000.00');
+  });
+
+  test('does NOT attribute general director withdrawals to Arshad Sir, places them in general drawings', async () => {
+    mockPrisma.account.findMany.mockResolvedValue([
+      {
+        id: 'acc-general-drawings',
+        accountCode: '3010-01',
+        accountName: 'Owner Drawings',
+        category: AccountCategory.EQUITY,
+      },
+    ]);
+
+    mockPrisma.journalLine.findMany.mockResolvedValue([
+      {
+        id: 'line-draw-jv003',
+        accountId: 'acc-general-drawings',
+        debitAmount: '100000.00',
+        memo: 'Personal withdrawal by director',
+        account: {
+          accountCode: '3010-01',
+          accountName: 'Owner Drawings',
+        },
+        journal: {
+          entryNumber: 'JV-0003',
+          entryDate: new Date('2026-09-28T00:00:00Z'),
+          description: 'Owner equity withdrawal for personal use',
+          lines: [],
+        },
+        vendor: { vendorName: 'Ali Hardware' },
+        customer: null,
+        project: null,
+      },
+    ]);
+
+    const result = await ReportService.getEquityLedger();
+
+    // Arshad should NOT have this drawing because it was not specified for Arshad
+    expect(result.arshad.lines).toHaveLength(0);
+    expect(result.arshad.totalDrawings).toBe('0.00');
+
+    // General Director Drawings receives the withdrawal
+    expect(result.general).toBeDefined();
+    expect(result.general?.partnerName).toBe('General Director / Owner Drawings');
+    expect(result.general?.lines).toHaveLength(1);
+    expect(result.general?.lines[0].reference).toBe('JV-0003');
+    expect(result.general?.lines[0].memo).toBe('Personal withdrawal by director');
+    expect(result.general?.lines[0].partyName).toBe('Ali Hardware (Vendor)');
+    expect(result.general?.totalDrawings).toBe('100000.00');
+
+    expect(result.grandTotal).toBe('100000.00');
   });
 });

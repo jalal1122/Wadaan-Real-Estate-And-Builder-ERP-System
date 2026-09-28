@@ -44,10 +44,12 @@ Tracks non-project operational expenses:
 
 ### Sub-Tab 5: Partner Drawings & Distributions (Equity Ledger)
 Forensic tracking of personal withdrawals and equity draws debited against principal capital accounts:
-- **Partner 1 (Arshad Khalil)**: Itemizes withdrawals debited against Account `3010` (or `3010-01 Owner Drawings & Distributions`), showing JV Reference, Description/Memo, Account Code, and Amount.
-- **Partner 2 (Zeeshan Yousafzai)**: Itemizes withdrawals debited against Account `3020`, showing JV Reference, Description/Memo, Account Code, and Amount.
-- **Subtotals & Grand Total**: Displays individual partner subtotal drawings alongside a unified Grand Total partner drawing summary card.
-- **Null Safety**: Gracefully handles newly provisioned or empty partner accounts with clean zero-balance empty states.
+- **Partner 1 (Arshad Khalil)**: Itemizes withdrawals debited against Account `3010-02` (or partner-designated account `3010`), showing Date, JV Reference, Description/Memo, Linked Party, Linked Project, Account Code, and Amount.
+- **Partner 2 (Zeeshan Yousafzai)**: Itemizes withdrawals debited against Account `3020-01` (or Account `3020`), showing Date, JV Reference, Description/Memo, Linked Party, Linked Project, Account Code, and Amount.
+- **General Director / Owner Drawings**: Itemizes corporate unallocated equity draws debited against general accounts (e.g., `3010-01 Owner Drawings`) where no specific partner was designated, preventing false attribution.
+- **Itemized Columns**: Date, JV Reference, Description / Memo, Linked Party (Vendor/Customer party tagged on line/contra lines), Linked Project (Project cost center tagged on line/contra lines), Account Code, Amount (PKR).
+- **Subtotals & Grand Total**: Displays individual partner subtotal drawings alongside general director draws and a unified Grand Total partner drawing summary card.
+- **Null Safety & COA Transparency**: Gracefully handles newly provisioned or unprovisioned partner accounts with clean zero-balance empty states and `"Not In COA"` badges, eliminating phantom account confusion.
 
 ---
 

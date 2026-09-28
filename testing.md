@@ -410,11 +410,12 @@ Navigate to `/reports` via the sidebar navigation link **"Executive Reports"**.
 - Columns: Date, Vendor / Payee, Invoice #, Payment Status, and Grand Total.
 - Verify the bottom summary footer: **Total Overhead Expenses**.
 
-#### Step 6: Sub-Tab 5 — Partner Drawings (Equity Ledger)
+#### Step 6: Sub-Tab 5 — Partner Drawings & Distributions (Equity Ledger)
 - Click sub-tab **"Partner Drawings"**.
-- Observe two distinct partner sections:
-  1. **Arshad Khalil** (Account `3010` / `3010-01`): Personal draws showing Date, JV Reference, Description/Memo, Account Code, and Subtotal.
-  2. **Zeeshan Yousafzai** (Account `3020`): Equity draws with clean zero-balance state if no withdrawals posted yet.
+- Observe distinct drawing sections:
+  1. **Arshad Khalil** (Account `3010-02` / `3010` partner account): Personal draws showing Date, JV Reference, Description/Memo, Linked Party, Linked Project, Account Code, and Subtotal.
+  2. **Zeeshan Yousafzai** (Account `3020-01` / `3020` partner account): Equity draws with clean zero-balance state if no withdrawals posted yet, and `"Not In COA"` badge if unprovisioned.
+  3. **General Director / Owner Drawings** (Account `3010-01 Owner Drawings`): General corporate director draws without specific partner designation appear here.
 - Verify bottom card: **Combined Partner Drawings Grand Total** in deep slate card with emerald amount.
 
 ---

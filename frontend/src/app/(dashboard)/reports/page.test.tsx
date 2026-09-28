@@ -117,13 +117,16 @@ const mockEquityData = {
   arshad: {
     partnerName: 'Arshad Khalil',
     accountCode: '3010-01',
-    accountName: 'Owner Drawings & Distributions',
+    accountName: 'Arshad Khalil — Drawings & Distributions',
+    isProvisioned: true,
     lines: [
       {
         id: 'line-draw-1',
         date: '2026-09-08T14:30:00.000Z',
         reference: 'JV-MOD1-002',
         memo: 'Cheque #991024 personal withdrawal',
+        partyName: 'Ali Hardware',
+        projectName: 'Wadaan Heights (WH)',
         accountCode: '3010-01',
         amount: '200000.00',
       },
@@ -132,12 +135,32 @@ const mockEquityData = {
   },
   zeeshan: {
     partnerName: 'Zeeshan Yousafzai',
-    accountCode: '3020',
-    accountName: 'Zeeshan Yousafzai Drawings (3020)',
+    accountCode: '3020-01',
+    accountName: 'Not Provisioned in Chart of Accounts',
+    isProvisioned: false,
     lines: [],
     totalDrawings: '0.00',
   },
-  grandTotal: '200000.00',
+  general: {
+    partnerName: 'General Director / Owner Drawings',
+    accountCode: '3010-01',
+    accountName: 'Owner Drawings',
+    isProvisioned: true,
+    lines: [
+      {
+        id: 'line-draw-2',
+        date: '2026-09-28T00:00:00.000Z',
+        reference: 'JV-0003',
+        memo: 'Personal withdrawal by director',
+        partyName: 'Ali Hardware (Vendor)',
+        projectName: 'Wadaan Heights (WH)',
+        accountCode: '3010-01',
+        amount: '100000.00',
+      },
+    ],
+    totalDrawings: '100000.00',
+  },
+  grandTotal: '300000.00',
 };
 
 vi.mock('@/features/reports/hooks/useReports', () => ({
@@ -255,7 +278,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
     expect(screen.getByTestId('overhead-total-amount')).toBeDefined();
   });
 
-  it('switches to Partner Drawings tab and displays both partner sections', () => {
+  it('switches to Partner Drawings tab and displays both partner sections and general director drawings', () => {
     render(<MasterReportsHubPage />);
 
     const drawingsTab = screen.getByTestId('tab-drawings');
@@ -264,9 +287,13 @@ describe('Master Reports Hub Page (Screen 10)', () => {
     expect(screen.getByTestId('equity-drawings-ledger')).toBeDefined();
     expect(screen.getByTestId('partner-arshad-section')).toBeDefined();
     expect(screen.getByTestId('partner-zeeshan-section')).toBeDefined();
+    expect(screen.getByTestId('partner-general-section')).toBeDefined();
     expect(screen.getByText('Arshad Khalil')).toBeDefined();
     expect(screen.getByText('Zeeshan Yousafzai')).toBeDefined();
+    expect(screen.getByText('General Director / Owner Drawings')).toBeDefined();
+    expect(screen.getByText('Not In COA')).toBeDefined();
     expect(screen.getByText('Cheque #991024 personal withdrawal')).toBeDefined();
+    expect(screen.getByText('Personal withdrawal by director')).toBeDefined();
     expect(screen.getByTestId('equity-grand-total')).toBeDefined();
   });
 

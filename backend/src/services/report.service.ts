@@ -130,12 +130,15 @@ export interface EquityDrawingLineItem {
   memo: string;
   accountCode: string;
   amount: string;
+  partyName?: string | null;
+  projectName?: string | null;
 }
 
 export interface PartnerDrawingSummary {
   partnerName: string;
   accountCode: string;
   accountName: string;
+  isProvisioned: boolean;
   lines: EquityDrawingLineItem[];
   totalDrawings: string;
 }
@@ -147,6 +150,7 @@ export interface EquityLedgerReport {
   };
   arshad: PartnerDrawingSummary;
   zeeshan: PartnerDrawingSummary;
+  general?: PartnerDrawingSummary;
   grandTotal: string;
 }
 
@@ -764,8 +768,9 @@ export class ReportService {
 
   /**
    * 8. Partner Drawings (Equity Ledger)
-   * Tracks drawings debited against partner equity accounts (Account 3010 for Arshad, Account 3020 for Zeeshan).
-   * Gracefully returns empty arrays if specific partner accounts have not been provisioned yet.
+   * Tracks forensic drawings debited against partner equity accounts (Account 3010 for Arshad, Account 3020 for Zeeshan)
+   * or general director drawings (Account 3030 / Owner Drawings).
+   * Gracefully returns unprovisioned empty state if specific partner accounts have not been provisioned yet.
    */
   static async getEquityLedger(
     startDate?: Date,
@@ -781,95 +786,185 @@ export class ReportService {
       }
     });
 
-    // Find Arshad account: '3010', '3010-01', or name matching 'Arshad' or general 'Owner Drawings'
+    // 1. Identify specific partner accounts
     const arshadAcc = equityAccounts.find(
       (a) =>
-        a.accountCode === '3010' ||
-        a.accountCode.startsWith('3010') ||
-        a.accountName.toLowerCase().includes('arshad')
-    ) || equityAccounts.find((a) => a.accountName.toLowerCase().includes('drawings'));
-
-    // Find Zeeshan account: '3020', '3020-01', or name matching 'Zeeshan'
-    const zeeshanAcc = equityAccounts.find(
-      (a) =>
-        a.accountCode === '3020' ||
-        a.accountCode.startsWith('3020') ||
-        a.accountName.toLowerCase().includes('zeeshan')
+        a.accountName.toLowerCase().includes('arshad') ||
+        (a.accountCode === '3010-01' && a.accountName.toLowerCase().includes('arshad'))
     );
 
-    const fetchPartnerLines = async (
-      partnerName: string,
-      targetCode: string,
-      account?: typeof equityAccounts[0]
-    ): Promise<PartnerDrawingSummary> => {
-      if (!account) {
-        return {
-          partnerName,
-          accountCode: targetCode,
-          accountName: `${partnerName} Drawings (${targetCode})`,
-          lines: [],
-          totalDrawings: '0.00'
-        };
-      }
+    const zeeshanAcc = equityAccounts.find(
+      (a) =>
+        a.accountName.toLowerCase().includes('zeeshan') ||
+        a.accountCode === '3020' ||
+        a.accountCode === '3020-01'
+    );
 
-      const journalDateFilter: Prisma.JournalEntryWhereInput = {};
-      if (startDate || endDate) {
-        journalDateFilter.entryDate = {};
-        if (startDate) journalDateFilter.entryDate.gte = startDate;
-        if (endDate) journalDateFilter.entryDate.lte = endDate;
-      }
+    // 2. Identify general/unallocated director/owner drawing accounts
+    // (Accounts with 'drawing' or 'distribution' in name, or codes 3010/3030 that are NOT specifically Arshad/Zeeshan)
+    const generalAccs = equityAccounts.filter(
+      (a) =>
+        a.id !== arshadAcc?.id &&
+        a.id !== zeeshanAcc?.id &&
+        (a.accountName.toLowerCase().includes('drawing') ||
+          a.accountName.toLowerCase().includes('distribution') ||
+          a.accountCode.startsWith('3010') ||
+          a.accountCode.startsWith('3030'))
+    );
+    const primaryGeneralAcc = generalAccs[0];
 
-      const lines = await prisma.journalLine.findMany({
-        where: {
-          accountId: account.id,
-          debitAmount: { gt: 0 },
-          journal: journalDateFilter
-        },
-        include: {
-          journal: {
-            select: {
-              entryNumber: true,
-              entryDate: true,
-              description: true
-            }
+    // Relevant account IDs to query
+    const targetAccountIds: string[] = [];
+    if (arshadAcc) targetAccountIds.push(arshadAcc.id);
+    if (zeeshanAcc) targetAccountIds.push(zeeshanAcc.id);
+    for (const g of generalAccs) {
+      targetAccountIds.push(g.id);
+    }
+
+    const journalDateFilter: Prisma.JournalEntryWhereInput = {};
+    if (startDate || endDate) {
+      journalDateFilter.entryDate = {};
+      if (startDate) journalDateFilter.entryDate.gte = startDate;
+      if (endDate) journalDateFilter.entryDate.lte = endDate;
+    }
+
+    // Fetch lines for all target equity accounts
+    const lines = targetAccountIds.length > 0
+      ? await prisma.journalLine.findMany({
+          where: {
+            accountId: { in: targetAccountIds },
+            debitAmount: { gt: 0 },
+            journal: journalDateFilter
+          },
+          include: {
+            account: true,
+            journal: {
+              select: {
+                entryNumber: true,
+                entryDate: true,
+                description: true,
+                lines: {
+                  select: {
+                    vendor: { select: { vendorName: true } },
+                    customer: { select: { fullName: true } },
+                    project: { select: { projectName: true, projectPrefix: true } }
+                  }
+                }
+              }
+            },
+            vendor: { select: { vendorName: true } },
+            customer: { select: { fullName: true } },
+            project: { select: { projectName: true, projectPrefix: true } }
+          },
+          orderBy: {
+            journal: { entryDate: 'desc' }
           }
-        },
-        orderBy: {
-          journal: { entryDate: 'desc' }
-        }
-      });
+        })
+      : [];
 
-      let total = new Decimal(0);
-      const items: EquityDrawingLineItem[] = lines.map((line) => {
-        const debitDec = new Decimal(line.debitAmount.toString());
-        total = total.plus(debitDec);
-        return {
-          id: line.id,
-          date: line.journal.entryDate.toISOString(),
-          reference: line.journal.entryNumber,
-          memo: line.memo || line.journal.description,
-          accountCode: account.accountCode,
-          amount: debitDec.toFixed(2)
-        };
-      });
+    const mapLineItem = (line: typeof lines[0]): EquityDrawingLineItem => {
+      const debitDec = new Decimal(line.debitAmount.toString());
+
+      // Resolve party name from line or sibling lines in the same journal entry
+      let partyName: string | null = null;
+      if (line.vendor?.vendorName) {
+        partyName = `${line.vendor.vendorName} (Vendor)`;
+      } else if (line.customer?.fullName) {
+        partyName = `${line.customer.fullName} (Customer)`;
+      } else {
+        const siblingWithVendor = line.journal.lines.find((sl) => sl.vendor?.vendorName);
+        const siblingWithCustomer = line.journal.lines.find((sl) => sl.customer?.fullName);
+        if (siblingWithVendor?.vendor?.vendorName) {
+          partyName = `${siblingWithVendor.vendor.vendorName} (Vendor)`;
+        } else if (siblingWithCustomer?.customer?.fullName) {
+          partyName = `${siblingWithCustomer.customer.fullName} (Customer)`;
+        }
+      }
+
+      // Resolve project from line or sibling lines
+      let projectName: string | null = null;
+      if (line.project?.projectName) {
+        projectName = `${line.project.projectName} (${line.project.projectPrefix})`;
+      } else {
+        const siblingWithProj = line.journal.lines.find((sl) => sl.project?.projectName);
+        if (siblingWithProj?.project?.projectName) {
+          projectName = `${siblingWithProj.project.projectName} (${siblingWithProj.project.projectPrefix})`;
+        }
+      }
 
       return {
-        partnerName,
-        accountCode: account.accountCode,
-        accountName: account.accountName,
-        lines: items,
-        totalDrawings: total.toFixed(2)
+        id: line.id,
+        date: line.journal.entryDate.toISOString(),
+        reference: line.journal.entryNumber,
+        memo: line.memo || line.journal.description,
+        accountCode: line.account.accountCode,
+        amount: debitDec.toFixed(2),
+        partyName,
+        projectName
       };
     };
 
-    const [arshadSummary, zeeshanSummary] = await Promise.all([
-      fetchPartnerLines('Arshad Khalil', '3010', arshadAcc),
-      fetchPartnerLines('Zeeshan Yousafzai', '3020', zeeshanAcc)
-    ]);
+    // Attribute lines to Arshad, Zeeshan, or General
+    const arshadLines: EquityDrawingLineItem[] = [];
+    const zeeshanLines: EquityDrawingLineItem[] = [];
+    const generalLines: EquityDrawingLineItem[] = [];
 
-    const grandTotal = new Decimal(arshadSummary.totalDrawings)
+    for (const line of lines) {
+      const item = mapLineItem(line);
+      const textToSearch = `${line.memo || ''} ${line.journal.description || ''}`.toLowerCase();
+
+      if (arshadAcc && line.accountId === arshadAcc.id) {
+        arshadLines.push(item);
+      } else if (zeeshanAcc && line.accountId === zeeshanAcc.id) {
+        zeeshanLines.push(item);
+      } else {
+        // Line in general drawings account: check if memo/description specifies partner
+        if (textToSearch.includes('arshad')) {
+          arshadLines.push(item);
+        } else if (textToSearch.includes('zeeshan')) {
+          zeeshanLines.push(item);
+        } else {
+          generalLines.push(item);
+        }
+      }
+    }
+
+    const sumTotal = (items: EquityDrawingLineItem[]) =>
+      items.reduce((acc, it) => acc.plus(new Decimal(it.amount)), new Decimal(0)).toFixed(2);
+
+    const arshadSummary: PartnerDrawingSummary = {
+      partnerName: 'Arshad Khalil',
+      accountCode: arshadAcc?.accountCode || '3010-01',
+      accountName: arshadAcc?.accountName || 'Not Provisioned in Chart of Accounts',
+      isProvisioned: !!arshadAcc,
+      lines: arshadLines,
+      totalDrawings: sumTotal(arshadLines)
+    };
+
+    const zeeshanSummary: PartnerDrawingSummary = {
+      partnerName: 'Zeeshan Yousafzai',
+      accountCode: zeeshanAcc?.accountCode || '3020-01',
+      accountName: zeeshanAcc?.accountName || 'Not Provisioned in Chart of Accounts',
+      isProvisioned: !!zeeshanAcc,
+      lines: zeeshanLines,
+      totalDrawings: sumTotal(zeeshanLines)
+    };
+
+    let generalSummary: PartnerDrawingSummary | undefined = undefined;
+    if (primaryGeneralAcc || generalLines.length > 0) {
+      generalSummary = {
+        partnerName: 'General Director / Owner Drawings',
+        accountCode: primaryGeneralAcc?.accountCode || '3010-01',
+        accountName: primaryGeneralAcc?.accountName || 'Owner Drawings',
+        isProvisioned: !!primaryGeneralAcc,
+        lines: generalLines,
+        totalDrawings: sumTotal(generalLines)
+      };
+    }
+
+    const grandTotalDec = new Decimal(arshadSummary.totalDrawings)
       .plus(new Decimal(zeeshanSummary.totalDrawings))
-      .toFixed(2);
+      .plus(new Decimal(generalSummary?.totalDrawings || '0'));
 
     const result: EquityLedgerReport = {
       period: {
@@ -878,7 +973,8 @@ export class ReportService {
       },
       arshad: arshadSummary,
       zeeshan: zeeshanSummary,
-      grandTotal
+      general: generalSummary,
+      grandTotal: grandTotalDec.toFixed(2)
     };
 
     setCache(CACHE_KEY, result, 120_000); // 2-minute TTL

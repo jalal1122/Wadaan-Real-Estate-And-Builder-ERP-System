@@ -55,6 +55,8 @@ async function main() {
 
     // EQUITY (3000–3999)
     { accountCode: '3010-01', accountName: 'Owner Drawings & Distributions', category: AccountCategory.EQUITY },
+    { accountCode: '3010-02', accountName: 'Arshad Khalil — Drawings & Distributions', category: AccountCategory.EQUITY },
+    { accountCode: '3020-01', accountName: 'Zeeshan Yousafzai — Drawings & Distributions', category: AccountCategory.EQUITY },
 
     // REVENUE (4000–4999)
     { accountCode: '4010-01', accountName: 'Brokerage & File Commission Income', category: AccountCategory.REVENUE },

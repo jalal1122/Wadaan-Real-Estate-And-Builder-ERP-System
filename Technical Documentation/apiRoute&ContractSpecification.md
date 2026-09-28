@@ -2078,28 +2078,51 @@ The Master Reports Hub exposes read-only endpoints providing real-time financial
         },
         "arshad": {
           "partnerName": "Arshad Khalil",
-          "accountCode": "3010-01",
-          "accountName": "Owner Drawings & Distributions",
+          "accountCode": "3010-02",
+          "accountName": "Arshad Khalil — Drawings & Distributions",
+          "isProvisioned": true,
           "lines": [
             {
               "id": "uuid",
               "date": "2026-09-08T14:30:00.000Z",
               "reference": "JV-MOD1-002",
               "memo": "Cheque #991024 personal withdrawal",
-              "accountCode": "3010-01",
-              "amount": "200000.00"
+              "accountCode": "3010-02",
+              "amount": "200000.00",
+              "partyName": "Ali Hardware (Vendor)",
+              "projectName": "Wadaan Heights (WH)"
             }
           ],
           "totalDrawings": "200000.00"
         },
         "zeeshan": {
           "partnerName": "Zeeshan Yousafzai",
-          "accountCode": "3020",
-          "accountName": "Zeeshan Yousafzai Drawings (3020)",
+          "accountCode": "3020-01",
+          "accountName": "Zeeshan Yousafzai — Drawings & Distributions",
+          "isProvisioned": true,
           "lines": [],
           "totalDrawings": "0.00"
         },
-        "grandTotal": "200000.00"
+        "general": {
+          "partnerName": "General Director / Owner Drawings",
+          "accountCode": "3010-01",
+          "accountName": "Owner Drawings",
+          "isProvisioned": true,
+          "lines": [
+            {
+              "id": "uuid",
+              "date": "2026-09-28T00:00:00.000Z",
+              "reference": "JV-0003",
+              "memo": "Personal withdrawal by director",
+              "accountCode": "3010-01",
+              "amount": "100000.00",
+              "partyName": "Ali Hardware (Vendor)",
+              "projectName": "Wadaan Heights (WH)"
+            }
+          ],
+          "totalDrawings": "100000.00"
+        },
+        "grandTotal": "300000.00"
       }
     }
     ```

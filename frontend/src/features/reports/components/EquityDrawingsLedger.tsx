@@ -21,6 +21,7 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
       partnerName: string;
       accountCode: string;
       accountName: string;
+      isProvisioned?: boolean;
       lines: Array<{
         id: string;
         date: string;
@@ -28,6 +29,8 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
         memo: string;
         accountCode: string;
         amount: string;
+        partyName?: string | null;
+        projectName?: string | null;
       }>;
       totalDrawings: string;
     },
@@ -42,7 +45,14 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
               {partner.partnerName.slice(0, 2).toUpperCase()}
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-900">{partner.partnerName}</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-slate-900">{partner.partnerName}</h4>
+                {partner.isProvisioned === false && (
+                  <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                    Not In COA
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 font-mono">
                 Equity Account: {partner.accountCode} ({partner.accountName})
               </p>
@@ -64,7 +74,9 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
             <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <p className="text-xs font-medium text-slate-600">No equity draws recorded for {partner.partnerName}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Withdrawals debited to account {partner.accountCode} will be displayed here.
+              {partner.isProvisioned === false
+                ? `Account ${partner.accountCode} is not yet provisioned in Chart of Accounts. Create it under Equity (3000–3999) to enable partner tracking.`
+                : `Withdrawals debited to account ${partner.accountCode} will be displayed here.`}
             </p>
           </div>
         ) : (
@@ -75,6 +87,8 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
                   <th className="py-2.5 px-4">Date</th>
                   <th className="py-2.5 px-4">JV Reference</th>
                   <th className="py-2.5 px-4">Description / Memo</th>
+                  <th className="py-2.5 px-4">Linked Party</th>
+                  <th className="py-2.5 px-4">Linked Project</th>
                   <th className="py-2.5 px-4">Account Code</th>
                   <th className="py-2.5 px-4 text-right">Amount (PKR)</th>
                 </tr>
@@ -88,8 +102,26 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
                     <td className="py-2.5 px-4 font-mono font-medium text-slate-900">
                       {line.reference}
                     </td>
-                    <td className="py-2.5 px-4 text-slate-600 max-w-sm truncate" title={line.memo}>
+                    <td className="py-2.5 px-4 text-slate-600 max-w-xs truncate" title={line.memo}>
                       {line.memo}
+                    </td>
+                    <td className="py-2.5 px-4 whitespace-nowrap text-slate-700 font-medium">
+                      {line.partyName ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-mono">
+                          {line.partyName}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-4 whitespace-nowrap text-slate-700 font-medium">
+                      {line.projectName ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-mono border border-emerald-100">
+                          {line.projectName}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="py-2.5 px-4 font-mono text-slate-500">
                       {line.accountCode}
@@ -143,6 +175,9 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
           {/* Section 2: Zeeshan Yousafzai */}
           {ledger && renderPartnerTable(ledger.zeeshan, 'partner-zeeshan-section')}
 
+          {/* Section 3: General / Corporate Director Drawings */}
+          {ledger?.general && ledger.general.lines.length > 0 && renderPartnerTable(ledger.general, 'partner-general-section')}
+
           {/* Grand Total Combined Drawings Card */}
           <div className="bg-slate-900 text-white p-5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3">
@@ -151,7 +186,7 @@ export const EquityDrawingsLedger: React.FC<EquityDrawingsLedgerProps> = ({
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-white">Combined Partner Drawings</h4>
-                <p className="text-xs text-slate-400">Total capital withdrawals across all principals for selected period</p>
+                <p className="text-xs text-slate-400">Total capital withdrawals across all principals and director draws for selected period</p>
               </div>
             </div>
             <div className="text-right">

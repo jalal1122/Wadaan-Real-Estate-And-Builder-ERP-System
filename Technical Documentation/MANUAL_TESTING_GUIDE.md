@@ -328,9 +328,13 @@ npm run dev --prefix frontend
 ### Test D-6: Party & Project Tagging on Lines
 1. Start a new journal entry:
    - Description: `Owner equity withdrawal for personal use`
-   - Line 1: Account `3010-01 Owner Drawings`, Debit: `100,000`, **Party**: Select `[Vendor: Ali Hardware]` *(just to test the selector)*
-   - Line 2: Account `1010-01 Office Safe`, Credit: `100,000`, **Project**: `Wadaan Heights`
+   - Line 1: Account `3010-01 Owner Drawings`, Debit: `100,000`, **Party**: Select `[Vendor: Ali Hardware]` *(testing the selector)*
+   - Line 2: Account `1010-01 Office Safe`, Credit: `100,000`, **Project**: `Wadaan Heights` *(testing the selector)*
    - Add a **Memo** to Line 1: `Personal withdrawal by director`
+   
+   > [!NOTE]
+   > **Accounting & Testing Architecture Note**: In standard corporate accounting, equity drawings are executive capital withdrawals from corporate safe/banks for personal use — they are **not** vendor payables nor construction project costs (which belong to WIP `1200` or COGS `5000`). Selecting `[Vendor: Ali Hardware]` on Line 1 and `Wadaan Heights` on Line 2 in this test is done **strictly to test that line-level party and project selector dropdowns properly persist metadata** on journal voucher lines. In Executive Reports (Partner Drawings tab), these tags are transparently displayed under the **Linked Party** and **Linked Project** forensic columns.
+   
 2. Click **"Post Journal Entry"**.
 3. **Expected**: Posted successfully. Memo, party, and project stored on the respective journal lines.
 
@@ -1050,18 +1054,21 @@ npm run dev --prefix frontend
 3. **Verify**: Only bills where `projectId IS NULL` appear (the `PETROL-4421` Generator Diesel bill should be here; `INV-STEEL-101` WIP bill should NOT be here).
 4. **Verify**: Summary Footer shows `Total Overhead Expenses`.
 
-### Test K-10: Sub-Tab 5 — Partner Drawings (Equity Ledger)
+### Test K-10: Sub-Tab 5 — Partner Drawings & Distributions (Equity Ledger)
 1. Click sub-tab **"Partner Drawings"**.
-2. **Verify**: Two sections:
-   - **Arshad Khalil** (Account `3010` / `3010-01`): Lists draws.
-   - **Zeeshan Yousafzai** (Account `3020`): Lists draws.
-3. For any equity draws posted in the Journal (Test D-6 `3010-01` withdrawal), they should appear here.
+2. **Verify Sections**:
+   - **Arshad Khalil** (Account `3010-02` / `3010` partner account): Lists draws specifically posted to Arshad's account or memo.
+   - **Zeeshan Yousafzai** (Account `3020-01` / `3020` partner account): Lists draws specifically posted to Zeeshan's account or memo.
+   - **General Director / Owner Drawings** (Account `3010-01 Owner Drawings`): If general/unallocated director draws were posted (such as Test D-6 `3010-01` where no specific partner name was mentioned), they appear under this dedicated section rather than being incorrectly misattributed to any single partner.
+3. **Verify Table Columns**:
+   - `Date`, `JV Reference`, `Description / Memo`, `Linked Party`, `Linked Project`, `Account Code`, `Amount (PKR)`.
+   - For Test D-6 (`JV-0003`): `Linked Party` shows `Ali Hardware (Vendor)` and `Linked Project` shows `Wadaan Heights (WH)`.
 4. **Verify**: Clean zero-balance empty state for a partner with no draws yet.
 5. **Verify**: Bottom combined card shows **Grand Total Partner Drawings** in deep slate card with emerald amount.
 
-### Test K-11: Sub-Tab 5 — Null Safety for Unprovisioned Accounts
-1. If `3020` (Zeeshan) account does not exist in the COA, navigate to Partner Drawings.
-2. **Expected**: No crash. Clean empty state renders gracefully.
+### Test K-11: Sub-Tab 5 — Null Safety & Unprovisioned Accounts
+1. If a partner account does not exist in the Chart of Accounts (COA), navigate to Partner Drawings.
+2. **Expected**: No crash. Clean empty state renders gracefully with an explicit amber badge `"Not In COA"`, informing the user that the account must be created in the Chart of Accounts to enable individual partner tracking. No fake/phantom accounts are manufactured.
 
 ### Test K-12: PDF / Print Export
 1. From any active sub-tab, click **"Export to PDF / Print"**.
