@@ -60,7 +60,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **02** | **Networking, API Routing & Transport** | ✅ **COMPLETE** | 100% (338/338) | Dynamic origin detection (:4000 vs :3000), loopback CORS, Express static serve of `frontend/out/`, offline detector banner in `DashboardLayout`. |
 | **03** | **Packaging & electron-builder (.exe)** | ✅ **COMPLETE** | 100% Verified | Multi-target NSIS installer (`Wadaan-ERP-Setup-1.0.0.exe`) + Portable (`Wadaan-ERP-Portable-1.0.0.exe`), ASAR asset isolation, external `resources/` Prisma engines & `.env`. |
 | **04** | **Module 0: Auth Vault & Setup (Screen 0)** | ✅ **COMPLETE** | 100% (23/23 tests) | Fast PIN login (<0.01ms HMAC), progressive 30s-120s lockout, Master Recovery Key modal, local/desktop HTTP cookie compatibility (`isSecure` loopback check), Go-Live setup wizard. |
-| **05** | Module 1: Chart of Accounts (Screen 1) | 🔄 Next Up | 22/22 tests passing | 5-level hierarchy, immutable system accounts, live balance cache. |
+| **05** | **Module 1: Chart of Accounts (Screen 1)** | ✅ **COMPLETE** | 100% (33/33 tests) | 5 account categories, live dynamic balance aggregation, 3-tier deletion guard (system, active soft-archive, zero-activity purge), slide-out ledger drawer A4 print. |
 | **06** | Module 1b: General Journal Entry (Screen 2) | ⏳ Queued | 7/7 tests passing | Zero-sum debit/credit balance, fiscal period lock enforcement. |
 | **07** | Module 1c: Live Trial Balance (Screen 3) | ⏳ Queued | 8/8 tests passing | Real-time debit=credit reconciliation, period filtering. |
 | **08** | Module 2: Projects & WIP Ledger (Screen 4) | ⏳ Queued | 24/24 tests passing | Cost center breakdown, WIP capitalization, transaction drawer. |
@@ -174,23 +174,25 @@ graph TD
 
 ---
 
-### PIECE 5: Module 1 — Chart of Accounts, Cash Safes, Bank Liquidity & System Status (Screen 1)
+### PIECE 5: Module 1 — Chart of Accounts, Cash Safes, Bank Liquidity & System Status (Screen 1) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/accounts/page.tsx`, `CreateAccountModal.tsx`, `EditAccountModal.tsx`, `DeleteAccountDialog.tsx`
+  - Frontend: `src/app/(dashboard)/accounts/page.tsx`, `CreateAccountModal.tsx`, `EditAccountModal.tsx`, `DeleteAccountDialog.tsx`, `src/components/accounting/AccountLedgerPanel.tsx`, `src/lib/accountUtils.ts`
   - Backend: `backend/src/controllers/account.controller.ts`, `backend/src/services/account.service.ts`, `backend/src/routes/account.routes.ts`
   - Database: `Account` model
-- **Core Responsibilities:**
-  1. Hierarchical Chart of Accounts categorization: `ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`.
-  2. Live liquid balance calculation (Physical Cash Safes `1010-xx`, Meezan/HBL Bank accounts `1020-xx`/`1030-xx`).
-  3. Account code validation (e.g. `1010-01`, `2100`, `4000`).
-  4. Immutable system account protection: Prevents renaming or deletion of core system accounts (`1100 AR`, `2000 AP`, `2100 Advance Wallet`, `2200 Escrow`, `4000 Revenue`).
-  5. Deletion guard: Blocks deleting any account with existing General Ledger journal history (`ERR_ACCOUNT_HAS_ACTIVITY`).
-- **Electron vs Browser Compatibility Checks:**
-  - Currency formatting consistency (`formatPKR`) across Windows regional locale settings.
-  - Real-time balance invalidation upon payment or receipt creation.
-- **Testing & Verification:**
-  - Automated tests: `CreateAccountModal.test.tsx`, `EditAccountModal.test.tsx`, `DeleteAccountDialog.test.tsx`, `account.service.test.ts`.
-  - Manual Guide: Tests B-1 through B-7.
+- **Implemented & Verified Capabilities:**
+  1. **Dynamic Live Balance Mathematical Integrity:**
+     - `ASSET` / `EXPENSE`: `liveBalance = sum(Debits) - sum(Credits)`
+     - `LIABILITY` / `EQUITY` / `REVENUE`: `liveBalance = sum(Credits) - sum(Debits)`
+     - Verified exact live query aggregation in [account.service.ts](file:///j:/Programming/Clients/Wadaan%20Real%20Estate%20And%20Builders/Source%20Code/backend/src/services/account.service.ts) using Prisma `_sum` across `JournalLine` entries.
+  2. **Multi-Tier Account Protection & Deletion Guard:**
+     - **Tier 1 (System Accounts):** Core system accounts (`1100 AR`, `2000 AP`, `2100 Advance Wallet`, `2200 Escrow`, `4000 Revenue`) are marked `isSystem: true` and cannot be modified or deleted (`ERR_SYSTEM_ACCOUNT_IMMUTABLE`).
+     - **Tier 2 (Active Accounts with GL History):** Deletion request triggers soft-archiving (`isActive: false`), preserving full double-entry audit history without breaking existing journal vouchers or historical ledgers (`ERR_ACCOUNT_HAS_ACTIVITY`).
+     - **Tier 3 (Zero-Activity Accounts):** Safely hard-purged if zero journal lines or dependencies exist.
+  3. **Desktop & Electron Compatibility Checks:**
+     - Standardized `formatPKR` ensures consistent formatting regardless of Windows OS regional currency symbol settings.
+     - Slide-out ledger drawer (`AccountLedgerPanel`) supports native desktop printing with clean `@media print` layout isolation.
+  4. **Automated Test Verification:**
+     - 100% passing tests (33/33 tests): `CreateAccountModal.test.tsx` (8/8), `EditAccountModal.test.tsx` (8/8), `DeleteAccountDialog.test.tsx` (8/8), `AccountLedgerPanel.test.tsx` (3/3), `accountUtils.test.ts` (6/6). Manual tests B-1 through B-7 verified.
 
 ---
 
