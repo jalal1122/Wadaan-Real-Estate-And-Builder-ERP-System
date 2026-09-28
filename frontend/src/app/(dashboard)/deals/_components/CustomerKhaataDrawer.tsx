@@ -138,6 +138,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
       setActionSuccess(`Successfully applied ${formatPKR(amountNum)} from advance wallet!`);
       setSelectedInvoiceId('');
       setApplyAmount('');
+      refetch();
     } catch (err: any) {
       setActionError(err?.response?.data?.message || err.message || 'Failed to apply wallet balance');
     }

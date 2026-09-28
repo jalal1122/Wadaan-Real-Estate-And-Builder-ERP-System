@@ -8,6 +8,7 @@ import {
   ApplyWalletSchema
 } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
+import { bustCache } from '../utils/cache.util';
 
 export const receivePayment = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -103,6 +104,14 @@ export const applyWalletAdvance = async (req: Request, res: Response, next: Next
       },
       { maxWait: 10000, timeout: 30000 }
     );
+
+    bustCache('customers');
+    bustCache('deals');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('journals');
+    bustCache('ledger');
+    bustCache('projects');
 
     res.status(200).json({
       success: true,

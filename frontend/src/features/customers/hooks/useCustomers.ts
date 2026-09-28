@@ -62,8 +62,9 @@ export const useApplyCustomerWallet = () => {
       customerId: string;
       payload: ApplyWalletPayload;
     }) => applyCustomerWallet(customerId, payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customers', variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
       queryClient.invalidateQueries({ queryKey: ['ar-aging'] });

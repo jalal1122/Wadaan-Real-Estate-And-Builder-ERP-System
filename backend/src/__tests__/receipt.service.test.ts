@@ -1,5 +1,8 @@
 import { ReceiptService } from '../services/receipt.service';
 import { JournalService } from '../services/journal.service';
+import { applyWalletAdvance } from '../controllers/receipt.controller';
+import * as cacheUtil from '../utils/cache.util';
+import { WalletManager } from '../utils/revenue.util';
 import { prisma } from '../config/db';
 import Decimal from 'decimal.js';
 
@@ -421,6 +424,39 @@ describe('ReceiptService — Cash, Cheque & Clearance Workflow', () => {
         },
       });
       expect(JournalService.postEntry).not.toHaveBeenCalled();
+    });
+
+    test('RS-9: applyWalletAdvance — busts caches after consuming advance', async () => {
+      const bustCacheSpy = jest.spyOn(cacheUtil, 'bustCache');
+      jest.spyOn(WalletManager, 'consumeAdvance').mockResolvedValue({
+        walletBalanceRemaining: new Decimal(1000000),
+        invoicePaid: false,
+      });
+
+      (prisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => {
+        return callback({});
+      });
+
+      const req: any = {
+        params: { customerId: 'cust-1' },
+        body: { invoiceId: '11111111-1111-4111-8111-111111111111', amount: 500000 },
+      };
+      const res: any = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await applyWalletAdvance(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(bustCacheSpy).toHaveBeenCalledWith('customers');
+      expect(bustCacheSpy).toHaveBeenCalledWith('deals');
+      expect(bustCacheSpy).toHaveBeenCalledWith('reports');
+      expect(bustCacheSpy).toHaveBeenCalledWith('accounts');
+      expect(bustCacheSpy).toHaveBeenCalledWith('journals');
+      expect(bustCacheSpy).toHaveBeenCalledWith('ledger');
+      expect(bustCacheSpy).toHaveBeenCalledWith('projects');
     });
   });
 });

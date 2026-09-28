@@ -7,6 +7,7 @@ let mockCustomerData: any = null;
 let mockIsLoading = false;
 let mockIsError = false;
 const mockRemoveCoClientMutateAsync = vi.fn();
+const mockApplyWalletMutateAsync = vi.fn();
 const mockRefetch = vi.fn();
 
 vi.mock('@/features/customers/hooks/useCustomers', () => ({
@@ -17,7 +18,7 @@ vi.mock('@/features/customers/hooks/useCustomers', () => ({
     refetch: mockRefetch,
   }),
   useApplyCustomerWallet: () => ({
-    mutateAsync: vi.fn(),
+    mutateAsync: mockApplyWalletMutateAsync,
     isPending: false,
   }),
 }));
@@ -343,6 +344,65 @@ describe('CustomerKhaataDrawer Component', () => {
 
     // refetch must be called so drawer immediately updates
     expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it('calls mutateAsync and refetch when applying wallet advance to an unpaid milestone', async () => {
+    mockCustomerData = {
+      id: 'cust-1',
+      fullName: 'Tariq Mehmood',
+      phone: '0300-1122334',
+      walletBalance: 1500000,
+      deals: [
+        {
+          id: 'deal-1',
+          dealType: 'WADAAN_SALE',
+          totalValue: 8000000,
+          pendingBalance: 8000000,
+          createdAt: '2026-09-28T00:00:00Z',
+          invoices: [
+            {
+              id: 'inv-lump-sum',
+              description: 'Full Contract Lump Sum',
+              amount: 8000000,
+              dueDate: '2026-09-28T00:00:00Z',
+              paymentStatus: 'UNPAID',
+            },
+          ],
+        },
+      ],
+      receipts: [],
+    };
+
+    mockApplyWalletMutateAsync.mockResolvedValueOnce({
+      walletBalanceRemaining: 1000000,
+      invoicePaid: false,
+    });
+
+    render(<CustomerKhaataDrawer customerId="cust-1" onClose={vi.fn()} />);
+
+    // Select invoice
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'inv-lump-sum' } });
+
+    // Amount input auto-populates with min(walletBalance, inv.amount) = 1500000, or user types 500000
+    const input = screen.getByPlaceholderText('Amount (PKR)');
+    fireEvent.change(input, { target: { value: '500000' } });
+
+    // Click Apply
+    const applyBtn = screen.getByRole('button', { name: /Apply/i });
+    fireEvent.click(applyBtn);
+
+    await waitFor(() => {
+      expect(mockApplyWalletMutateAsync).toHaveBeenCalledWith({
+        customerId: 'cust-1',
+        payload: {
+          invoiceId: 'inv-lump-sum',
+          amount: 500000,
+        },
+      });
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(screen.getByText(/Successfully applied Rs 500,000 from advance wallet!/i)).toBeInTheDocument();
+    });
   });
 });
 
