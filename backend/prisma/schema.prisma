@@ -40,6 +40,19 @@ enum DealType {
   BROKERAGE
 }
 
+enum AssetStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum AssetCategory {
+  PLOT
+  HOUSE
+  COMMERCIAL
+  APARTMENT
+}
+
 model User {
   id                   String    @id @default(uuid())
   email                String    @unique
@@ -198,6 +211,7 @@ model Deal {
   project          Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
   invoices         DealInvoice[]
   coClients        DealClient[]
+  asset            WadaanAsset?
 
   @@index([projectId])
   @@index([customerId])
@@ -215,6 +229,23 @@ model DealClient {
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@unique([dealId, customerId])
+}
+
+model WadaanAsset {
+  id              String        @id @default(uuid())
+  assetTitle      String
+  assetCategory   AssetCategory
+  acquisitionCost Decimal       @db.Decimal(15, 2)
+  acquisitionDate DateTime
+  description     String?
+  status          AssetStatus   @default(AVAILABLE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  deal            Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  dealId          String?       @unique
+
+  @@index([status])
 }
 
 

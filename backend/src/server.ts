@@ -15,6 +15,7 @@ import inflowRoutes from './routes/inflow.routes';
 import reportRoutes from './routes/report.routes';
 import documentRoutes from './routes/document.routes';
 import personalRoutes from './routes/personal.routes';
+import assetRoutes from './routes/asset.routes';
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +39,7 @@ app.use('/api/v1', inflowRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/documents', documentRoutes);
 app.use('/api/v1/personal', personalRoutes);
+app.use('/api/v1/assets', assetRoutes);
 
 // Global Error Handler
 app.use(globalErrorHandler);

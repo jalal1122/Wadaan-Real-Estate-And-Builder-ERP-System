@@ -341,3 +341,34 @@ describe('ReportService.getEquityLedger', () => {
     expect(result.grandTotal).toBe('100000.00');
   });
 });
+
+describe('ReportService.calculateDealMargins', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('RM-10: calculates gross profit deducting acquisitionCost for WADAAN_SALE deal', async () => {
+    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+      {
+        dealId: 'deal-1',
+        dealType: 'WADAAN_SALE',
+        totalValue: '6000000.00',
+        customerName: 'Tariq Client',
+        projectName: null,
+        assetTitle: 'Plot 45, Block C',
+        assetCost: '4500000.00',
+        revenueCollected: '6000000.00',
+        totalProjectCost: '0.00',
+      },
+    ]);
+
+    const result = await ReportService.calculateDealMargins();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].assetTitle).toBe('Plot 45, Block C');
+    expect(result[0].assetCost).toBe('4500000.00');
+    // grossProfit = 6000000 - 0 - 4500000 = 1500000.00
+    expect(result[0].grossProfit).toBe('1500000.00');
+    expect(result[0].marginPercentage).toBe('25.00');
+  });
+});

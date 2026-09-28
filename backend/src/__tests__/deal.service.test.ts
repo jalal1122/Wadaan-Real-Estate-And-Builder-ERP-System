@@ -26,6 +26,10 @@ jest.mock('../config/db', () => ({
     account: {
       findUnique: jest.fn(),
     },
+    wadaanAsset: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
   },
 }));
 
@@ -344,6 +348,147 @@ describe('DealService — Core Contracts & File Transfer', () => {
         statusCode: 400,
         code: 'PROJECT_NOT_ACTIVE',
       });
+    });
+
+    test('DS-10: initializeContract — WADAAN_SALE with valid AVAILABLE asset reserves asset atomically', async () => {
+      const mockAsset = {
+        id: 'asset-45',
+        assetTitle: 'Plot 45, Block C',
+        status: 'AVAILABLE',
+        acquisitionCost: new Decimal(4500000),
+      };
+
+      (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => {
+        const tx = {
+          customer: {
+            findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', fullName: 'Tariq Client' }),
+          },
+          wadaanAsset: {
+            findUnique: jest.fn().mockResolvedValue(mockAsset),
+            update: jest.fn().mockResolvedValue({ ...mockAsset, status: 'RESERVED', dealId: 'deal-new' }),
+          },
+          deal: {
+            create: jest.fn().mockResolvedValue({
+              id: 'deal-new',
+              dealType: 'WADAAN_SALE',
+              totalValue: new Decimal(6000000),
+              customerId: 'cust-1',
+              asset: mockAsset,
+            }),
+          },
+          account: {
+            findUnique: jest.fn().mockImplementation(({ where }) => {
+              if (where.accountCode === '1100') return { id: 'acc-1100' };
+              if (where.accountCode === '4000') return { id: 'acc-4000' };
+              return null;
+            }),
+          },
+        };
+        return callback(tx);
+      });
+
+      const result = await DealService.initializeContract({
+        customerId: 'cust-1',
+        dealType: 'WADAAN_SALE',
+        assetId: 'asset-45',
+        totalValue: 6000000,
+        invoices: [{ description: 'Booking', amount: 6000000, dueDate: '2026-10-01' }],
+      });
+
+      expect(result.id).toBe('deal-new');
+    });
+
+    test('DS-11: initializeContract — rejects WADAAN_SALE if asset is already RESERVED or SOLD', async () => {
+      (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => {
+        const tx = {
+          customer: {
+            findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', fullName: 'Tariq Client' }),
+          },
+          wadaanAsset: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-45',
+              assetTitle: 'Plot 45',
+              status: 'RESERVED',
+            }),
+          },
+        };
+        return callback(tx);
+      });
+
+      await expect(
+        DealService.initializeContract({
+          customerId: 'cust-1',
+          dealType: 'WADAAN_SALE',
+          assetId: 'asset-45',
+          totalValue: 6000000,
+          invoices: [{ description: 'Booking', amount: 6000000, dueDate: '2026-10-01' }],
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'ASSET_NOT_AVAILABLE',
+      });
+    });
+
+    test('DS-12: initializeContract — WADAAN_SALE without assetId creates deal normally (backward compatible)', async () => {
+      (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => {
+        const tx = {
+          customer: {
+            findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', fullName: 'Tariq Client' }),
+          },
+          wadaanAsset: {
+            findUnique: jest.fn(),
+            update: jest.fn(),
+          },
+          deal: {
+            create: jest.fn().mockResolvedValue({
+              id: 'deal-legacy',
+              dealType: 'WADAAN_SALE',
+              totalValue: new Decimal(5000000),
+            }),
+          },
+          account: {
+            findUnique: jest.fn().mockImplementation(({ where }) => {
+              if (where.accountCode === '1100') return { id: 'acc-1100' };
+              if (where.accountCode === '4000') return { id: 'acc-4000' };
+              return null;
+            }),
+          },
+        };
+        return callback(tx);
+      });
+
+      const result = await DealService.initializeContract({
+        customerId: 'cust-1',
+        dealType: 'WADAAN_SALE',
+        totalValue: 5000000,
+        invoices: [{ description: 'Full', amount: 5000000, dueDate: '2026-10-01' }],
+      });
+
+      expect(result.id).toBe('deal-legacy');
+    });
+
+    test('DS-13: getAllDeals & getDealById — subtracts acquisitionCost from netMargin when asset is linked', async () => {
+      const dealWithAsset = {
+        id: 'deal-with-asset',
+        dealType: 'WADAAN_SALE',
+        totalValue: new Decimal(6000000),
+        invoices: [
+          { amount: new Decimal(6000000), paidAmount: new Decimal(6000000), paymentStatus: 'PAID' },
+        ],
+        asset: {
+          id: 'asset-45',
+          assetTitle: 'Plot 45',
+          acquisitionCost: new Decimal(4500000),
+        },
+        project: null,
+      };
+
+      (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue([dealWithAsset]);
+
+      const deals = await DealService.getAllDeals();
+      expect(deals).toHaveLength(1);
+      // netMargin = 6,000,000 (collected) - 0 (spentOnSite) - 4,500,000 (assetCost) = 1,500,000
+      expect(deals[0].netMargin.toString()).toBe('1500000');
     });
   });
 });

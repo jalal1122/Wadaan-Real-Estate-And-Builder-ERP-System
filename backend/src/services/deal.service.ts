@@ -42,6 +42,23 @@ export class DealService {
           }
         }
 
+        // 2b. If WADAAN_SALE and assetId provided, validate asset exists and is AVAILABLE
+        if (data.dealType === 'WADAAN_SALE' && data.assetId) {
+          const asset = await tx.wadaanAsset.findUnique({
+            where: { id: data.assetId }
+          });
+          if (!asset) {
+            throw new AppError(`Asset with ID '${data.assetId}' not found`, 404, 'ASSET_NOT_FOUND');
+          }
+          if (asset.status !== 'AVAILABLE') {
+            throw new AppError(
+              `Asset "${asset.assetTitle}" is already ${asset.status}.`,
+              409,
+              'ASSET_NOT_AVAILABLE'
+            );
+          }
+        }
+
         // 3. Mathematical validation: sum of invoices must equal totalValue
         const totalValue = new Decimal(data.totalValue);
         const invoicesSum = data.invoices.reduce(
@@ -93,9 +110,21 @@ export class DealService {
           include: {
             customer: true,
             project: true,
-            invoices: true
+            invoices: true,
+            asset: true
           }
         });
+
+        // 5b. If WADAAN_SALE and assetId provided, link asset and mark RESERVED
+        if (data.dealType === 'WADAAN_SALE' && data.assetId) {
+          await tx.wadaanAsset.update({
+            where: { id: data.assetId },
+            data: {
+              status: 'RESERVED',
+              dealId: deal.id
+            }
+          });
+        }
 
         // 6. Post Double-Entry Journal Entry
         const arAccount = await tx.account.findUnique({ where: { accountCode: '1100' } });
@@ -168,6 +197,7 @@ export class DealService {
     bustCache('projects');
     bustCache('customers');
     bustCache('reports');
+    bustCache('assets');
     return newContract;
   }
 
@@ -184,6 +214,7 @@ export class DealService {
     const deals = await prisma.deal.findMany({
       include: {
         customer: true,
+        asset: true,
         project: {
           include: {
             expenseBills: {
@@ -242,7 +273,8 @@ export class DealService {
         );
       }
 
-      const netMargin = totalCollected.minus(spentOnSite);
+      const assetCost = (deal as any).asset ? new Decimal((deal as any).asset.acquisitionCost) : new Decimal(0);
+      const netMargin = totalCollected.minus(spentOnSite).minus(assetCost);
 
       return {
         ...deal,
@@ -270,6 +302,7 @@ export class DealService {
       where: { id },
       include: {
         customer: true,
+        asset: true,
       }
     });
 
@@ -327,7 +360,8 @@ export class DealService {
       );
     }
 
-    const netMargin = totalCollected.minus(spentOnSite);
+    const assetCost = (enrichedDeal as any).asset ? new Decimal((enrichedDeal as any).asset.acquisitionCost) : new Decimal(0);
+    const netMargin = totalCollected.minus(spentOnSite).minus(assetCost);
 
     const result = {
       ...enrichedDeal,

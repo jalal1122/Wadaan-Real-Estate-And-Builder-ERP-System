@@ -53,6 +53,7 @@ export class CustomerService {
       prisma.deal.findMany({
         where: { customerId: id },
         include: {
+          asset: true,
           invoices: {
             include: {
               receipt: {
@@ -80,6 +81,7 @@ export class CustomerService {
         include: {
           deal: {
             include: {
+              asset: true,
               customer: { select: { id: true, fullName: true, phone: true } },
               invoices: {
                 include: {

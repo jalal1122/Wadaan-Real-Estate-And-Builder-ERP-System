@@ -40,6 +40,8 @@ export interface DealMarginItem {
   totalValue: string;
   revenueCollected: string;
   totalProjectCost: string;
+  assetCost: string;
+  assetTitle: string | null;
   grossProfit: string;
   marginPercentage: string;
   isWipAsset: boolean;
@@ -160,6 +162,8 @@ interface RawDealMarginRow {
   totalValue: Decimal | string | number;
   customerName: string;
   projectName: string | null;
+  assetTitle?: string | null;
+  assetCost?: Decimal | string | number;
   revenueCollected: Decimal | string | number;
   totalProjectCost: Decimal | string | number;
 }
@@ -250,6 +254,8 @@ export class ReportService {
         d."totalValue",
         c."fullName"    AS "customerName",
         p."projectName",
+        wa."assetTitle" AS "assetTitle",
+        COALESCE(wa."acquisitionCost", 0) AS "assetCost",
         COALESCE(SUM(di.amount) FILTER (WHERE di."paymentStatus" = 'PAID'), 0) AS "revenueCollected",
         COALESCE((
           SELECT SUM(eb."grandTotal")
@@ -259,17 +265,19 @@ export class ReportService {
       FROM "Deal" d
       JOIN "Customer" c ON d."customerId" = c.id
       LEFT JOIN "Project" p ON d."projectId" = p.id
+      LEFT JOIN "WadaanAsset" wa ON wa."dealId" = d.id
       LEFT JOIN "DealInvoice" di ON di."dealId" = d.id
       ${statusClause}
-      GROUP BY d.id, d."dealType", d."totalValue", c."fullName", p."projectName", d."createdAt"
+      GROUP BY d.id, d."dealType", d."totalValue", c."fullName", p."projectName", wa."assetTitle", wa."acquisitionCost", d."createdAt"
       ORDER BY d."createdAt" DESC
     `;
 
     const result: DealMarginItem[] = rows.map((row) => {
       const revenue = new Decimal(row.revenueCollected ?? 0);
       const cost = new Decimal(row.totalProjectCost ?? 0);
+      const assetCost = new Decimal(row.assetCost ?? 0);
       const totalVal = new Decimal(row.totalValue ?? 0);
-      const grossProfit = revenue.minus(cost);
+      const grossProfit = revenue.minus(cost).minus(assetCost);
       const marginPercentage = MathUtility.safePercentage(grossProfit, revenue);
       const isWipAsset = revenue.isZero();
 
@@ -281,6 +289,8 @@ export class ReportService {
         totalValue: totalVal.toFixed(2),
         revenueCollected: revenue.toFixed(2),
         totalProjectCost: cost.toFixed(2),
+        assetCost: assetCost.toFixed(2),
+        assetTitle: row.assetTitle ?? null,
         grossProfit: grossProfit.toFixed(2),
         marginPercentage,
         isWipAsset
@@ -419,14 +429,16 @@ export class ReportService {
     >`
       SELECT
         COALESCE((
-          SELECT SUM(revenue - cost) FROM (
+          SELECT SUM(revenue - cost - "assetCost") FROM (
             SELECT
               COALESCE(SUM(di.amount) FILTER (WHERE di."paymentStatus" = 'PAID'), 0) AS revenue,
-              COALESCE((SELECT SUM(eb."grandTotal") FROM "ExpenseBill" eb WHERE eb."projectId" = d."projectId"), 0) AS cost
+              COALESCE((SELECT SUM(eb."grandTotal") FROM "ExpenseBill" eb WHERE eb."projectId" = d."projectId"), 0) AS cost,
+              COALESCE(wa."acquisitionCost", 0) AS "assetCost"
             FROM "Deal" d
+            LEFT JOIN "WadaanAsset" wa ON wa."dealId" = d.id
             LEFT JOIN "DealInvoice" di ON di."dealId" = d.id
             WHERE d."createdAt" >= ${start} AND d."createdAt" <= ${end}
-            GROUP BY d.id
+            GROUP BY d.id, wa."acquisitionCost"
           ) sub WHERE revenue > 0
         ), 0) AS "grossDealProfit",
 

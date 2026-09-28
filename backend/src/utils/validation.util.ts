@@ -423,7 +423,8 @@ export const CreateDealSchema = z
       ])
       .optional()
       .nullable(),
-    invoices: z.array(CreateDealInvoiceSchema).min(1, 'At least one invoice is required')
+    invoices: z.array(CreateDealInvoiceSchema).min(1, 'At least one invoice is required'),
+    assetId: z.string().uuid('Invalid asset ID format').optional().nullable()
   })
   .refine(
     (data) => {
@@ -579,5 +580,28 @@ export const UpdateCoClientSchema = z.object({
 
 export type UpdateCoClientInput = z.infer<typeof UpdateCoClientSchema>;
 
+// ==========================================
+// MODULE 13 SCHEMAS: ASSET INVENTORY
+// ==========================================
 
+export const CreateAssetSchema = z.object({
+  assetTitle: z.string().min(2, 'Asset title is required (min 2 characters)'),
+  assetCategory: z.enum(['PLOT', 'HOUSE', 'COMMERCIAL', 'APARTMENT']),
+  acquisitionCost: z
+    .union([
+      z.number().positive('Acquisition cost must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'Acquisition cost must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'Acquisition cost must be greater than 0'
+    }),
+  acquisitionDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'acquisitionDate must be a valid date'
+  }),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').optional().nullable()
+});
 
+export const UpdateAssetSchema = CreateAssetSchema.partial();
+
+export type CreateAssetInput = z.infer<typeof CreateAssetSchema>;
+export type UpdateAssetInput = z.infer<typeof UpdateAssetSchema>;
