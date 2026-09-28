@@ -5,6 +5,7 @@ import { VendorUnpaidQueueResponse, PaymentMode } from '@/features/payments/type
 import { UnpaidBillsTable } from './UnpaidBillsTable';
 import { formatPKR } from '@/lib/formatters';
 import { printPaymentReceiptDocument } from '@/lib/receiptPrinter';
+import { isBankAssetAccount } from '@/lib/accountUtils';
 import {
   Banknote,
   CheckCircle2,
@@ -52,11 +53,9 @@ export const VendorPaymentEngine: React.FC<VendorPaymentEngineProps> = ({
     return assetAccounts.find((a) => a.id === sourceAccountId);
   }, [assetAccounts, sourceAccountId]);
 
-  // Cheque lock condition: Is this a bank account? (name contains 'bank')
+  // Cheque lock condition: Is this a bank account? (HBL, Meezan, SCB, 1020-xx, etc.)
   const isBankAccount = useMemo(() => {
-    if (!selectedAccount) return false;
-    const name = selectedAccount.accountName.toLowerCase();
-    return name.includes('bank');
+    return isBankAssetAccount(selectedAccount);
   }, [selectedAccount]);
 
   const totalOutstanding = Number(queueData?.totalOutstanding) || 0;

@@ -5,6 +5,7 @@ import { Receipt } from '@/features/receipts/types';
 import { useClearCheque } from '@/features/receipts/hooks/useReceipts';
 import { useChartOfAccounts } from '@/features/accounting/hooks/useAccounting';
 import { formatPKR, formatDate } from '@/lib/format';
+import { isBankAssetAccount } from '@/lib/accountUtils';
 import { X, CheckCircle2, AlertCircle, Building2, ShieldCheck } from 'lucide-react';
 
 interface ClearanceModalProps {
@@ -26,12 +27,12 @@ export const ClearanceModal: React.FC<ClearanceModalProps> = ({
 
   if (!receipt) return null;
 
-  // Filter bank asset accounts (typically 1010 Meezan, 1011 HBL, or general bank asset)
+  // Filter bank asset accounts (e.g. 1020-01 HBL, 1020-02 Standard Chartered, Meezan)
   const bankAccounts = accountsData?.accounts?.filter(
     (acc) =>
       acc.category === 'ASSET' &&
       !acc.isArchived &&
-      (acc.accountCode.startsWith('101') || acc.accountName.toLowerCase().includes('bank'))
+      isBankAssetAccount(acc)
   ) || [];
 
   const handleClear = async (e: React.FormEvent) => {

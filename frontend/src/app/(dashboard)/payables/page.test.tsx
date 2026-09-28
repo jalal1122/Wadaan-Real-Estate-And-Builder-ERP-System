@@ -56,6 +56,12 @@ const mockAccounts = [
     category: 'ASSET',
   },
   {
+    id: 'acc-hbl',
+    accountCode: '1020-01',
+    accountName: 'HBL Operations Account',
+    category: 'ASSET',
+  },
+  {
     id: 'acc-ap',
     accountCode: '2000',
     accountName: 'Accounts Payable',
@@ -408,6 +414,23 @@ describe('Accounts Payable Page (Screens 5 & 7)', () => {
         }),
         expect.anything()
       );
+    });
+
+    it('reveals Cheque Payment mode when HBL Operations Account (1020-01) is selected', () => {
+      fireEvent.click(screen.getByText('Bestway Cement'));
+
+      const amountInput = screen.getByPlaceholderText('0.00');
+      fireEvent.change(amountInput, { target: { value: '100000' } });
+
+      // Select HBL Operations Account (acc-hbl)
+      const accountSelect = screen.getByLabelText(/Disbursement Account/i);
+      fireEvent.change(accountSelect, { target: { value: 'acc-hbl' } });
+
+      // Verify Cheque mode selector and cheque reference container appear
+      expect(screen.getByTestId('bank-payment-mode-container')).toBeInTheDocument();
+      expect(screen.getByTestId('cheque-ref-container')).toBeInTheDocument();
+      expect(screen.getByText('Cheque Payment')).toBeInTheDocument();
+      expect(screen.getByText('Online Transfer')).toBeInTheDocument();
     });
 
     it('renders invoice selection checkboxes and toggles specific bills', () => {

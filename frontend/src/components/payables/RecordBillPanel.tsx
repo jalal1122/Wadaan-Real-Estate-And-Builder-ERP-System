@@ -21,6 +21,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { printDirectPaymentReceiptDocument } from '@/lib/receiptPrinter';
+import { isBankAssetAccount } from '@/lib/accountUtils';
 
 const createEmptyLineItem = (): LineItemState => ({
   id: Math.random().toString(36).substring(2, 9),
@@ -74,7 +75,7 @@ export const RecordBillPanel: React.FC = () => {
   const isSelectedSourceBank = useMemo(() => {
     if (!sourceAccountId) return false;
     const acc = assetAccounts.find((a) => a.id === sourceAccountId);
-    return acc?.accountName.toLowerCase().includes('bank') ?? false;
+    return isBankAssetAccount(acc);
   }, [sourceAccountId, assetAccounts]);
 
   // Calculate Grand Total
