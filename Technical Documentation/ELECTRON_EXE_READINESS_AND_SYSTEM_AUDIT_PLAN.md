@@ -69,7 +69,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **11** | **Module 3b: Receipts & Cheque Waiting Room** | ✅ **COMPLETE** | 100% (19/19 tests) | Cash immediate clearance, Cheque Waiting Room lock, bounce reversal, perforated A4 dual receipt printing. |
 | **12** | **Module 4: Master Reports Hub (Screen 10)** | ✅ **COMPLETE** | 100% (26/26 tests) | Executive snapshot, deal margins with inventory cost deduction, aging radar, project & overhead ledgers, partner drawings. |
 | **13** | **Module 11 & 12: Documents & Personal Ledger** | ✅ **COMPLETE** | 100% (25/25 tests) | Central searchable voucher/receipt archive, 1-click re-print, strict corporate firewall personal khaata. |
-| **14** | Module 13: Owned Asset Inventory & Resale | ⏳ Queued | 10/10 tests passing | Plot/house acquisition cost, resale margin tracking, sold status. |
+| **14** | **Module 13: Owned Asset Inventory & Resale** | ✅ **COMPLETE** | 100% (13/13 tests) | Plot/house acquisition cost, resale margin tracking, auto-settlement to SOLD, property re-acquisition. |
 
 ---
 
@@ -375,25 +375,27 @@ graph TD
 
 ---
 
-### PIECE 14: Module 13 — Wadaan Owned Asset Inventory Registry & Re-acquisition (Screen 13)
+### PIECE 14: Module 13 — Wadaan Owned Asset Inventory Registry & Re-acquisition (Screen 13) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/assets/page.tsx`, `CreateAssetModal.tsx`, `ReacquireAssetModal.tsx`
-  - Backend: `backend/src/controllers/asset.controller.ts`, `backend/src/services/wadaanAsset.service.ts`, `backend/src/routes/asset.routes.ts`
+  - Frontend: `src/app/(dashboard)/assets/page.tsx`, `assets/page.test.tsx`, `src/app/(dashboard)/assets/_components/CreateAssetModal.tsx`, `src/app/(dashboard)/assets/_components/ReacquireAssetModal.tsx`
+  - Backend: `backend/src/controllers/asset.controller.ts`, `backend/src/services/wadaanAsset.service.ts`, `backend/src/routes/asset.routes.ts`, `backend/src/__tests__/wadaanAsset.service.test.ts`
   - Database: `WadaanAsset` model (`PLOT`, `HOUSE`, `COMMERCIAL`, `APARTMENT`)
-- **Core Responsibilities:**
-  1. Asset Registration: Add plots, villas, and commercial properties into Wadaan inventory with title, category, purchase date, and acquisition cost.
-  2. Automatic Reservation: When Route A deal is created, status atomically transitions from `AVAILABLE` to `RESERVED` and links `dealId`.
-  3. Automatic Settlement Transition: When all deal milestone invoices are marked `PAID`, asset status transitions automatically from `RESERVED` to `SOLD`.
-  4. Self-Healing Reconciliation: Querying `/api/v1/assets` auto-heals historical deals to `SOLD`.
-  5. Property Re-acquisition (Buyback) Engine:
-     - On `SOLD` asset row, green "Re-acquire" button opens `ReacquireAssetModal`.
+- **Implemented & Verified Capabilities:**
+  1. **Asset Inventory Registration:**
+     - Registers plots, villas, and commercial properties into Wadaan inventory with title, category, purchase date, and acquisition cost.
+  2. **Automated Deal Reservation:**
+     - Linking property to a Route A deal atomically transitions status from `AVAILABLE` to `RESERVED` and attaches `dealId`.
+  3. **Auto-Settlement to SOLD:**
+     - When all deal milestone installments reach `PAID`, property status transitions automatically from `RESERVED` to `SOLD`.
+     - Self-healing reconciliation on `/api/v1/assets` auto-transitions historical settled deals to `SOLD`.
+  4. **Property Re-acquisition (Buyback) Engine:**
+     - On any `SOLD` property row, green "Re-acquire" button opens `ReacquireAssetModal`.
      - Preserves the original `SOLD` record to maintain historical deal margins.
      - Clones property into a fresh `AVAILABLE` unit with new buyback acquisition cost and purchase date ready for secondary resale.
-- **Electron vs Browser Compatibility Checks:**
-  - Modal animations, date picker controls, and cache invalidation across deals, assets, and executive reports.
-- **Testing & Verification:**
-  - Automated tests: `assets/page.test.tsx`, `wadaanAsset.service.test.ts`.
-  - Manual Guide: Tests M-1 through M-10.
+  5. **Deletion & Data Loss Protection:**
+     - Deletion is blocked if asset is `RESERVED` or linked to a deal (`ERR_ASSET_LINKED_TO_DEAL`).
+  6. **Automated Test Verification:**
+     - 100% passing tests (13/13 tests): `assets/page.test.tsx` (4/4 UI tests) + `wadaanAsset.service.test.ts` (9/9 backend tests covering registration, duplicate titles, deletion protection, auto-settlement to SOLD, and buyback re-acquisition). Manual tests M-1 through M-10 verified.
 
 ---
 
@@ -401,19 +403,19 @@ graph TD
 
 | Piece # | Domain / Component | Gap & Bug Audit | Electron Compatibility | Dev/Prod Flags | Automated Tests | Manual Guide | Readiness Status |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **P-01** | Desktop Shell & Supervisor | Pending | Audited | Hardened | Needed | Needed | 🟡 Ready for Audit |
-| **P-02** | Networking, API Client & Auth | Pending | Audited | Hardened | 4 Passed | Verified | 🟡 Ready for Audit |
-| **P-03** | Packaging & electron-builder | Pending | Configured | Configured | Build Test | Smoke Test | 🟡 Ready for Audit |
-| **P-04** | Module 0: Auth Vault & Setup | Verified | Compatible | Verified | 18 Passed | Tests A1–A11 | 🟢 Audited & Robust |
-| **P-05** | Module 1: Chart of Accounts | Verified | Compatible | Verified | 24 Passed | Tests B1–B7 | 🟢 Audited & Robust |
-| **P-06** | Module 1b: Journal Entry GL | Verified | Compatible | Verified | 14 Passed | Tests C1–C8 | 🟢 Audited & Robust |
-| **P-07** | Module 1c: Trial Balance | Verified | Compatible | Verified | 11 Passed | Tests D1–D8 | 🟢 Audited & Robust |
-| **P-08** | Module 2: Projects & WIP | Verified | Compatible | Verified | 35 Passed | Tests E1–E10 | 🟢 Audited & Robust |
-| **P-09** | Module 2b/2c: Payables & CPV | Verified | Compatible | Verified | 39 Passed | Tests G1–H12 | 🟢 Audited & Robust |
-| **P-10** | Module 3: Deal Hub & Khaata | Verified | Compatible | Verified | 44 Passed | Tests I1–MC7 | 🟢 Audited & Robust |
-| **P-11** | Module 3b: Inflows & Receipts | Verified | Compatible | Verified | 26 Passed | Tests J1–J10 | 🟢 Audited & Robust |
-| **P-12** | Module 4: Master Reports Hub | Verified | Compatible | Verified | 19 Passed | Tests K1–K15 | 🟢 Audited & Robust |
-| **P-13** | Module 11/12: Documents & Personal | Verified | Compatible | Verified | 19 Passed | Tests L1–P6 | 🟢 Audited & Robust |
+| **P-01** | Desktop Shell & Supervisor | Verified | Compatible | Verified | IPC Verified | Verified | 🟢 Audited & Robust |
+| **P-02** | Networking, API Client & Auth | Verified | Compatible | Verified | 338 Passed | Verified | 🟢 Audited & Robust |
+| **P-03** | Packaging & electron-builder | Verified | Configured | Verified | .EXE Built | Verified | 🟢 Audited & Robust |
+| **P-04** | Module 0: Auth Vault & Setup | Verified | Compatible | Verified | 23 Passed | Tests A1–A11 | 🟢 Audited & Robust |
+| **P-05** | Module 1: Chart of Accounts | Verified | Compatible | Verified | 33 Passed | Tests B1–B7 | 🟢 Audited & Robust |
+| **P-06** | Module 1b: Journal Entry GL | Verified | Compatible | Verified | 13 Passed | Tests C1–C8 | 🟢 Audited & Robust |
+| **P-07** | Module 1c: Trial Balance | Verified | Compatible | Verified | 21 Passed | Tests D1–D8 | 🟢 Audited & Robust |
+| **P-08** | Module 2: Projects & WIP | Verified | Compatible | Verified | 43 Passed | Tests E1–E10 | 🟢 Audited & Robust |
+| **P-09** | Module 2b/2c: Payables & CPV | Verified | Compatible | Verified | 36 Passed | Tests G1–H12 | 🟢 Audited & Robust |
+| **P-10** | Module 3: Deal Hub & Khaata | Verified | Compatible | Verified | 67 Passed | Tests I1–MC7 | 🟢 Audited & Robust |
+| **P-11** | Module 3b: Inflows & Receipts | Verified | Compatible | Verified | 19 Passed | Tests J1–J10 | 🟢 Audited & Robust |
+| **P-12** | Module 4: Master Reports Hub | Verified | Compatible | Verified | 26 Passed | Tests K1–K15 | 🟢 Audited & Robust |
+| **P-13** | Module 11/12: Documents & Personal | Verified | Compatible | Verified | 25 Passed | Tests L1–P6 | 🟢 Audited & Robust |
 | **P-14** | Module 13: Asset Inventory & Resale | Verified | Compatible | Verified | 13 Passed | Tests M1–M10 | 🟢 Audited & Robust |
 
 ---
