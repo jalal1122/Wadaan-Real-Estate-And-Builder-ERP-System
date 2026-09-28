@@ -1274,7 +1274,8 @@ Purpose: Initializes a new financial contract (Sale, Construction, or Brokerage)
 Payload: {
   customerId: "uuid",
   dealType: "WADAAN_SALE" | "CONSTRUCTION" | "BROKERAGE",
-  projectId: "uuid (optional)",
+  projectId: "uuid (optional, for CONSTRUCTION)",
+  assetId: "uuid (optional, for WADAAN_SALE to deduct acquisition cost)",
   totalValue: 20000000,
   commissionAmount: 200000, // Mandatory if dealType === "BROKERAGE"
   invoices: [
@@ -2126,4 +2127,148 @@ The Master Reports Hub exposes read-only endpoints providing real-time financial
       }
     }
     ```
+
+---
+
+## Module 13: Asset Inventory & Direct Property Management
+
+### POST /api/v1/assets
+- **Purpose**: Creates and registers a new company-owned property (plot, house, commercial unit, or apartment) into Wadaan's asset inventory with its original acquisition cost.
+- **Access**: Protected (`authGuard`).
+- **Payload**:
+  ```json
+  {
+    "title": "Plot 42, Sector C, D-17",
+    "category": "PLOT",
+    "location": "Sector C, Block B, D-17 Islamabad",
+    "acquisitionCost": 4500000,
+    "dimensions": "50x90 (1 Kanal)",
+    "purchaseDate": "2026-03-15T00:00:00.000Z",
+    "description": "Prime corner plot opposite central park"
+  }
+  ```
+- **Validation**:
+  - `title`: String, min 2 chars.
+  - `category`: Enum (`"PLOT"` | `"HOUSE"` | `"COMMERCIAL"` | `"APARTMENT"`).
+  - `location`: String, min 2 chars.
+  - `acquisitionCost`: Positive number (`> 0`).
+  - `dimensions`: Optional string.
+  - `purchaseDate`: Optional ISO date string.
+  - `description`: Optional string.
+- **Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "uuid",
+      "title": "Plot 42, Sector C, D-17",
+      "category": "PLOT",
+      "location": "Sector C, Block B, D-17 Islamabad",
+      "acquisitionCost": "4500000.00",
+      "dimensions": "50x90 (1 Kanal)",
+      "purchaseDate": "2026-03-15T00:00:00.000Z",
+      "description": "Prime corner plot opposite central park",
+      "status": "AVAILABLE",
+      "dealId": null,
+      "createdAt": "2026-09-28T22:30:00.000Z",
+      "updatedAt": "2026-09-28T22:30:00.000Z"
+    },
+    "message": "Asset registered successfully"
+  }
+  ```
+
+### GET /api/v1/assets
+- **Purpose**: Fetches all company-owned inventory records. Supports optional filtering by `status` and `category`. Includes linked deal and customer info if reserved/sold.
+- **Access**: Protected (`authGuard`).
+- **Query Parameters**:
+  - `status`: Optional (`"AVAILABLE"` | `"RESERVED"` | `"SOLD"`).
+  - `category`: Optional (`"PLOT"` | `"HOUSE"` | `"COMMERCIAL"` | `"APARTMENT"`).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "uuid",
+        "title": "Plot 42, Sector C, D-17",
+        "category": "PLOT",
+        "location": "Sector C, Block B, D-17 Islamabad",
+        "acquisitionCost": "4500000.00",
+        "dimensions": "50x90 (1 Kanal)",
+        "purchaseDate": "2026-03-15T00:00:00.000Z",
+        "description": "Prime corner plot",
+        "status": "RESERVED",
+        "dealId": "deal-uuid",
+        "deal": {
+          "id": "deal-uuid",
+          "totalValue": "7000000.00",
+          "customer": {
+            "name": "Chaudhry Arshad",
+            "phone": "+923001234567"
+          }
+        },
+        "createdAt": "2026-09-28T22:30:00.000Z",
+        "updatedAt": "2026-09-28T22:30:00.000Z"
+      }
+    ]
+  }
+  ```
+
+### GET /api/v1/assets/:id
+- **Purpose**: Fetches a single asset by UUID with complete deal details if reserved/sold.
+- **Access**: Protected (`authGuard`).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "uuid",
+      "title": "Plot 42, Sector C, D-17",
+      "category": "PLOT",
+      "location": "Sector C, Block B, D-17 Islamabad",
+      "acquisitionCost": "4500000.00",
+      "dimensions": "50x90 (1 Kanal)",
+      "purchaseDate": "2026-03-15T00:00:00.000Z",
+      "description": "Prime corner plot",
+      "status": "AVAILABLE",
+      "dealId": null,
+      "deal": null,
+      "createdAt": "2026-09-28T22:30:00.000Z",
+      "updatedAt": "2026-09-28T22:30:00.000Z"
+    }
+  }
+  ```
+
+### PUT /api/v1/assets/:id
+- **Purpose**: Updates asset attributes (title, location, dimensions, acquisitionCost, description, purchaseDate, status).
+- **Access**: Protected (`authGuard`).
+- **Payload**:
+  ```json
+  {
+    "title": "Plot 42-A, Sector C, D-17",
+    "acquisitionCost": 4700000,
+    "description": "Updated dimensions after municipal re-survey"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": { "id": "uuid", "title": "Plot 42-A, Sector C, D-17", "acquisitionCost": "4700000.00", ... },
+    "message": "Asset updated successfully"
+  }
+  ```
+
+### DELETE /api/v1/assets/:id
+- **Purpose**: Permanently deletes an asset record.
+- **Access**: Protected (`authGuard`).
+- **Guardrail**: If the asset is currently linked to an active contract (`dealId !== null` or `status !== "AVAILABLE"`), rejects with HTTP 400 Bad Request (`ERR_ASSET_LINKED_TO_DEAL`).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Asset deleted successfully"
+  }
+  ```
+
 

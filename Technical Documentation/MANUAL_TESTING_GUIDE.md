@@ -712,13 +712,17 @@ npm run dev --prefix frontend
 1. Click **"+ New Deal"**.
 2. **Step 1 (Client)**: Select `Tariq Mehmood`.
 3. **Step 2 (Route)**: Select **"Wadaan Sale"**.
-   - Total Contract Value: `PKR 6,000,000`
+   - **Asset Selector**: Select an available owned property (e.g. `Plot 42, Sector C (PKR 4,500,000)`).
+   - **Verify**: Asset info badge appears displaying category `PLOT`, location, and acquisition cost `PKR 4,500,000`.
+   - Total Contract Value: `PKR 6,000,000`.
+   - **Verify**: Live Gross Profit preview calculates `PKR 1,500,000` (`PKR 6,000,000 - PKR 4,500,000`) with green margin badge.
 4. **Step 3 (Payment Schedule)**:
    - Click helper **"Single Lump Sum"** — auto-generates 1 invoice for `PKR 6,000,000`.
    - **Verify**: Banner shows `"✓ PERFECT MATCH"` — schedule total equals contract value.
 5. Click **"+ Initialize Deal Contract"**.
 6. **Expected**:
    - Deal appears in the table with `WADAAN_SALE` type badge.
+   - Selected asset transitions to `RESERVED` status in `/assets`.
    - GL: DR `1100 AR` / CR `4000 Sales Revenue` for `PKR 6,000,000`.
 
 ### Test I-4: Create Deal — Route A — Two-Installment Schedule
@@ -1405,6 +1409,91 @@ npx vitest run --root frontend "src/app/(dashboard)/reports/page.test.tsx" "src/
 
 ---
 
+## 🏗️ MODULE M: ASSET INVENTORY & WADAAN_SALE PROFIT TRACKING (/assets & /deals)
+
+### Test M-1: Asset Inventory Navigation & Dashboard KPI Strip
+1. Log in and verify sidebar navigation includes **"Asset Inventory"** with Warehouse icon.
+2. Click **Asset Inventory** (`/assets`).
+3. **Verify**: KPI Strip shows:
+   - **Total Properties**: Master count of all owned inventory.
+   - **Total Book Value**: Sum of `acquisitionCost` for all inventory.
+   - **Available Inventory**: Count of properties ready for immediate sale.
+   - **Reserved / In Contract**: Count of properties locked in active deals.
+   - **Sold Assets**: Count of fully closed/settled asset sales.
+
+### Test M-2: Register New Asset (Plot / House / Commercial)
+1. In `/assets`, click **"+ Register Property"**.
+2. Fill modal form:
+   - Property Title: `Plot 58, Block C, B-17 Multi Gardens`
+   - Category: `PLOT`
+   - Location / Address: `Block C, Street 14, B-17 Islamabad`
+   - Acquisition / Purchase Cost: `PKR 5,500,000`
+   - Dimensions / Size: `50x90 (1 Kanal)`
+   - Purchase Date: Select past acquisition date
+   - Internal Notes: `Purchased directly from initial owner, registry clear`
+3. Click **"Save Property"**.
+4. **Expected**:
+   - Modal closes, toast displays `"Asset registered successfully"`.
+   - Asset table updates with status badge `AVAILABLE` (green).
+   - KPI Strip updates Total Properties and Available Inventory counts.
+
+### Test M-3: Asset Category & Status Filtering
+1. On `/assets`, switch status tabs: `All`, `Available`, `Reserved`, `Sold`.
+2. Filter by Category dropdown: `Plot`, `House`, `Commercial`, `Apartment`.
+3. Enter search query (e.g. `B-17`).
+4. **Expected**: Table dynamically filters matching properties without full page reload.
+
+### Test M-4: Link Asset to WADAAN_SALE Deal with Live Margin Preview
+1. Navigate to `/deals` and click **"+ New Deal"**.
+2. **Step 1**: Select client `Chaudhry Aslam`.
+3. **Step 2**: Select Route **"Wadaan Sale"**.
+4. In the **"Select Owned Property from Inventory"** dropdown, select `Plot 58, Block C, B-17 Multi Gardens`.
+5. **Verify**:
+   - Asset summary card renders in amber showing category `PLOT`, location, and Acquisition Cost `PKR 5,500,000`.
+6. Enter Total Contract Value: `PKR 8,000,000`.
+7. **Verify**: Live Gross Profit preview calculates:
+   - `Estimated Gross Profit: PKR 2,500,000` (`PKR 8,000,000 - PKR 5,500,000`).
+   - Margin pill displays `+31.25% margin` in green.
+8. If contract value is changed below acquisition cost (e.g. `PKR 5,000,000`), preview highlights in amber warning (`-PKR 500,000` negative gross margin).
+9. Change back to `PKR 8,000,000` and proceed through Step 3 (Lump Sum schedule).
+10. Click **"+ Initialize Deal Contract"**.
+
+### Test M-5: Asset Status Transitions to RESERVED after Deal Creation
+1. Navigate back to `/assets`.
+2. Locate `Plot 58, Block C, B-17 Multi Gardens`.
+3. **Expected**:
+   - Status badge is now `RESERVED` (amber).
+   - "Linked Contract" column shows deal link with client name `Chaudhry Aslam` and contract value `PKR 8,000,000`.
+   - Property is no longer available in the "+ New Deal" asset dropdown for other clients.
+
+### Test M-6: Customer Khaata Drawer Displays Owned Asset Card with True Margin
+1. Navigate to `/deals`.
+2. Click the deal row or client name for `Chaudhry Aslam`'s WADAAN_SALE deal.
+3. In the `CustomerKhaataDrawer`, observe the top section of the deal card.
+4. **Expected**:
+   - Dedicated **"Owned Asset"** card renders in amber styling.
+   - Shows:
+     - Title: `Plot 58, Block C, B-17 Multi Gardens • PLOT`
+     - Contract Value: `Rs 8,000,000`
+     - Acquisition Cost: `Rs 5,500,000`
+     - True Gross Profit: `Rs 2,500,000`
+
+### Test M-7: Executive Analytics Net Income & Deal Margins Deduct Acquisition Cost
+1. Navigate to `/reports` → **Deal Margins** tab.
+2. Locate the deal for `Chaudhry Aslam`.
+3. **Expected**:
+   - Asset title and category displayed in deal metadata.
+   - Acquisition Cost column shows `Rs 5,500,000`.
+   - Gross Margin accurately computes `Sale Price - WIP Cost - Acquisition Cost = Rs 2,500,000` (NOT `Rs 8,000,000`).
+4. Switch to **Executive Summary** / Net Income:
+   - **Expected**: Net Income formula incorporates asset acquisition cost deduction, preventing false 100% margin inflation.
+
+### Test M-8: Guardrail: Cannot Delete Reserved/Linked Asset
+1. In `/assets`, attempt to delete `Plot 58, Block C, B-17 Multi Gardens` (which is linked to an active contract).
+2. **Expected**: Action is blocked or backend rejects with `ERR_ASSET_LINKED_TO_DEAL` (HTTP 400).
+
+---
+
 ## ✅ FINAL SIGN-OFF CHECKLIST
 
 Before marking the system as fully verified, confirm each of the following:
@@ -1427,12 +1516,17 @@ Before marking the system as fully verified, confirm each of the following:
 | 14 | Personal Ledger has zero GL impact on corporate books | ☐ |
 | 15 | Document Archive re-prints all 3 document types correctly | ☐ |
 | 16 | Idle 15-minute session timeout redirects to `/login` | ☐ |
-| 17 | All automated backend tests pass (56/56) | ☐ |
-| 18 | All automated frontend deal hub tests pass (14/14) | ☐ |
+| 17 | All automated backend tests pass (117/117 across 16 suites) | ☐ |
+| 18 | All automated frontend tests pass (217/217 across 31 suites) | ☐ |
 | 19 | Co-client Khaata buttons open correct co-client drawer (MC-3) | ☐ |
 | 20 | Co-client advance routes to co-client wallet, not primary (MC-5) | ☐ |
+| 21 | Asset Inventory registers properties with acquisition cost (M-2) | ☐ |
+| 22 | Route A deal creation links asset and reserves atomically (M-4, M-5) | ☐ |
+| 23 | Customer Khaata displays Owned Asset true margin card (M-6) | ☐ |
+| 24 | Deal Margins & True Net Income deduct asset acquisition cost (M-7) | ☐ |
 
 ---
 
-*Generated: 2026-09-26 | Wadaan Real Estate ERP v3.5.1 | Full system coverage: Screens 0–11, Modules 0–4, Module MC*
+*Generated: 2026-09-28 | Wadaan Real Estate ERP v3.7.0 | Full system coverage: Screens 0–12, Modules 0–4, Module MC, Module M*
+
 

@@ -356,5 +356,60 @@ To resolve multi-second query latencies on large datasets across deals, project 
 | `Deal` | `@@index([customerId])` | Customer Portfolio Drawer & Customer Khaata statements | Direct customer deal fetch |
 | `DealInvoice` | `@@index([dealId, paymentStatus])` | Unpaid balance calculation, pending receivables, and receipt allocation | Eliminates filter overhead |
 | `Receipt` | `@@index([customerId, clearanceStatus])` | Cheque Waiting Room filtering (`getWaitingRoom`) & Customer Payment History | Fast status filtering |
+| `WadaanAsset` | `@@index([status])` | Fast filtering of AVAILABLE inventory for deal picker and inventory registry | Instant asset filtering |
+
+---
+
+## 9. Module 13: Wadaan Asset Inventory & Profit Tracking Architecture (v4.0.0)
+
+To resolve the 100% false gross margin problem on company-owned plot sales (`WADAAN_SALE`), the `WadaanAsset` entity maintains a full inventory registry of owned plots, villas, houses, and commercial property with their real acquisition costs.
+
+### Enums
+
+```prisma
+enum AssetStatus {
+  AVAILABLE   // Owned, available in inventory
+  RESERVED    // Linked to an active deal contract
+  SOLD        // Deal fully settled
+}
+
+enum AssetCategory {
+  PLOT
+  HOUSE
+  COMMERCIAL
+  APARTMENT
+}
+```
+
+### Model Definition
+
+```prisma
+model WadaanAsset {
+  id              String        @id @default(uuid())
+  assetTitle      String        // e.g. "Plot 45, Block C, Faisal Town"
+  assetCategory   AssetCategory
+  acquisitionCost Decimal       @db.Decimal(15, 2)
+  acquisitionDate DateTime
+  description     String?
+  status          AssetStatus   @default(AVAILABLE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  deal            Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  dealId          String?       @unique // Strictly 1:1 relation (prevents duplicate sales)
+
+  @@index([status])
+}
+```
+
+### Relational & Guardrail Rules
+
+1. **One-to-One Unique Deal Linkage**: `dealId String? @unique` guarantees an asset can never be attached to more than one deal at the same time.
+2. **Atomic Deal Reservation**: When a `WADAAN_SALE` deal is initialized with `assetId`, `DealService` verifies inside the database transaction that `status === 'AVAILABLE'`, sets `dealId = deal.id`, and transitions status to `RESERVED`.
+3. **Deletion Guardrail**: An asset with `status !== 'AVAILABLE'` or `dealId !== null` cannot be deleted (`409 ASSET_LINKED_TO_DEAL`).
+4. **True Gross Profit Formulation**:
+   - `Deal.netMargin = totalCollected - spentOnSite - assetCost`
+   - `calculateDealMargins: grossProfit = revenue - cost - assetCost`
+   - `calculateTrueNetIncome: grossDealProfit = SUM(revenue - cost - assetCost)`
 
 

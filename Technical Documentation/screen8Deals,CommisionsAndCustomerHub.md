@@ -6,7 +6,7 @@ The Master Grid: A clean list showing Client Name, Deal Type (Construction vs. S
 The Drill-Down: Clicking on any row (e.g., "Mr. Ali - Plaza Construction") opens that specific client’s Khaata (Ledger) to see their exact payment schedule and history.
 2. Creating a "New Deal" (The Smart Router)
 When you sit down with a new client and click "+ New Deal", the system immediately asks you a critical question: "What kind of deal is this?"
-Route A (Selling Wadaan Property): You built a villa or bought a plot with Wadaan's money, and now you are selling it. You enter the Sale Price, and the system instantly recognizes this as Wadaan Revenue.
+Route A (Selling Wadaan Property): You built a villa or bought a plot with Wadaan's money, and now you are selling it. You can select an owned property from the Wadaan Asset Inventory (Plot, House, Commercial, Apartment). The system displays the original acquisition cost and live estimated gross profit (`Selling Price - Acquisition Cost`). Upon deal creation, the asset is atomically reserved and linked, ensuring true gross margin is tracked across deals and executive analytics instead of falsely reporting 100% profit.
 Route B (Construction Contract): A client hired you to build on their land. The system asks you to link this deal to a specific Project on Screen 4 (e.g., "Ali's Plaza"). This is the magic link that later allows the system to subtract your Screen 4 construction costs from your Screen 8 revenue to calculate your exact profit.
 Route C (Brokerage / Commission): You are just a middleman connecting a buyer and seller. You enter the total deal size and Wadaan’s 1% or 2% commission cut.
 3. The Hybrid Payment Engine (Installments vs. Milestones)
@@ -118,6 +118,40 @@ Screen 8 perfectly organizes all your revenue streams, client debt, and middlema
 4. Open Print Report for Project X → only "Chaudri Aslam" appears in Client Receipts
 
 **Automated Test**: `page.test.tsx` Test 15 — `useTransferFile onSuccess invalidates ["projects"] cache so ProjectCard and PDF report show new client`.
+
+---
+
+### Wadaan Owned Asset Inventory & True Profit Tracking (v3.7.0)
+
+**Business Problem Solved**:
+Previously, when selling company-owned properties under `WADAAN_SALE`, deals lacked an acquisition cost deduction, resulting in artificial 100% gross profit margins across Deal Margins and Executive Net Income.
+
+**Solution Architecture**:
+1. **Asset Management (`/assets`)**:
+   - Company-owned inventory (Plots, Houses, Commercial properties, Apartments) is cataloged with `acquisitionCost`, location details, dimensions, and purchase dates.
+   - Assets have a clear lifecycle: `AVAILABLE` → `RESERVED` (linked to an active contract) → `SOLD` (contract fully settled).
+2. **Deal Initialization Integration (`CreateDealModal.tsx`)**:
+   - When selecting Route A (`WADAAN_SALE`), Step 2 renders an **Asset Selection dropdown** querying all `AVAILABLE` assets from `/api/v1/assets`.
+   - Selecting an asset immediately reveals an informational card showing its category, location, and Acquisition Cost.
+   - Live calculation displays:
+     $$\text{Estimated Gross Profit} = \text{Contract Value} - \text{Acquisition Cost}$$
+   - Displays a green margin badge if profitable or an amber warning if sale price is below cost.
+   - Upon form submission, `assetId` is submitted with `POST /api/v1/deals`. The backend atomically marks the asset `RESERVED` and sets `dealId`.
+3. **Customer Khaata Drawer Visibility (`CustomerKhaataDrawer.tsx`)**:
+   - For `WADAAN_SALE` deals with a linked asset, an **Owned Asset Card** is rendered in warm amber styling.
+   - Displays:
+     - **Asset Title & Category**: (e.g. `Plot 42, Sector C • PLOT`).
+     - **Contract Value**: Total sale price billed to the client.
+     - **Acquisition Cost**: Original purchase/development cost incurred by Wadaan.
+     - **True Gross Profit**: Net margin achieved on the property (`Contract Value - Acquisition Cost`).
+4. **Profit & Margin Accounting**:
+   - `DealService.getAllDeals()` & `getDealById()`: `netMargin = contractValue - (projectCost || 0) - (asset?.acquisitionCost || 0)`.
+   - `ReportService.calculateDealMargins`: LEFT JOINs `WadaanAsset wa ON wa."dealId" = d.id` and computes `grossProfit = revenue - cost - COALESCE(wa."acquisitionCost", 0)`.
+   - `ReportService.calculateTrueNetIncome`: Raw SQL deduction includes `wa."acquisitionCost"` so Executive Analytics Net Income aligns with Deal Margins.
+5. **Cache Invalidation Contract**:
+   - Creating a deal invalidates `['assets']` so reserved assets disappear from available inventory selectors.
+   - Creating/updating/deleting an asset invalidates `['assets']` and `['reports']`.
+
 
 
 
