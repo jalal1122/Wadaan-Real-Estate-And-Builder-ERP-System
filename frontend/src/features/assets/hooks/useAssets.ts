@@ -4,9 +4,10 @@ import {
   fetchAssetById,
   createAsset,
   updateAsset,
-  deleteAsset
+  deleteAsset,
+  reacquireAsset
 } from '../api/assetApi';
-import { WadaanAsset, CreateAssetPayload, UpdateAssetPayload, AssetStatus } from '../types';
+import { WadaanAsset, CreateAssetPayload, UpdateAssetPayload, ReacquireAssetPayload, AssetStatus } from '../types';
 
 /**
  * Hook to fetch assets list with optional status filtering.
@@ -69,6 +70,22 @@ export const useDeleteAsset = () => {
 
   return useMutation({
     mutationFn: (id: string) => deleteAsset(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+};
+
+/**
+ * Hook to re-acquire / re-list a SOLD asset into inventory at a new buy-back acquisition cost.
+ */
+export const useReacquireAsset = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ReacquireAssetPayload }) =>
+      reacquireAsset(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });

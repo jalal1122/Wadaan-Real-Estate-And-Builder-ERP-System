@@ -26,9 +26,10 @@ Provides the immediate financial pulse of the company:
 
 ### Sub-Tab 2: Deal-by-Deal Margin Matrix
 Automatic per-deal mini-P&L statements:
-- **Matrix Columns**: Deal #, Deal Type (Wadaan Sale, Construction, Brokerage), Customer Name, Project, Total Contract Value, Revenue Collected, Total Project Cost, Gross Profit, and Margin Percentage.
+- **Matrix Columns**: Deal #, Deal Type (Wadaan Sale, Construction, Brokerage), Customer Name, **Linked Site / Property**, Contract Value, Revenue Collected, **Cost (WIP / Asset)**, Gross Profit, and Margin Percentage.
+- **Inventory Property Support (`WADAAN_SALE`)**: For company-owned property sales, the *Linked Site / Property* column displays the registered property title (e.g., `Plot A 12 sudais town`) with an amber property badge. The *Cost (WIP / Asset)* column displays the property's original acquisition cost from inventory, ensuring gross margin accurately reflects `Revenue Collected - Acquisition Cost` rather than falsely displaying 100% profit or 0.00 cost.
 - **WIP Asset Protection**: Unsettled construction deals flag costs as Work-in-Progress asset transfers.
-- **Drill-Down Side Drawer**: Clicking any deal row opens a slide-over panel detailing itemized bills, payment milestone receipts, and cost allocations.
+- **Drill-Down Side Drawer**: Clicking any deal row opens a slide-over panel detailing itemized bills, payment milestone receipts, cost allocations, and for inventory sales, an amber **Owned Property** card with explicit deduction of `Original Property Acquisition Cost`.
 
 ### Sub-Tab 3: Line-by-Line Project Costs (Construction Ledger)
 Forensic audit ledger for any construction project:

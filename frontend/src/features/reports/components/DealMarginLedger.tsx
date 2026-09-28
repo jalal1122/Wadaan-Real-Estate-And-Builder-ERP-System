@@ -26,8 +26,9 @@ export const DealMarginLedger: React.FC<DealMarginLedgerProps> = ({
         const q = searchQuery.toLowerCase();
         const matchesCustomer = item.customerName.toLowerCase().includes(q);
         const matchesProject = item.projectName?.toLowerCase().includes(q) || false;
+        const matchesAsset = item.assetTitle?.toLowerCase().includes(q) || false;
         const matchesId = item.dealId.toLowerCase().includes(q);
-        return matchesCustomer || matchesProject || matchesId;
+        return matchesCustomer || matchesProject || matchesAsset || matchesId;
       }
       return true;
     });
@@ -151,10 +152,10 @@ export const DealMarginLedger: React.FC<DealMarginLedgerProps> = ({
             <tr>
               <th className="py-3 px-4">Deal / Contract</th>
               <th className="py-3 px-4">Client</th>
-              <th className="py-3 px-4">Linked Site</th>
+              <th className="py-3 px-4">Linked Site / Property</th>
               <th className="py-3 px-4 text-right">Contract Value</th>
               <th className="py-3 px-4 text-right">Collected</th>
-              <th className="py-3 px-4 text-right">WIP Cost</th>
+              <th className="py-3 px-4 text-right">Cost (WIP / Asset)</th>
               <th className="py-3 px-4 text-right">Gross Profit</th>
               <th className="py-3 px-4 text-center">Margin %</th>
             </tr>
@@ -202,6 +203,11 @@ export const DealMarginLedger: React.FC<DealMarginLedgerProps> = ({
                           <Building2 className="w-3 h-3 text-blue-600" />
                           {item.projectName}
                         </span>
+                      ) : item.assetTitle ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[11px]">
+                          <Building2 className="w-3 h-3 text-amber-600" />
+                          {item.assetTitle}
+                        </span>
                       ) : (
                         <span className="text-slate-400 font-mono text-[11px]">—</span>
                       )}
@@ -213,7 +219,11 @@ export const DealMarginLedger: React.FC<DealMarginLedgerProps> = ({
                       {formatPKR(item.revenueCollected)}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">
-                      {formatPKR(item.totalProjectCost)}
+                      {formatPKR(
+                        item.dealType === 'WADAAN_SALE' && item.assetCost
+                          ? item.assetCost
+                          : item.totalProjectCost
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-bold">
                       <span className={profitNum >= 0 ? 'text-emerald-700' : 'text-red-600'}>

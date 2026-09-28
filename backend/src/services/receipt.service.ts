@@ -3,6 +3,7 @@ import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateReceiptInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
+import { WadaanAssetService } from './wadaanAsset.service';
 import { bustCache } from '../utils/cache.util';
 
 export class ReceiptService {
@@ -119,6 +120,7 @@ export class ReceiptService {
                   receiptId: receipt.id
                 }
               });
+              await WadaanAssetService.checkAndMarkDealAssetSold(inv.dealId, tx);
             }
           }
 
@@ -310,6 +312,7 @@ export class ReceiptService {
                 paymentStatus: 'PAID'
               }
             });
+            await WadaanAssetService.checkAndMarkDealAssetSold(inv.dealId, tx);
           }
         }
 

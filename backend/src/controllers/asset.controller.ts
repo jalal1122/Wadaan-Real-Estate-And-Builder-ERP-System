@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AssetStatus } from '@prisma/client';
 import { WadaanAssetService } from '../services/wadaanAsset.service';
-import { CreateAssetSchema, UpdateAssetSchema } from '../utils/validation.util';
+import { CreateAssetSchema, UpdateAssetSchema, ReacquireAssetSchema } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
 export const createAsset = async (req: Request, res: Response, next: NextFunction) => {
@@ -90,6 +90,29 @@ export const deleteAsset = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json({
       success: true,
       message: result.message
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reacquireAsset = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const parseResult = ReacquireAssetSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const reacquired = await WadaanAssetService.reacquireAsset(id, parseResult.data);
+
+    res.status(201).json({
+      success: true,
+      data: reacquired,
+      message: 'Property re-acquired and re-listed into inventory successfully'
     });
   } catch (error) {
     next(error);

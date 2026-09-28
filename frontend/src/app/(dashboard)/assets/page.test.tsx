@@ -24,6 +24,10 @@ vi.mock('@/features/assets/hooks/useAssets', () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
+  useReacquireAsset: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 describe('AssetInventoryPage Component (/assets)', () => {
@@ -120,5 +124,35 @@ describe('AssetInventoryPage Component (/assets)', () => {
     // Villa 12 should be visible, Plot 45 should not
     expect(screen.queryByText('Plot 45, Block C, Faisal Town')).not.toBeInTheDocument();
     expect(screen.getByText('Villa 12, Sector B, DHA Phase 2')).toBeInTheDocument();
+  });
+
+  // AP-4
+  it('AP-4: renders Re-acquire button for SOLD assets and opens ReacquireAssetModal', () => {
+    mockAssets = [
+      {
+        id: 'asset-sold-1',
+        assetTitle: 'Plot A 12 sudais town',
+        assetCategory: 'PLOT',
+        acquisitionCost: 12000000,
+        acquisitionDate: '2026-09-28T00:00:00Z',
+        description: 'Sold plot',
+        status: 'SOLD',
+        deal: {
+          id: 'b945b901-xxxx',
+          dealType: 'WADAAN_SALE',
+          totalValue: 13500000,
+          customer: { id: 'c1', fullName: 'Jalal', phone: '030000000' },
+        },
+      },
+    ];
+
+    render(<AssetInventoryPage />);
+
+    const reacquireBtn = screen.getByTestId('reacquire-asset-btn-asset-sold-1');
+    expect(reacquireBtn).toBeInTheDocument();
+
+    fireEvent.click(reacquireBtn);
+    expect(screen.getByTestId('reacquire-asset-modal')).toBeInTheDocument();
+    expect(screen.getByText('Re-acquire Property')).toBeInTheDocument();
   });
 });

@@ -10,6 +10,9 @@ jest.mock('../config/db', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn()
+    },
+    deal: {
+      findUnique: jest.fn()
     }
   }
 }));
@@ -169,5 +172,86 @@ describe('WadaanAssetService — Owned Asset Inventory Registry', () => {
       })
     );
     expect(results).toHaveLength(1);
+  });
+
+  // WA-7
+  test('WA-7: checkAndMarkDealAssetSold — transitions RESERVED asset to SOLD when all invoices are PAID', async () => {
+    (mockPrisma.deal.findUnique as jest.Mock).mockResolvedValue({
+      id: 'deal-settled-1',
+      asset: { id: 'asset-reserved-1', status: 'RESERVED' },
+      invoices: [
+        { paymentStatus: 'PAID' },
+        { paymentStatus: 'PAID' }
+      ]
+    });
+    (mockPrisma.wadaanAsset.update as jest.Mock).mockResolvedValue({
+      id: 'asset-reserved-1',
+      status: 'SOLD'
+    });
+
+    const result = await WadaanAssetService.checkAndMarkDealAssetSold('deal-settled-1');
+
+    expect(result).toBe(true);
+    expect(mockPrisma.wadaanAsset.update).toHaveBeenCalledWith({
+      where: { id: 'asset-reserved-1' },
+      data: { status: 'SOLD' }
+    });
+  });
+
+  // WA-8
+  test('WA-8: checkAndMarkDealAssetSold — leaves asset as RESERVED if any invoice is still unpaid', async () => {
+    (mockPrisma.deal.findUnique as jest.Mock).mockResolvedValue({
+      id: 'deal-partial-1',
+      asset: { id: 'asset-reserved-2', status: 'RESERVED' },
+      invoices: [
+        { paymentStatus: 'PAID' },
+        { paymentStatus: 'PARTIAL' }
+      ]
+    });
+
+    const result = await WadaanAssetService.checkAndMarkDealAssetSold('deal-partial-1');
+
+    expect(result).toBe(false);
+    expect(mockPrisma.wadaanAsset.update).not.toHaveBeenCalled();
+  });
+
+  // WA-9
+  test('WA-9: reacquireAsset — clones SOLD property into fresh AVAILABLE asset at new buyback cost', async () => {
+    (mockPrisma.wadaanAsset.findUnique as jest.Mock).mockResolvedValue({
+      id: 'asset-sold-1',
+      assetTitle: 'Plot A 12 sudais town',
+      assetCategory: 'PLOT',
+      acquisitionCost: new Decimal(12000000),
+      description: 'Original purchase',
+      status: 'SOLD',
+      dealId: 'deal-settled'
+    });
+
+    (mockPrisma.wadaanAsset.create as jest.Mock).mockResolvedValue({
+      id: 'asset-new-1',
+      assetTitle: 'Plot A 12 sudais town',
+      assetCategory: 'PLOT',
+      acquisitionCost: new Decimal(14000000),
+      acquisitionDate: new Date('2026-10-01'),
+      description: 'Re-acquired from client',
+      status: 'AVAILABLE',
+      dealId: null
+    });
+
+    const reacquired = await WadaanAssetService.reacquireAsset('asset-sold-1', {
+      acquisitionCost: 14000000,
+      acquisitionDate: '2026-10-01',
+      description: 'Re-acquired from client'
+    });
+
+    expect(mockPrisma.wadaanAsset.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        assetTitle: 'Plot A 12 sudais town',
+        assetCategory: 'PLOT',
+        status: 'AVAILABLE',
+        dealId: null
+      })
+    });
+    expect(reacquired.status).toBe('AVAILABLE');
   });
 });

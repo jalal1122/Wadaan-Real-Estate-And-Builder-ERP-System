@@ -56,7 +56,11 @@ export function useAuth() {
       return res.data;
     },
     onSuccess: () => {
+      queryClient.setQueryData(['auth', 'me'], null);
       queryClient.clear();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     },
   });
 

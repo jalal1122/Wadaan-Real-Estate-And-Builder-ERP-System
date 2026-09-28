@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { ApiResponse } from '@/types/api';
-import { WadaanAsset, CreateAssetPayload, UpdateAssetPayload, AssetStatus } from '../types';
+import { WadaanAsset, CreateAssetPayload, UpdateAssetPayload, ReacquireAssetPayload, AssetStatus } from '../types';
 
 /**
  * Fetches all assets with optional status filtering (AVAILABLE, RESERVED, SOLD).
@@ -41,4 +41,12 @@ export const updateAsset = async (id: string, payload: UpdateAssetPayload): Prom
 export const deleteAsset = async (id: string): Promise<{ success: boolean; message: string }> => {
   const response = await apiClient.delete<ApiResponse<{ success: boolean; message: string }>>(`/assets/${id}`);
   return response.data.data ?? { success: true, message: response.data.message || 'Asset deleted' };
+};
+
+/**
+ * Re-acquires / re-lists a SOLD property into inventory at a new acquisition cost.
+ */
+export const reacquireAsset = async (id: string, payload: ReacquireAssetPayload): Promise<WadaanAsset> => {
+  const response = await apiClient.post<ApiResponse<WadaanAsset>>(`/assets/${id}/reacquire`, payload);
+  return response.data.data!;
 };

@@ -2262,12 +2262,46 @@ The Master Reports Hub exposes read-only endpoints providing real-time financial
 ### DELETE /api/v1/assets/:id
 - **Purpose**: Permanently deletes an asset record.
 - **Access**: Protected (`authGuard`).
-- **Guardrail**: If the asset is currently linked to an active contract (`dealId !== null` or `status !== "AVAILABLE"`), rejects with HTTP 400 Bad Request (`ERR_ASSET_LINKED_TO_DEAL`).
+- **Guardrail**: If the asset is currently linked to an active contract (`dealId !== null` or `status !== "AVAILABLE"`), rejects with HTTP 409 Conflict (`ASSET_LINKED_TO_DEAL`).
 - **Response (200 OK)**:
   ```json
   {
     "success": true,
     "message": "Asset deleted successfully"
+  }
+  ```
+
+### POST /api/v1/assets/:id/reacquire
+- **Purpose**: Re-acquires / re-lists a previously SOLD property into inventory at a new purchase/buyback acquisition price while locking the previous SOLD record to maintain historical deal margins and audit trails.
+- **Access**: Protected (`authGuard`).
+- **Preconditions**:
+  - Asset exists (404 `ASSET_NOT_FOUND` if not found).
+  - Asset `status === 'SOLD'` (400 `ASSET_NOT_SOLD` if currently `AVAILABLE` or `RESERVED`).
+  - `acquisitionCost` must be greater than 0 (400 `INVALID_ACQUISITION_COST`).
+- **Payload**:
+  ```json
+  {
+    "acquisitionCost": 14000000,
+    "acquisitionDate": "2026-10-01",
+    "description": "Repurchased from client for resale"
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "new-asset-uuid",
+      "assetTitle": "Plot A 12 sudais town",
+      "assetCategory": "PLOT",
+      "acquisitionCost": "14000000.00",
+      "acquisitionDate": "2026-10-01T00:00:00.000Z",
+      "description": "Repurchased from client for resale",
+      "status": "AVAILABLE",
+      "dealId": null,
+      "createdAt": "2026-09-29T00:00:00.000Z"
+    },
+    "message": "Property re-acquired and re-listed into inventory successfully"
   }
   ```
 

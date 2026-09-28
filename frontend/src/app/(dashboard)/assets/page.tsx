@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useAssets, useDeleteAsset } from '@/features/assets/hooks/useAssets';
 import { AssetStatus, AssetCategory, WadaanAsset } from '@/features/assets/types';
 import { CreateAssetModal } from './_components/CreateAssetModal';
+import { ReacquireAssetModal } from './_components/ReacquireAssetModal';
 import { formatPKR, formatDate } from '@/lib/format';
 import {
   Building,
@@ -15,7 +16,8 @@ import {
   AlertCircle,
   Warehouse,
   Layers,
-  Search
+  Search,
+  RotateCcw
 } from 'lucide-react';
 
 export default function AssetInventoryPage() {
@@ -23,6 +25,7 @@ export default function AssetInventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [reacquireTarget, setReacquireTarget] = useState<WadaanAsset | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data: assets = [], isLoading, isError, refetch } = useAssets();
@@ -391,23 +394,36 @@ export default function AssetInventoryPage() {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        {asset.status === 'AVAILABLE' ? (
-                          <button
-                            onClick={() => handleDelete(asset)}
-                            title="Delete Asset"
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            data-testid={`delete-asset-btn-${asset.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <span
-                            title="Cannot delete an asset linked to an active or settled deal"
-                            className="p-1.5 text-slate-300 cursor-not-allowed inline-block"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </span>
-                        )}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {asset.status === 'SOLD' && (
+                            <button
+                              onClick={() => setReacquireTarget(asset)}
+                              title="Re-acquire / Re-list Property into Inventory"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                              data-testid={`reacquire-asset-btn-${asset.id}`}
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Re-acquire</span>
+                            </button>
+                          )}
+                          {asset.status === 'AVAILABLE' ? (
+                            <button
+                              onClick={() => handleDelete(asset)}
+                              title="Delete Asset"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              data-testid={`delete-asset-btn-${asset.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : asset.status !== 'SOLD' ? (
+                            <span
+                              title="Cannot delete an asset linked to an active deal"
+                              className="p-1.5 text-slate-300 cursor-not-allowed inline-block"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -418,10 +434,16 @@ export default function AssetInventoryPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       <CreateAssetModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
+      <ReacquireAssetModal
+        asset={reacquireTarget}
+        isOpen={!!reacquireTarget}
+        onClose={() => setReacquireTarget(null)}
         onSuccess={() => refetch()}
       />
     </div>

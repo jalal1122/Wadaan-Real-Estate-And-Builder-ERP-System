@@ -20,7 +20,8 @@ describe('format utilities & overdue calculations', () => {
     });
 
     it('returns false if dueDate is today', () => {
-      const today = new Date().toISOString().split('T')[0];
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       expect(isInvoiceOverdue(today, 'UNPAID')).toBe(false);
     });
 
@@ -34,7 +35,8 @@ describe('format utilities & overdue calculations', () => {
   describe('getDaysOverdue', () => {
     it('returns 0 for future or today dates', () => {
       const futureDate = new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0];
-      const today = new Date().toISOString().split('T')[0];
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       expect(getDaysOverdue(futureDate)).toBe(0);
       expect(getDaysOverdue(today)).toBe(0);
     });

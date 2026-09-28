@@ -151,10 +151,15 @@ Previously, when selling company-owned properties under `WADAAN_SALE`, deals lac
 5. **Cache Invalidation Contract**:
    - Creating a deal invalidates `['assets']` so reserved assets disappear from available inventory selectors.
    - Creating/updating/deleting an asset invalidates `['assets']` and `['reports']`.
-
-
-
-
-
-
+6. **Automatic Deal Settlement Transition (`RESERVED` -> `SOLD`) (v3.8.0)**:
+   - **Real-Time Trigger**: When all milestone invoices belonging to a contract reach `PAID` (through `ReceiptService.logInflow`, `ReceiptService.clearCheque`, or `WalletManager.consumeAdvance`), `WadaanAssetService.checkAndMarkDealAssetSold(dealId, tx)` automatically transitions the linked property from `RESERVED` to `SOLD`.
+   - **Self-Healing Reconciliation**: When `/api/v1/assets` is fetched, the service verifies any `RESERVED` asset whose deal has 100% paid invoices and auto-heals its database status to `SOLD`.
+7. **Property Re-acquisition & Resale Lifecycle (v3.8.0)**:
+   - **Audit Trail & Historical Integrity**: A property once sold cannot have its historical record overwritten or cleared, because Deal #1's audited margin must remain permanently anchored to its original acquisition cost.
+   - **Re-acquisition Workflow (`POST /api/v1/assets/:id/reacquire`)**: When Wadaan buys back a sold unit, the system locks the old row as `SOLD` and generates a fresh inventory record with:
+     - `status: 'AVAILABLE'`
+     - `dealId: null`
+     - `acquisitionCost`: The new buyback purchase amount.
+     - `acquisitionDate`: The buyback contract date.
+   - **Resale Margin**: When Deal #2 is later created for this unit, its profit is calculated against the new buyback cost, achieving 100% mathematical accuracy across both historical and future books.
 

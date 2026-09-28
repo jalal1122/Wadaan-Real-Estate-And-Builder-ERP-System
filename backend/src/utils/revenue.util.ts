@@ -2,6 +2,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler';
 import { JournalService } from '../services/journal.service';
+import { WadaanAssetService } from '../services/wadaanAsset.service';
 
 export interface BrokerageSplitResult {
   wadaanRevenue: Decimal;
@@ -178,6 +179,10 @@ export class WalletManager {
         paymentStatus: isFullyPaid ? 'PAID' : 'PARTIAL'
       }
     });
+
+    if (isFullyPaid && invoice.dealId) {
+      await WadaanAssetService.checkAndMarkDealAssetSold(invoice.dealId, tx);
+    }
 
     return {
       walletBalanceRemaining: new Decimal(updatedCustomer.walletBalance),

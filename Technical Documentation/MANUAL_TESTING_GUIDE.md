@@ -1490,7 +1490,37 @@ npx vitest run --root frontend "src/app/(dashboard)/reports/page.test.tsx" "src/
 
 ### Test M-8: Guardrail: Cannot Delete Reserved/Linked Asset
 1. In `/assets`, attempt to delete `Plot 58, Block C, B-17 Multi Gardens` (which is linked to an active contract).
-2. **Expected**: Action is blocked or backend rejects with `ERR_ASSET_LINKED_TO_DEAL` (HTTP 400).
+2. **Expected**: Action is blocked or backend rejects with `ERR_ASSET_LINKED_TO_DEAL` (HTTP 409/400).
+
+### Test M-9: Settlement Transition Verification (`RESERVED` → `SOLD`)
+1. In `/deals`, locate a contract where all milestone invoices are paid in full (e.g. Deal `#b945b901`, `Jalal`, `Wadaan Sale`, `4/4 Paid - SETTLED`).
+2. Navigate to `/assets` (Wadaan Asset Inventory).
+3. Find the linked property (`Plot A 12 sudais town`).
+4. **Expected**:
+   - Status badge displays green **"Sold"** (no longer amber "Reserved").
+   - Metrics KPI strip increments `Fully Settled` count.
+   - Delete action remains disabled to protect historical audit records.
+
+### Test M-10: Property Re-acquisition and Resale Lifecycle
+1. On `/assets`, locate the `SOLD` property row for `Plot A 12 sudais town`.
+2. Verify the green **"Re-acquire"** button is visible in the Actions column.
+3. Click **"Re-acquire"**:
+   - `ReacquireAssetModal` opens.
+   - Verifies property title (`Plot A 12 sudais town`), Category (`PLOT`), and previous historical metrics (Previous Cost: `Rs 12,000,000`, Sold Deal: `#b945b901`).
+4. Enter new buyback cost: `14,000,000`. Select purchase date, and enter notes: `"Repurchased from Jalal for inventory resale"`.
+5. Click **"Re-list in Inventory"**.
+6. **Expected**:
+   - The original asset row remains permanently locked as **SOLD** with its historical `Rs 12,000,000` cost intact (preserving Deal `#b945b901` profit margin in Executive Analytics).
+   - A new inventory row appears with status **AVAILABLE**, acquisition cost `Rs 14,000,000`, and `Unlinked (In Stock)`.
+   - Creating a new deal (Route A) selects the newly available unit and calculates gross profit against `Rs 14,000,000`.
+
+### Test M-11: Instant Single-Click Logout Verification
+1. Log into the dashboard.
+2. Click the **"Sign Out"** button in the top navbar once.
+3. **Expected**:
+   - Sign Out button immediately disables to prevent duplicate submissions.
+   - TanStack query cache for `['auth', 'me']` is wiped synchronously.
+   - System immediately redirects to `/login` without requiring a second click.
 
 ---
 
@@ -1516,17 +1546,20 @@ Before marking the system as fully verified, confirm each of the following:
 | 14 | Personal Ledger has zero GL impact on corporate books | ☐ |
 | 15 | Document Archive re-prints all 3 document types correctly | ☐ |
 | 16 | Idle 15-minute session timeout redirects to `/login` | ☐ |
-| 17 | All automated backend tests pass (117/117 across 16 suites) | ☐ |
-| 18 | All automated frontend tests pass (217/217 across 31 suites) | ☐ |
+| 17 | All automated backend tests pass (120/120 across 16 suites) | ☐ |
+| 18 | All automated frontend tests pass (218/218 across 31 suites) | ☐ |
 | 19 | Co-client Khaata buttons open correct co-client drawer (MC-3) | ☐ |
 | 20 | Co-client advance routes to co-client wallet, not primary (MC-5) | ☐ |
 | 21 | Asset Inventory registers properties with acquisition cost (M-2) | ☐ |
 | 22 | Route A deal creation links asset and reserves atomically (M-4, M-5) | ☐ |
 | 23 | Customer Khaata displays Owned Asset true margin card (M-6) | ☐ |
 | 24 | Deal Margins & True Net Income deduct asset acquisition cost (M-7) | ☐ |
+| 25 | Settled deals automatically transition linked asset to SOLD (M-9) | ☐ |
+| 26 | Re-acquiring SOLD property preserves historical records and creates fresh AVAILABLE unit (M-10) | ☐ |
+| 27 | Logout button triggers instant single-click sign out and redirect (M-11) | ☐ |
 
 ---
 
-*Generated: 2026-09-28 | Wadaan Real Estate ERP v3.7.0 | Full system coverage: Screens 0–12, Modules 0–4, Module MC, Module M*
+*Generated: 2026-09-28 | Wadaan Real Estate ERP v3.8.0 | Full system coverage: Screens 0–12, Modules 0–4, Module MC, Module M*
 
 

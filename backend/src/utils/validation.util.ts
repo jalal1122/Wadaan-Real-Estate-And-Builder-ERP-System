@@ -603,5 +603,21 @@ export const CreateAssetSchema = z.object({
 
 export const UpdateAssetSchema = CreateAssetSchema.partial();
 
+export const ReacquireAssetSchema = z.object({
+  acquisitionCost: z
+    .union([
+      z.number().positive('Acquisition cost must be greater than 0'),
+      z.string().regex(/^\d+(\.\d+)?$/, 'Acquisition cost must be a positive number')
+    ])
+    .refine((val) => new Decimal(val).gt(0), {
+      message: 'Acquisition cost must be greater than 0'
+    }),
+  acquisitionDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'acquisitionDate must be a valid date'
+  }),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').optional().nullable()
+});
+
 export type CreateAssetInput = z.infer<typeof CreateAssetSchema>;
 export type UpdateAssetInput = z.infer<typeof UpdateAssetSchema>;
+export type ReacquireAssetInput = z.infer<typeof ReacquireAssetSchema>;

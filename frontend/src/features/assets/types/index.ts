@@ -39,3 +39,9 @@ export interface UpdateAssetPayload {
   acquisitionDate?: string;
   description?: string | null;
 }
+
+export interface ReacquireAssetPayload {
+  acquisitionCost: number | string;
+  acquisitionDate: string;
+  description?: string | null;
+}

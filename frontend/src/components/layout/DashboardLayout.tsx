@@ -41,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isLoggingOut } = useAuth();
 
   const getInitials = (name?: string) => {
     if (!name) return 'CA';
@@ -125,9 +125,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <button
               onClick={() => logout()}
+              disabled={isLoggingOut}
               title="Sign out"
               aria-label="Sign out"
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors"
+              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors disabled:opacity-50"
             >
               <LogOut className="w-4 h-4" />
             </button>

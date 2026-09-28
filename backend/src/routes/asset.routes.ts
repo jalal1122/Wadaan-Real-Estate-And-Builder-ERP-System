@@ -4,7 +4,8 @@ import {
   getAllAssets,
   getAssetById,
   updateAsset,
-  deleteAsset
+  deleteAsset,
+  reacquireAsset
 } from '../controllers/asset.controller';
 import { authGuard } from '../middleware/authGuard';
 
@@ -18,5 +19,6 @@ router.get('/', getAllAssets);
 router.get('/:id', getAssetById);
 router.put('/:id', updateAsset);
 router.delete('/:id', deleteAsset);
+router.post('/:id/reacquire', reacquireAsset);
 
 export default router;

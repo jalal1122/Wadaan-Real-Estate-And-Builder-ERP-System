@@ -16,6 +16,7 @@ export const DealMarginDetailDrawer: React.FC<DealMarginDetailDrawerProps> = ({ 
   const totalVal = parseFloat(deal.totalValue) || 0;
   const collected = parseFloat(deal.revenueCollected) || 0;
   const cost = parseFloat(deal.totalProjectCost) || 0;
+  const assetCost = parseFloat(deal.assetCost || '0') || 0;
   const profit = parseFloat(deal.grossProfit) || 0;
   const margin = parseFloat(deal.marginPercentage) || 0;
   const uncollected = Math.max(0, totalVal - collected);
@@ -74,6 +75,19 @@ export const DealMarginDetailDrawer: React.FC<DealMarginDetailDrawerProps> = ({ 
             </div>
           )}
 
+          {/* Linked Owned Property */}
+          {deal.assetTitle && (
+            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2 font-semibold text-amber-900">
+                <Building2 className="w-4 h-4 text-amber-600" />
+                <span>Owned Property: {deal.assetTitle}</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200">
+                Direct Inventory
+              </span>
+            </div>
+          )}
+
           {/* Unit Economics Summary */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
@@ -96,10 +110,17 @@ export const DealMarginDetailDrawer: React.FC<DealMarginDetailDrawerProps> = ({ 
                 <span className="font-mono font-bold text-amber-600">{formatPKR(uncollected)}</span>
               </div>
 
-              <div className="flex justify-between py-1 border-b border-slate-200/70">
-                <span className="text-slate-500">Direct Project Cost (WIP Expenses):</span>
-                <span className="font-mono font-bold text-slate-800">{formatPKR(cost)}</span>
-              </div>
+              {deal.dealType === 'WADAAN_SALE' && assetCost > 0 ? (
+                <div className="flex justify-between py-1 border-b border-slate-200/70">
+                  <span className="text-slate-500">Original Property Acquisition Cost:</span>
+                  <span className="font-mono font-bold text-slate-800">{formatPKR(assetCost)}</span>
+                </div>
+              ) : (
+                <div className="flex justify-between py-1 border-b border-slate-200/70">
+                  <span className="text-slate-500">Direct Project Cost (WIP Expenses):</span>
+                  <span className="font-mono font-bold text-slate-800">{formatPKR(cost)}</span>
+                </div>
+              )}
 
               <div className="flex justify-between py-1 pt-2 font-bold text-sm">
                 <span className="text-slate-900">Gross Realized Profit:</span>
@@ -124,8 +145,9 @@ export const DealMarginDetailDrawer: React.FC<DealMarginDetailDrawerProps> = ({ 
               <span>Executive Accounting Rule</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Realized margin is based on actual client inflows minus direct vendor and contractor
-              bills allocated to this contract. General office overhead is accounted for separately in corporate True Net Income.
+              {deal.dealType === 'WADAAN_SALE'
+                ? 'Realized margin is based on actual client collections minus the original acquisition purchase cost of the property from Wadaan inventory.'
+                : 'Realized margin is based on actual client inflows minus direct vendor and contractor bills allocated to this contract. General office overhead is accounted for separately in corporate True Net Income.'}
             </p>
           </div>
         </div>
