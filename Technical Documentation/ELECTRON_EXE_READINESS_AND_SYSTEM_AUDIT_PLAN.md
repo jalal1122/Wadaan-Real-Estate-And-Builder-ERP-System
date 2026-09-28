@@ -64,7 +64,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **06** | **Module 1b: General Journal Entry (Screen 2)** | ✅ **COMPLETE** | 100% (13/13 tests) | Strict zero-sum balance ($\Delta = 0.00$), mutual debit/credit clearing, system lock protection, party tagging, reversal engine. |
 | **07** | **Module 1c: Live Trial Balance (Screen 3)** | ✅ **COMPLETE** | 100% (21/21 tests) | Cumulative balance sheet vs period P&L aggregation, contra-equity drawings, PKT timezone safety, A4 letterhead printing, drill-down ledger drawer. |
 | **08** | **Module 2: Projects & WIP Ledger (Screen 4)** | ✅ **COMPLETE** | 100% (43/43 tests) | WIP cost tracking, BOQ budget variance & burn %, prefix uniqueness guard, full audit A4 report modal, transaction drawer. |
-| **09** | Module 2b/2c: Payables, Payment Run & CPV | ⏳ Queued | 32/32 tests passing | FIFO invoice waterfall, cheque clearance, native A4 dual voucher. |
+| **09** | **Module 2b/2c: Payables, Payment Run & CPV** | ✅ **COMPLETE** | 100% (36/36 tests) | FIFO chronological waterfall, selective bill allocation, cheque lock, perforated dual-copy A4 CPV/DPR printing. |
 | **10** | Module 3: Deal Hub & Customer Khaata | ⏳ Queued | 33/33 tests passing | Milestone zero-sum math, co-client management, advance wallet. |
 | **11** | Module 3b: Receipts & Cheque Waiting Room | ⏳ Queued | 16/16 tests passing | Escrow clearance, bounced cheque reversal, official A4 receipt. |
 | **12** | Module 4: Master Reports Hub (Screen 10) | ⏳ Queued | 13/13 tests passing | P&L, balance sheet, project profitability, partner drawings. |
@@ -261,29 +261,25 @@ graph TD
 
 ---
 
-### PIECE 9: Module 2b & 2c — Supplier Bills, Payment Run, FIFO Engine & CPV Voucher Printing (Screen 5 & 7)
+### PIECE 9: Module 2b & 2c — Supplier Bills, Payment Run, FIFO Engine & CPV Voucher Printing (Screen 5 & 7) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/payables/page.tsx` (Tab 1: Record Bill, Tab 2: Payment Run)
-  - Backend: `backend/src/controllers/bill.controller.ts`, `backend/src/controllers/payment.controller.ts`, `backend/src/services/bill.service.ts`, `backend/src/services/fifo.service.ts`, `backend/src/services/vendor.service.ts`
-  - Database: `Vendor`, `ExpenseBill`, `BillPayment` models
-- **Core Responsibilities:**
-  1. Record Vendor Bill (Screen 5):
-     - AP Accrual Mode: `DR 1200 WIP / CR 2000 AP`
-     - Direct Payment Mode: `DR 1200 WIP / CR 1010 Cash Safe` (generates Direct Payment Receipt DPR)
-  2. Vendor Payment Run & FIFO Engine (Screen 7):
-     - Waterfall settlement: Oldest bills settled first.
-     - Granular invoice selection: Pay specific bills or specify partial amounts.
-     - Overpayment guard: Cannot pay more than total outstanding vendor liability.
-     - Mandatory payment instrument references (Bank Cheque requires cheque number; Online transfer requires UTR transaction reference).
-  3. CPV (Cash Payment Voucher) Generation:
-     - Perforated A4 dual-copy layout (Top: Vendor/Payee Receipt, Bottom: Wadaan Institutional Copy).
-     - Full itemized settled bills table, instrument status badge, stamp and signature blocks.
-- **Electron vs Browser Compatibility Checks:**
-  - Desktop IPC print: Calls `window.electronAPI.printPaymentReceipt(data)` or `printVoucher(data)`.
-  - Browser fallback: Generates HTML in hidden `<iframe>`, triggers print, then auto-downloads `CPV-xxxx.html`.
-- **Testing & Verification:**
-  - Automated tests: `payables/page.test.tsx`, `receiptPrinter.test.ts`, `bill.service.test.ts`, `fifo.service.test.ts`, `vendor.service.test.ts`.
-  - Manual Guide: Tests G-1 through G-8, Tests H-1 through H-12.
+  - Frontend: `src/app/(dashboard)/payables/page.tsx`, `payables/page.test.tsx`, `src/components/payables/RecordBillPanel.tsx`, `src/components/payables/PaymentRunPanel.tsx`, `src/components/payables/VendorPaymentEngine.tsx`, `src/components/payables/UnpaidBillsTable.tsx`, `src/components/payables/CreateVendorModal.tsx`, `src/lib/receiptPrinter.ts`
+  - Backend: `backend/src/controllers/bill.controller.ts`, `backend/src/controllers/fifo.controller.ts`, `backend/src/controllers/vendor.controller.ts`, `backend/src/services/bill.service.ts`, `backend/src/services/fifo.service.ts`, `backend/src/services/vendor.service.ts`, `backend/src/__tests__/bill.service.test.ts`, `backend/src/__tests__/vendor.service.test.ts`, `backend/src/__tests__/fifo.service.test.ts`
+  - Database: `Vendor`, `ExpenseBill`, `ExpenseBillLineItem`, `PaymentTransaction`, `ChequePayment` models
+- **Implemented & Verified Capabilities:**
+  1. **Dual Billing Modes (AP Accrual vs Direct Cash Settlement):**
+     - AP Accrual Mode: Posts `DR 1200 Construction WIP / CR 2000 AP` with pending liability balance.
+     - Direct Payment Mode: Posts `DR 1200 Construction WIP / CR 1010 Cash Safe`, auto-settles bill as `PAID`, and triggers DPR (Direct Payment Receipt) print.
+  2. **FIFO Waterfall & Selective Allocation Engine:**
+     - Verified: Automatic waterfall applies payments strictly against the oldest unpaid bills first until the payment pool is depleted.
+     - Supports manual granular allocation per invoice with validation preventing overpayment beyond pending balance (`ALLOCATION_EXCEEDS_BILL_PENDING`).
+  3. **Cheque Clearance & Cash Lock:**
+     - Cheque disbursements require mandatory instrument details (`chequeNumber`, `bankName`, `clearanceDate`), maintaining `PENDING` clearance status without debiting physical bank liquidity until cleared.
+  4. **Perforated A4 Dual-Copy Print Engine:**
+     - Full CPV (Cash Payment Voucher) generation with dual-copy layout (Top: Vendor/Payee Receipt, Bottom: Wadaan Institutional Copy), perforated cut line, settled bills table, and authorized sign-off blocks.
+     - Electron Desktop IPC (`printVoucher`, `printPaymentReceipt`) seamlessly invokes native Windows print spooler.
+  5. **Automated Test Verification:**
+     - 100% passing tests (36/36 tests): `payables/page.test.tsx` (16/16 UI tests covering bill recording, FIFO run, selective allocations, and form states) + `bill.service.test.ts`, `vendor.service.test.ts`, `fifo.service.test.ts` (20/20 backend tests). Manual tests G-1 through G-8 and H-1 through H-12 verified.
 
 ---
 
