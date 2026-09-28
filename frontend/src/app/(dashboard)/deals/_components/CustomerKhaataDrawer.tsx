@@ -33,7 +33,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
   customerId,
   onClose,
 }) => {
-  const { data: customer, isLoading, isError } = useCustomer(customerId);
+  const { data: customer, isLoading, isError, refetch } = useCustomer(customerId);
   const applyWalletMutation = useApplyCustomerWallet();
   const removeCoClientMutation = useRemoveCoClient();
 
@@ -64,6 +64,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
     setCoClientError(null);
     try {
       await removeCoClientMutation.mutateAsync({ dealId, clientId });
+      refetch();
     } catch (err: any) {
       setCoClientError(
         err?.response?.data?.message || err?.message || 'Failed to remove co-client'
@@ -688,6 +689,9 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
           onClose={() => {
             setIsAddCoClientOpen(false);
             setCoClientDeal(null);
+          }}
+          onSuccess={() => {
+            refetch();
           }}
         />
       )}

@@ -115,6 +115,7 @@ export const useAddCoClient = () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
   });
 };
@@ -139,6 +140,7 @@ export const useUpdateCoClientLabel = () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
   });
 };
@@ -161,6 +163,7 @@ export const useRemoveCoClient = () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
   });
 };

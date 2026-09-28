@@ -166,6 +166,7 @@ export class DealService {
 
     bustCache('deals');
     bustCache('projects');
+    bustCache('customers');
     bustCache('reports');
     return newContract;
   }
@@ -557,6 +558,7 @@ export class DealService {
     });
 
     bustCache('deals');
+    bustCache('customers');
     return coClient;
   }
 
@@ -589,6 +591,7 @@ export class DealService {
     });
 
     bustCache('deals');
+    bustCache('customers');
     return updated;
   }
 
@@ -609,6 +612,7 @@ export class DealService {
     });
 
     bustCache('deals');
+    bustCache('customers');
     return { success: true, message: 'Co-client removed successfully' };
   }
 }

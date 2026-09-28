@@ -7,12 +7,14 @@ let mockCustomerData: any = null;
 let mockIsLoading = false;
 let mockIsError = false;
 const mockRemoveCoClientMutateAsync = vi.fn();
+const mockRefetch = vi.fn();
 
 vi.mock('@/features/customers/hooks/useCustomers', () => ({
   useCustomer: () => ({
     data: mockCustomerData,
     isLoading: mockIsLoading,
     isError: mockIsError,
+    refetch: mockRefetch,
   }),
   useApplyCustomerWallet: () => ({
     mutateAsync: vi.fn(),
@@ -28,9 +30,18 @@ vi.mock('@/features/deals/hooks/useDeals', () => ({
 }));
 
 vi.mock('@/features/deals/_components/AddCoClientModal', () => ({
-  AddCoClientModal: ({ isOpen, onClose }: any) =>
+  AddCoClientModal: ({ isOpen, onClose, onSuccess }: any) =>
     isOpen ? (
       <div data-testid="mock-add-coclient-modal">
+        <button
+          onClick={() => {
+            onSuccess?.();
+            onClose();
+          }}
+          data-testid="mock-submit-add-coclient"
+        >
+          Submit
+        </button>
         <button onClick={onClose} data-testid="mock-close-add-coclient">
           Close
         </button>
@@ -300,4 +311,38 @@ describe('CustomerKhaataDrawer Component', () => {
     expect(screen.getByText('Paid by: Zeeshan Co-Client')).toBeInTheDocument();
     expect(screen.getByText('• Paid by Zeeshan Co-Client')).toBeInTheDocument();
   });
+
+  it('calls refetch when a co-client is successfully added via AddCoClientModal', () => {
+    mockCustomerData = {
+      id: 'cust-1',
+      fullName: 'Tariq Mehmood',
+      phone: '0300-1122334',
+      walletBalance: 0,
+      deals: [
+        {
+          id: 'deal-1',
+          dealType: 'WADAAN_SALE',
+          totalValue: 5000000,
+          pendingBalance: 2000000,
+          createdAt: '2026-01-01T00:00:00Z',
+          invoices: [],
+          coClients: [],
+        },
+      ],
+      receipts: [],
+    };
+
+    render(<CustomerKhaataDrawer customerId="cust-1" onClose={vi.fn()} />);
+
+    // Click Add Co-Client button
+    fireEvent.click(screen.getByTestId('open-add-coclient-btn-deal-1'));
+    expect(screen.getByTestId('mock-add-coclient-modal')).toBeInTheDocument();
+
+    // Trigger modal submit
+    fireEvent.click(screen.getByTestId('mock-submit-add-coclient'));
+
+    // refetch must be called so drawer immediately updates
+    expect(mockRefetch).toHaveBeenCalled();
+  });
 });
+
