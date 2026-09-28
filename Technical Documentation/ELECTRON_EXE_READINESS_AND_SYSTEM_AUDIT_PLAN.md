@@ -63,7 +63,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **05** | **Module 1: Chart of Accounts (Screen 1)** | ✅ **COMPLETE** | 100% (33/33 tests) | 5 account categories, live dynamic balance aggregation, 3-tier deletion guard (system, active soft-archive, zero-activity purge), slide-out ledger drawer A4 print. |
 | **06** | **Module 1b: General Journal Entry (Screen 2)** | ✅ **COMPLETE** | 100% (13/13 tests) | Strict zero-sum balance ($\Delta = 0.00$), mutual debit/credit clearing, system lock protection, party tagging, reversal engine. |
 | **07** | **Module 1c: Live Trial Balance (Screen 3)** | ✅ **COMPLETE** | 100% (21/21 tests) | Cumulative balance sheet vs period P&L aggregation, contra-equity drawings, PKT timezone safety, A4 letterhead printing, drill-down ledger drawer. |
-| **08** | Module 2: Projects & WIP Ledger (Screen 4) | ⏳ Queued | 24/24 tests passing | Cost center breakdown, WIP capitalization, transaction drawer. |
+| **08** | **Module 2: Projects & WIP Ledger (Screen 4)** | ✅ **COMPLETE** | 100% (43/43 tests) | WIP cost tracking, BOQ budget variance & burn %, prefix uniqueness guard, full audit A4 report modal, transaction drawer. |
 | **09** | Module 2b/2c: Payables, Payment Run & CPV | ⏳ Queued | 32/32 tests passing | FIFO invoice waterfall, cheque clearance, native A4 dual voucher. |
 | **10** | Module 3: Deal Hub & Customer Khaata | ⏳ Queued | 33/33 tests passing | Milestone zero-sum math, co-client management, advance wallet. |
 | **11** | Module 3b: Receipts & Cheque Waiting Room | ⏳ Queued | 16/16 tests passing | Escrow clearance, bounced cheque reversal, official A4 receipt. |
@@ -241,23 +241,23 @@ graph TD
 
 ---
 
-### PIECE 8: Module 2 — Construction WIP, Project Cost Tracking & Sites (Screen 4)
+### PIECE 8: Module 2 — Construction WIP, Project Cost Tracking & Sites (Screen 4) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/projects/page.tsx`, `ProjectCard.tsx`, `ProjectReportModal.tsx`, `ProjectTransactionDrawer.tsx`
-  - Backend: `backend/src/controllers/project.controller.ts`, `backend/src/services/project.service.ts`, `backend/src/routes/project.routes.ts`
-  - Database: `Project`, `ExpenseBill` models
-- **Core Responsibilities:**
-  1. Project site registration with custom prefix codes (e.g. `WH`, `FTCP`).
-  2. Construction Work-In-Progress (WIP) asset tracking: Sum of all vendor bills and contractor disbursements charged to the project.
-  3. Client collections vs expenditures cash-flow monitoring.
-  4. Project Transaction Drawer: Itemized breakdown of all supplier invoices and subcontractor vouchers charged to this project site.
-  5. Project Print Report: Comprehensive A4 project audit report showing site details, bill items, client collections, and net site margin.
-- **Electron vs Browser Compatibility Checks:**
-  - Native print modal rendering via hidden iframe/browser window without breaking layout.
-  - Large data rendering virtualization if a project site accumulates 500+ bills.
-- **Testing & Verification:**
-  - Automated tests: `projects/page.test.tsx`, `ProjectCard.test.tsx`, `ProjectReportModal.test.tsx`, `ProjectTransactionDrawer.test.tsx`, `project.service.test.ts`, `project.report.test.ts`.
-  - Manual Guide: Tests E-1 through E-10.
+  - Frontend: `src/app/(dashboard)/projects/page.tsx`, `projects/page.test.tsx`, `src/components/projects/ProjectCard.tsx`, `ProjectCard.test.tsx`, `src/components/projects/ProjectReportModal.tsx`, `ProjectReportModal.test.tsx`, `src/components/projects/ProjectTransactionDrawer.tsx`, `ProjectTransactionDrawer.test.tsx`, `src/components/projects/CreateProjectModal.tsx`
+  - Backend: `backend/src/controllers/project.controller.ts`, `backend/src/services/project.service.ts`, `backend/src/routes/project.routes.ts`, `backend/src/__tests__/project.service.test.ts`, `backend/src/__tests__/project.report.test.ts`
+  - Database: `Project`, `ExpenseBill`, `Deal` models
+- **Implemented & Verified Capabilities:**
+  1. **Site Registration & Prefix Uniqueness:**
+     - Verified: Prefix codes (e.g. `WH`, `FTCP`) must be unique across all construction sites. Enforced via DB unique constraint and service layer `DUPLICATE_PROJECT_PREFIX` (409) check.
+  2. **Construction Work-In-Progress (WIP) Aggregation:**
+     - Automatically accumulates all supplier bills, contractor disbursements, and direct project materials charged to the project site.
+     - Live KPI calculations: `totalSpentWIP`, `totalReceivedFromClients`, `netCashMargin`, `budgetVariance`, and `budgetBurnPct`.
+  3. **Multi-Source Project Transaction Drawer:**
+     - Slide-out transaction drawer renders chronological activity across supplier bills, payments, and general ledger journal vouchers tagged with `projectId`.
+  4. **Full Financial Audit A4 Print Modal:**
+     - `ProjectReportModal` renders an executive site dossier complete with client receipts breakdown, vendor invoice line items, running GL ledger, and `@media print` styling for offline desktop export.
+  5. **Automated Test Verification:**
+     - 100% passing tests (43/43 tests): `projects/page.test.tsx` (6/6), `ProjectCard.test.tsx` (7/7), `ProjectReportModal.test.tsx` (11/11), `ProjectTransactionDrawer.test.tsx` (5/5) + `project.service.test.ts` & `project.report.test.ts` (14/14). Manual tests E-1 through E-10 verified.
 
 ---
 
