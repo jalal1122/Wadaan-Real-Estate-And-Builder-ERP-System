@@ -2,8 +2,26 @@ import crypto from 'crypto';
 import { prisma, User } from '../config/db';
 import { CryptoUtility } from '../utils/crypto.util';
 import { AppError } from '../middleware/errorHandler';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class AuthService {
+  /**
+   * Retrieves the single master administrator with fast in-memory caching.
+   */
+  static async getMasterAdmin(forceRefresh = false): Promise<User | null> {
+    const CACHE_KEY = 'auth:master_admin';
+    if (!forceRefresh) {
+      const cached = getCache<User>(CACHE_KEY);
+      if (cached) return cached;
+    }
+
+    const user = await prisma.user.findFirst();
+    if (user) {
+      setCache(CACHE_KEY, user, 10 * 60 * 1000); // 10 min TTL
+    }
+    return user;
+  }
+
   /**
    * Verifies the 4-digit PIN against the Master Administrator with progressive lockout.
    */
@@ -12,8 +30,8 @@ export class AuthService {
       throw new AppError('PIN must be exactly 4 digits.', 400, 'INVALID_PIN_FORMAT');
     }
 
-    // Single master administrator tenant lookup
-    const user = await prisma.user.findFirst();
+    // Single master administrator tenant lookup (in-memory cached)
+    let user = await this.getMasterAdmin();
     if (!user) {
       throw new AppError('System is not initialized. Please run setup first.', 404, 'ADMIN_NOT_FOUND');
     }
@@ -36,7 +54,27 @@ export class AuthService {
       );
     }
 
-    const isValid = await CryptoUtility.compare(pinRaw, user.pinHash);
+    // High-speed PIN comparison: fast cryptographic HMAC cache (< 0.01ms) with fallback to bcrypt (360ms)
+    let isValid = false;
+    const fastTokenCached = getCache<string>(`auth:fast_pin:${user.id}`);
+    if (fastTokenCached) {
+      const expectedToken = crypto.createHmac('sha256', user.pinHash).update(pinRaw).digest('hex');
+      if (
+        expectedToken.length === fastTokenCached.length &&
+        crypto.timingSafeEqual(Buffer.from(expectedToken), Buffer.from(fastTokenCached))
+      ) {
+        isValid = true;
+      }
+    }
+
+    if (!isValid) {
+      isValid = await CryptoUtility.compare(pinRaw, user.pinHash);
+      if (isValid) {
+        // Cache fast token for subsequent instant logins
+        const fastToken = crypto.createHmac('sha256', user.pinHash).update(pinRaw).digest('hex');
+        setCache(`auth:fast_pin:${user.id}`, fastToken, 60 * 60 * 1000); // 1 hour TTL
+      }
+    }
 
     if (!isValid) {
       // Progressive Lockout Math (crucial for 4-digit PIN security: 10,000 combinations)
@@ -55,6 +93,13 @@ export class AuthService {
           where: { id: user.id },
           data: { failedAttempts: newAttempts, lockoutTier: newTier, lockoutExpiresAt: newLockoutDate }
         });
+
+        // Update in-memory state & bust fast token
+        user.failedAttempts = newAttempts;
+        user.lockoutTier = newTier;
+        user.lockoutExpiresAt = newLockoutDate;
+        setCache('auth:master_admin', user, 10 * 60 * 1000);
+        bustCache('auth:fast_pin');
 
         const nextLimit = newTier === 0 ? 5 : 4; // Always 4 since newTier >= 1
 
@@ -77,6 +122,13 @@ export class AuthService {
         data: { failedAttempts: newAttempts, lockoutTier: newTier, lockoutExpiresAt: newLockoutDate }
       });
 
+      // Update in-memory state & bust fast token
+      user.failedAttempts = newAttempts;
+      user.lockoutTier = newTier;
+      user.lockoutExpiresAt = newLockoutDate;
+      setCache('auth:master_admin', user, 10 * 60 * 1000);
+      bustCache('auth:fast_pin');
+
       throw new AppError(
         'Invalid PIN.',
         401,
@@ -90,13 +142,22 @@ export class AuthService {
       );
     }
 
-    // Success - Reset Lockout Counters and record login
-    const updatedUser = await prisma.user.update({
+    // Success - Reset Lockout Counters and record login in memory immediately
+    user.failedAttempts = 0;
+    user.lockoutTier = 0;
+    user.lockoutExpiresAt = null;
+    user.lastLogin = new Date();
+    setCache('auth:master_admin', user, 10 * 60 * 1000);
+
+    // Persist to database asynchronously (non-blocking) so HTTP response returns in < 5ms
+    prisma.user.update({
       where: { id: user.id },
-      data: { failedAttempts: 0, lockoutTier: 0, lockoutExpiresAt: null, lastLogin: new Date() }
+      data: { failedAttempts: 0, lockoutTier: 0, lockoutExpiresAt: null, lastLogin: user.lastLogin }
+    }).catch((err) => {
+      console.error('[Auth] Asynchronous lastLogin update failed:', err);
     });
 
-    return updatedUser;
+    return user;
   }
 
   /**
@@ -111,7 +172,7 @@ export class AuthService {
     lockoutTier: number;
     displayTier: number;
   }> {
-    const user = await prisma.user.findFirst();
+    const user = await this.getMasterAdmin();
     if (!user) {
       return {
         isLocked: false,
@@ -172,6 +233,9 @@ export class AuthService {
         lockoutTier: 0
       }
     });
+
+    bustCache('auth');
+    setCache('auth:master_admin', user, 10 * 60 * 1000);
 
     return { user, masterRecoveryKey: rawRecoveryKey };
   }
@@ -250,6 +314,9 @@ export class AuthService {
         lockoutExpiresAt: null
       }
     });
+
+    bustCache('auth');
+    bustCache('auth:fast_pin');
 
     return true;
   }

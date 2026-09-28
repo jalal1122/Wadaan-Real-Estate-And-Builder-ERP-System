@@ -70,10 +70,11 @@ export function AuthVault() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the input on mount
+  // Auto-focus the input on mount and prefetch dashboard route
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+    router.prefetch?.('/dashboard');
+  }, [router]);
 
   // Mount-time lockout status sync
   useEffect(() => {
@@ -121,8 +122,8 @@ export function AuthVault() {
       await login({ pin: finalPin });
       setIsSuccess(true);
       setTimeout(() => {
-        router.push('/');
-      }, 700);
+        router.push('/dashboard');
+      }, 150);
     } catch (err: unknown) {
       const apiErr = err as Partial<ApiErrorPayload> | undefined;
       setIsSubmitting(false);

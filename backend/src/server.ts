@@ -16,6 +16,7 @@ import reportRoutes from './routes/report.routes';
 import documentRoutes from './routes/document.routes';
 import personalRoutes from './routes/personal.routes';
 import assetRoutes from './routes/asset.routes';
+import { AuthService } from './services/auth.service';
 
 // Load environment variables
 dotenv.config();
@@ -47,6 +48,10 @@ app.use(globalErrorHandler);
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Wadaan ERP Backend running on http://localhost:${PORT}`);
+  // Pre-warm single-tenant master administrator cache
+  AuthService.getMasterAdmin().catch((err) => {
+    console.warn('[Auth] Pre-warming admin cache skipped:', err.message);
+  });
 });
 
 export default app;

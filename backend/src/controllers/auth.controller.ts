@@ -3,7 +3,8 @@ import { AuthService } from '../services/auth.service';
 import { CryptoUtility, SESSION_DURATION_MS } from '../utils/crypto.util';
 import { MailUtility } from '../utils/mail.util';
 import { AppError } from '../middleware/errorHandler';
-import { prisma } from '../config/db';
+import { prisma, User } from '../config/db';
+import { getCache } from '../utils/cache.util';
 
 /**
  * One-time setup endpoint for creating the initial Master Administrator with a 4-digit PIN.
@@ -87,14 +88,21 @@ export const logout = (req: Request, res: Response) => {
  */
 export const getMe = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user?.userId },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-      },
-    });
+    const userId = req.user?.userId;
+    let user = getCache<User>('auth:master_admin');
+    if (!user || user.id !== userId) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+        },
+      });
+      if (dbUser) {
+        user = dbUser as any;
+      }
+    }
 
     if (!user) {
       res.clearCookie('token');
