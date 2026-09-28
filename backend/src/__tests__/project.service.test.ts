@@ -257,5 +257,58 @@ describe('ProjectService', () => {
       expect(result.transactions[1].entryNumber).toBe('JV-0002');
       expect(result.transactions[1].partyName).toBe('Mughal Steel');
     });
+
+    test('9. falls back to sibling line party (vendor/customer) when project line party is null', async () => {
+      (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue({
+        id: 'proj-1',
+        projectName: 'Wadaan Heights',
+        projectPrefix: 'WH',
+        status: 'ACTIVE',
+        masterBOQ: new Decimal(5000000),
+        createdAt: new Date('2026-01-01'),
+      });
+
+      (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'line-cash',
+          journalId: 'jv-contra',
+          debitAmount: new Decimal(0),
+          creditAmount: new Decimal(100000),
+          memo: null,
+          journal: {
+            id: 'jv-contra',
+            entryNumber: 'JV-0003',
+            entryDate: new Date('2026-01-20'),
+            description: 'Owner withdrawal / vendor payment',
+            lines: [
+              {
+                id: 'line-drawing',
+                vendor: { id: 'vend-1', vendorName: 'Ali Hardware' },
+                customer: null,
+              },
+              {
+                id: 'line-cash',
+                vendor: null,
+                customer: null,
+              },
+            ],
+          },
+          account: {
+            id: 'acc-1010',
+            accountCode: '1010-01',
+            accountName: 'Office Safe (Vault A)',
+            category: 'ASSET',
+          },
+          vendor: null,
+          customer: null,
+        },
+      ]);
+
+      const result = await ProjectService.getProjectTransactions('proj-1');
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].entryNumber).toBe('JV-0003');
+      expect(result.transactions[0].partyName).toBe('Ali Hardware');
+    });
   });
 });
+

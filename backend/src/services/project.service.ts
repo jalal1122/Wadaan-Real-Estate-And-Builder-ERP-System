@@ -400,7 +400,24 @@ export class ProjectService {
             id: true,
             entryNumber: true,
             entryDate: true,
-            description: true
+            description: true,
+            lines: {
+              select: {
+                id: true,
+                vendor: {
+                  select: {
+                    id: true,
+                    vendorName: true
+                  }
+                },
+                customer: {
+                  select: {
+                    id: true,
+                    fullName: true
+                  }
+                }
+              }
+            }
           }
         },
         account: {
@@ -436,6 +453,16 @@ export class ProjectService {
       const credit = new Decimal(line.creditAmount);
       runningBalance = runningBalance.plus(debit).minus(credit);
 
+      let partyName = line.vendor?.vendorName || line.customer?.fullName || null;
+      if (!partyName && (line.journal as any)?.lines) {
+        const siblingWithParty = (line.journal as any).lines.find(
+          (sl: any) => sl.id !== line.id && (sl.vendor?.vendorName || sl.customer?.fullName)
+        );
+        if (siblingWithParty) {
+          partyName = siblingWithParty.vendor?.vendorName || siblingWithParty.customer?.fullName || null;
+        }
+      }
+
       return {
         id: line.id,
         journalId: line.journalId,
@@ -449,7 +476,7 @@ export class ProjectService {
         debitAmount: debit,
         creditAmount: credit,
         runningBalance: runningBalance,
-        partyName: line.vendor?.vendorName || line.customer?.fullName || null
+        partyName
       };
     });
 
@@ -508,7 +535,24 @@ export class ProjectService {
               id: true,
               entryNumber: true,
               entryDate: true,
-              description: true
+              description: true,
+              lines: {
+                select: {
+                  id: true,
+                  vendor: {
+                    select: {
+                      id: true,
+                      vendorName: true
+                    }
+                  },
+                  customer: {
+                    select: {
+                      id: true,
+                      fullName: true
+                    }
+                  }
+                }
+              }
             }
           },
           account: {
@@ -693,6 +737,16 @@ export class ProjectService {
       const credit = new Decimal(line.creditAmount);
       runningBalance = runningBalance.plus(debit).minus(credit);
 
+      let partyName = line.vendor?.vendorName || line.customer?.fullName || null;
+      if (!partyName && (line.journal as any)?.lines) {
+        const siblingWithParty = (line.journal as any).lines.find(
+          (sl: any) => sl.id !== line.id && (sl.vendor?.vendorName || sl.customer?.fullName)
+        );
+        if (siblingWithParty) {
+          partyName = siblingWithParty.vendor?.vendorName || siblingWithParty.customer?.fullName || null;
+        }
+      }
+
       return {
         id: line.id,
         journalId: line.journal.id,
@@ -706,7 +760,7 @@ export class ProjectService {
         debitAmount: debit,
         creditAmount: credit,
         runningBalance: runningBalance,
-        partyName: line.vendor?.vendorName || line.customer?.fullName || null
+        partyName
       };
     });
 

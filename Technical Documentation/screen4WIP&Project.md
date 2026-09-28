@@ -39,12 +39,12 @@ In addition to project cards and budget burn indicators, Screen 4 provides a gra
     - **JV Number**: General Ledger Journal Voucher number (e.g. `JV-0001`).
     - **Account**: Code and name (e.g. `1200 - Work In Progress`).
     - **Description / Memo**: Bill invoice reference or journal explanation.
-    - **Party**: Vendor or subcontractor associated with the line item.
+    - **Party**: Vendor or customer associated with the line item. If the project line itself has no direct party tagged (e.g. on a cash/vault disbursement leg), the backend automatically resolves and displays the contra-party from sibling lines within the same journal voucher.
     - **Debit & Credit Amounts**: PKR currency values.
     - **Running Balance**: Dynamically calculated line-by-line running cost balance.
 - **Backend API Contract**:
   - `GET /api/v1/projects/:id/transactions`
-  - Queries `JournalLine` records where `projectId = id`, including `journal`, `account`, and `vendor`/`customer` relations, sorted by `journal.entryDate ASC`.
+  - Queries `JournalLine` records where `projectId = id`, including `journal` (with sibling lines), `account`, and `vendor`/`customer` relations, sorted by `journal.entryDate ASC`. Party resolves with voucher-level contra-line fallback.
 
 ---
 
