@@ -75,3 +75,8 @@ Below the entry form, Screen 2 displays a real-time table of recent journal entr
 2. **Two-Line Minimum**: At least two accounts must participate in every transaction. Single-sided postings are impossible.
 3. **System-Lock Protection**: Control accounts (`isSystemLocked: true`) like Accounts Payable and Accounts Receivable cannot be adjusted directly via manual journals. They must flow through proper bills and receipts to maintain sub-ledger consistency.
 4. **No Deletions (Immutability)**: Once posted, a journal entry cannot be deleted. Corrections must be performed via reverse entries (`POST /api/v1/journals/:id/reverse`).
+5. **Cache Invalidation & Fresh History**:
+   - `GET /api/v1/journals` responses are micro-cached (`journals:entries:page:{page}:limit:{limit}`) with a 60s TTL.
+   - Any transaction that posts a journal (manual journal post, journal reversal, supplier bill posting, or vendor payment run) immediately executes `bustCache('journals')`, purging stale pagination caches.
+   - Queries employ deterministic multi-field ordering (`[{ entryDate: 'desc' }, { entryNumber: 'desc' }]`) ensuring same-day vouchers always render in reverse-chronological sequence.
+

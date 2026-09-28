@@ -81,8 +81,12 @@ Tier 1: Backend In-Memory Micro-Cache (`backend/src/utils/cache.util.ts`)
   - Project Overview & Detailed Reports (`GET /projects`, `/projects/:id`, `/projects/:id/report`): 60s - 120s TTL
   - Personal Finance Contacts & Ledger (`GET /personal/contacts`): 120s TTL
   - Chronological Account Ledger (`GET /ledger/:accountId`): 30s TTL
+  - Journal Entries History (`GET /journals`): 60s TTL
+  - Supplier Bills (`GET /bills`): 60s TTL
+  - Vendor Balances & Unpaid Bills (`GET /vendors`, `/vendors/:id/unpaid-bills`): 60s TTL
+  - Customers List & Profiles (`GET /customers`, `/customers/:id`): 60s TTL
 - Mutation-Driven Event Invalidation:
-  - Any mutating action (Receipt processing/clearing/bouncing, Vendor bill recording, FIFO payment runs, Journal entry posting/reversal, Deal creation/transfer, Account creation/modification, Personal loans/repayments) triggers atomic prefix-based invalidation (`bustCache`) across dependent namespaces (`reports`, `accounts`, `ledger`, `projects`, `deals`, `customers`, `personal:contacts`).
+  - Any mutating action (Receipt processing/clearing/bouncing, Vendor bill recording, FIFO payment runs, Journal entry posting/reversal, Deal creation/transfer, Account creation/modification, Personal loans/repayments, Customer/Vendor onboarding) triggers atomic prefix-based invalidation (`bustCache`) across dependent namespaces (`reports`, `accounts`, `ledger`, `projects`, `deals`, `customers`, `personal:contacts`, `journals`, `bills`, `vendors`).
 
 Tier 2: Frontend Client-Side Stale-Time Synchronization (`TanStack Query`)
 - Query hooks (`useTrialBalance`, `useAccountLedger`, `useOverheadLedger`, `useEquityLedger`, `useProjectReport`, `useProjectTransactions`, `useExecutiveSnapshot`, `useAgingRadar`) have their `staleTime` tuned to match backend cache lifetimes (30s to 120s).
