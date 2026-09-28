@@ -93,6 +93,13 @@ export interface Deal {
     fullName: string;
     phone?: string;
   } | null;
+  asset?: {
+    id: string;
+    assetTitle: string;
+    assetCategory: string;
+    acquisitionCost: number | string;
+    status: string;
+  } | null;
 }
 
 
@@ -106,6 +113,7 @@ export interface CreateDealPayload {
   customerId: string;
   dealType: DealType;
   projectId?: string | null;
+  assetId?: string | null;
   totalValue: number | string;
   commissionAmount?: number | string | null;
   invoices: CreateDealInvoiceInput[];

@@ -19,6 +19,8 @@ export interface DealMarginItem {
   totalValue: string;
   revenueCollected: string;
   totalProjectCost: string;
+  assetCost?: string;
+  assetTitle?: string | null;
   grossProfit: string;
   marginPercentage: string;
   isWipAsset: boolean;

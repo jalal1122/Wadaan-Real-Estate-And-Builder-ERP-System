@@ -5,6 +5,7 @@ import { Customer } from '@/features/customers/types';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useCreateDeal } from '@/features/deals/hooks/useDeals';
 import { useCreateCustomer } from '@/features/customers/hooks/useCustomers';
+import { useAssets } from '@/features/assets/hooks/useAssets';
 import { DealType, CreateDealInvoiceInput } from '@/features/deals/types';
 import { formatPKR } from '@/lib/formatters';
 import {
@@ -19,7 +20,8 @@ import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
-  DollarSign
+  DollarSign,
+  Warehouse
 } from 'lucide-react';
 
 interface CreateDealModalProps {
@@ -36,6 +38,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   onSuccess,
 }) => {
   const { data: projects = [] } = useProjects();
+  const { data: availableAssets = [] } = useAssets('AVAILABLE');
   const createDealMutation = useCreateDeal();
   const createCustomerMutation = useCreateCustomer();
 
@@ -46,6 +49,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [dealType, setDealType] = useState<DealType>('WADAAN_SALE');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [totalValue, setTotalValue] = useState<string>('');
   const [commissionAmount, setCommissionAmount] = useState<string>('');
 
@@ -70,6 +74,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
     setSelectedCustomerId('');
     setDealType('WADAAN_SALE');
     setSelectedProjectId('');
+    setSelectedAssetId('');
     setTotalValue('');
     setCommissionAmount('');
     setIsAddingNewCustomer(false);
@@ -233,6 +238,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
         customerId: selectedCustomerId,
         dealType,
         projectId: dealType === 'CONSTRUCTION' ? selectedProjectId : null,
+        assetId: dealType === 'WADAAN_SALE' && selectedAssetId ? selectedAssetId : null,
         totalValue: totalValueNum,
         commissionAmount: dealType === 'BROKERAGE' ? commissionNum : null,
         invoices: invoices.map((inv) => ({
@@ -487,6 +493,62 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                   </div>
                 </button>
               </div>
+
+              {/* Wadaan Sale Route: Owned Asset Picker */}
+              {dealType === 'WADAAN_SALE' && (
+                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2.5" data-testid="wadaan-asset-picker-panel">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <Warehouse className="w-4 h-4 text-amber-600" />
+                      Link Owned Inventory Asset (Plot / House)
+                    </label>
+                    <span className="text-[10px] uppercase font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                      True Profit Tracking
+                    </span>
+                  </div>
+                  <select
+                    value={selectedAssetId}
+                    onChange={(e) => setSelectedAssetId(e.target.value)}
+                    className="w-full text-xs p-2.5 border border-amber-300 rounded-lg bg-white text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                    data-testid="wadaan-asset-select"
+                  >
+                    <option value="">-- No Owned Asset (Assumes 100% Margin) --</option>
+                    {availableAssets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.assetTitle} ({asset.assetCategory}) — Acquisition Cost: {formatPKR(asset.acquisitionCost)}
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedAssetId ? (
+                    (() => {
+                      const chosen = availableAssets.find((a) => a.id === selectedAssetId);
+                      const cost = chosen ? Number(chosen.acquisitionCost) : 0;
+                      const profit = totalValueNum > 0 ? totalValueNum - cost : 0;
+                      const marginPct = totalValueNum > 0 ? ((profit / totalValueNum) * 100).toFixed(1) : '0.0';
+
+                      return (
+                        <div className="p-2.5 bg-white border border-amber-200 rounded-lg text-xs space-y-1 font-mono" data-testid="live-profit-preview">
+                          <div className="flex justify-between text-slate-600">
+                            <span>Acquisition Cost:</span>
+                            <span className="font-bold text-amber-900">{formatPKR(cost)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-slate-100 pt-1">
+                            <span className="font-semibold text-slate-800">Estimated True Gross Profit:</span>
+                            <span className={`font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {formatPKR(profit)} ({marginPct}%)
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <p className="text-[11px] text-amber-700">
+                      Linking an owned plot or property automatically deducts its acquisition cost so financial reports reflect your true gross profit instead of an unrealistic 100% margin.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Construction Route: Project Picker */}
               {dealType === 'CONSTRUCTION' && (

@@ -51,6 +51,7 @@ export const useCreateDeal = () => {
     mutationFn: (payload: CreateDealPayload) => createDeal(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
       queryClient.invalidateQueries({ queryKey: ['ar-aging'] });

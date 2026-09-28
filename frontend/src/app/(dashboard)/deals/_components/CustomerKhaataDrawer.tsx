@@ -22,6 +22,7 @@ import {
   Users,
   UserPlus,
   Trash2,
+  Warehouse,
 } from 'lucide-react';
 
 interface CustomerKhaataDrawerProps {
@@ -453,6 +454,44 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
                                     }`}
                                   >
                                     {formatPKR(deal.netMargin ?? 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Linked Owned Asset & Acquisition Cost / True Profit */}
+                          {deal.asset && (
+                            <div data-testid={`deal-asset-card-${deal.id}`} className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-3 text-xs space-y-2">
+                              <div className="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
+                                <div className="flex items-center gap-1.5 font-semibold text-amber-950">
+                                  <Warehouse className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  <span>Owned Asset: {deal.asset.assetTitle}</span>
+                                </div>
+                                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                  {deal.asset.assetCategory}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 font-mono text-[11px] pt-0.5">
+                                <div>
+                                  <span className="text-amber-800/70 text-[10px] block font-sans">Contract Value</span>
+                                  <span className="font-bold text-slate-900">{formatPKR(deal.totalValue)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-amber-800/70 text-[10px] block font-sans">Acquisition Cost</span>
+                                  <span className="font-bold text-amber-900">{formatPKR(deal.asset.acquisitionCost)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-amber-800/70 text-[10px] block font-sans">True Gross Profit</span>
+                                  <span
+                                    className={`font-bold ${
+                                      Number(deal.totalValue) - Number(deal.asset.acquisitionCost) >= 0
+                                        ? 'text-emerald-700'
+                                        : 'text-red-600'
+                                    }`}
+                                  >
+                                    {formatPKR(Number(deal.totalValue) - Number(deal.asset.acquisitionCost))}
                                   </span>
                                 </div>
                               </div>

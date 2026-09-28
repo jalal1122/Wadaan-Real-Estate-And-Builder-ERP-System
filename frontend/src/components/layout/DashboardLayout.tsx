@@ -16,6 +16,7 @@ import {
   LogOut,
   Archive,
   UserRound,
+  Warehouse,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -31,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Accounts Payable', href: '/payables', icon: Receipt },
   { label: 'Projects & WIP', href: '/projects', icon: Building2 },
   { label: 'Deal Hub', href: '/deals', icon: Briefcase },
+  { label: 'Asset Inventory', href: '/assets', icon: Warehouse },
   { label: 'Cash & Cheque Gateway', href: '/receipts', icon: Coins },
   { label: 'Personal Ledger', href: '/personal', icon: UserRound },
   { label: 'Document Archive', href: '/documents', icon: Archive },

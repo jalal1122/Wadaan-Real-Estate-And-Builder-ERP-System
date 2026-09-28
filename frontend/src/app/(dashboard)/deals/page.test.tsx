@@ -193,6 +193,24 @@ vi.mock('@/features/projects/hooks/useProjects', () => ({
   }),
 }));
 
+const mockAvailableAssets = [
+  {
+    id: 'asset-45',
+    assetTitle: 'Plot 45, Block C',
+    assetCategory: 'PLOT',
+    acquisitionCost: 4500000,
+    status: 'AVAILABLE',
+  },
+];
+
+vi.mock('@/features/assets/hooks/useAssets', () => ({
+  useAssets: () => ({
+    data: mockAvailableAssets,
+    isLoading: false,
+    isError: false,
+  }),
+}));
+
 describe('Screen 8: Deal Hub & Customer Portfolio (DealHubPage)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -571,6 +589,55 @@ describe('Screen 8: Deal Hub & Customer Portfolio (DealHubPage)', () => {
     const hookSource = (await import('@/features/deals/hooks/useDeals?raw' as any)).default as string;
     // The source must contain projects invalidation in the transfer hook
     expect(hookSource).toContain("queryKey: ['projects']");
+  });
+
+  it('16. DH-16: CreateDealModal in Step 2 WADAAN_SALE route displays owned asset picker panel', () => {
+    render(<DealHubPage />);
+
+    // Open wizard
+    fireEvent.click(screen.getByTestId('btn-new-deal'));
+    expect(screen.getByTestId('create-deal-modal')).toBeInTheDocument();
+
+    // Select customer in Step 1
+    const custSelect = screen.getByRole('combobox');
+    fireEvent.change(custSelect, { target: { value: 'cust-1' } });
+
+    // Click Next to Step 2
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    // Verify Asset Picker Panel is visible
+    expect(screen.getByTestId('wadaan-asset-picker-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('wadaan-asset-select')).toBeInTheDocument();
+    expect(screen.getByText(/Plot 45, Block C \(PLOT\) — Acquisition Cost: Rs 4,500,000/i)).toBeInTheDocument();
+  });
+
+  it('17. DH-17: selecting an asset in Step 2 shows live estimated true gross profit preview', () => {
+    render(<DealHubPage />);
+
+    // Open wizard and navigate to Step 2
+    fireEvent.click(screen.getByTestId('btn-new-deal'));
+    const custSelect = screen.getByRole('combobox');
+    fireEvent.change(custSelect, { target: { value: 'cust-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    // Enter Total Value: 6,000,000
+    const totalValueInput = screen.getByPlaceholderText('e.g. 5000000');
+    fireEvent.change(totalValueInput, { target: { value: '6000000' } });
+
+    // Select Plot 45 (cost 4,500,000)
+    const assetSelect = screen.getByTestId('wadaan-asset-select');
+    fireEvent.change(assetSelect, { target: { value: 'asset-45' } });
+
+    // Verify live profit preview displays estimated true gross profit of 1,500,000 (25.0%)
+    expect(screen.getByTestId('live-profit-preview')).toBeInTheDocument();
+    expect(screen.getByText(/Estimated True Gross Profit:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rs 1,500,000/i)).toBeInTheDocument();
+    expect(screen.getByText(/25.0%/i)).toBeInTheDocument();
+  });
+
+  it('18. DH-18: useCreateDeal hook implementation includes ["assets"] query cache invalidation', async () => {
+    const hookSource = (await import('@/features/deals/hooks/useDeals?raw' as any)).default as string;
+    expect(hookSource).toContain("queryKey: ['assets']");
   });
 });
 

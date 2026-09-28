@@ -404,5 +404,43 @@ describe('CustomerKhaataDrawer Component', () => {
       expect(screen.getByText(/Successfully applied Rs 500,000 from advance wallet!/i)).toBeInTheDocument();
     });
   });
+
+  it('CKD-11: renders Owned Asset panel with acquisition cost and true profit for WADAAN_SALE deal', () => {
+    mockCustomerData = {
+      id: 'cust-1',
+      fullName: 'Tariq Mehmood',
+      phone: '0300-1122334',
+      walletBalance: 0,
+      deals: [
+        {
+          id: 'deal-asset-1',
+          dealType: 'WADAAN_SALE',
+          totalValue: 6000000,
+          pendingBalance: 6000000,
+          createdAt: '2026-09-28T00:00:00Z',
+          invoices: [],
+          coClients: [],
+          asset: {
+            id: 'asset-45',
+            assetTitle: 'Plot 45, Block C, Faisal Town',
+            assetCategory: 'PLOT',
+            acquisitionCost: 4500000,
+            status: 'RESERVED',
+          },
+        },
+      ],
+      receipts: [],
+    };
+
+    render(<CustomerKhaataDrawer customerId="cust-1" onClose={vi.fn()} />);
+
+    expect(screen.getByTestId('deal-asset-card-deal-asset-1')).toBeInTheDocument();
+    expect(screen.getByText(/Owned Asset: Plot 45, Block C, Faisal Town/i)).toBeInTheDocument();
+    expect(screen.getByText(/Acquisition Cost/i)).toBeInTheDocument();
+    expect(screen.getByText(/True Gross Profit/i)).toBeInTheDocument();
+    // Acquisition cost 4,500,000 & Profit 1,500,000
+    expect(screen.getByText(/Rs 4,500,000/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rs 1,500,000/i)).toBeInTheDocument();
+  });
 });
 
