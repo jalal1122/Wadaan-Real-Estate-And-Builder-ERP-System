@@ -10,6 +10,7 @@ import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CryptoUtility } from '../utils/crypto.util';
 import { GoLivePayload, DoubleEntryValidator } from '../utils/validation.util';
+import { clearCache } from '../utils/cache.util';
 
 export class SystemService {
   /**
@@ -40,7 +41,7 @@ export class SystemService {
   static async executeGoLive(
     payload: GoLivePayload
   ): Promise<{ success: boolean; masterRecoveryKey: string | null; goLiveDate: Date }> {
-    return prisma.$transaction(
+    const result = await prisma.$transaction(
       async (tx) => {
         // 1. Pre-flight Check: Guard against race conditions and double submissions
         const existingSetting = await tx.systemSetting.findUnique({ where: { id: 1 } });
@@ -424,5 +425,8 @@ export class SystemService {
         timeout: 30000 // 30 seconds max for massive initial setup
       }
     );
+
+    clearCache();
+    return result;
   }
 }

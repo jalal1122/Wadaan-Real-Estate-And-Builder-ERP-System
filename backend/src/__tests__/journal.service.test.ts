@@ -1,6 +1,7 @@
 import { JournalService } from '../services/journal.service';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
+import { getCache, setCache } from '../utils/cache.util';
 
 // Mock Prisma to avoid hitting the real DB in unit tests
 jest.mock('../config/db', () => ({
@@ -139,5 +140,25 @@ describe('JournalService.postEntry', () => {
     await expect(JournalService.postEntry(payload as any)).rejects.toMatchObject({
       code: 'ERR_SYSTEM_ACCOUNT_LOCKED',
     });
+  });
+
+  test('6. busts journals cache when entry is posted', async () => {
+    process.env.ENABLE_TEST_CACHE = 'true';
+    setCache('journals:entries:page:1:limit:20', { entries: [], total: 0 }, 60000);
+    expect(getCache('journals:entries:page:1:limit:20')).not.toBeNull();
+
+    const payload = {
+      description: 'Owner withdrawal',
+      entryDate: new Date().toISOString(),
+      lines: [
+        { accountId: 'acc-1', debitAmount: 10000, creditAmount: 0 },
+        { accountId: 'acc-2', debitAmount: 0, creditAmount: 10000 },
+      ],
+    };
+
+    await JournalService.postEntry(payload as any);
+
+    expect(getCache('journals:entries:page:1:limit:20')).toBeNull();
+    delete process.env.ENABLE_TEST_CACHE;
   });
 });

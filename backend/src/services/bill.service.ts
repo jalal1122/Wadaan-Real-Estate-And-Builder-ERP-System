@@ -220,6 +220,8 @@ export class BillService {
     bustCache('reports');
     bustCache('accounts');
     bustCache('ledger');
+    bustCache('journals');
+    bustCache('bills');
     return createdBillResult;
   }
 

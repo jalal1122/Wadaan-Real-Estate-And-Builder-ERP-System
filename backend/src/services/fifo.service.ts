@@ -263,6 +263,8 @@ export class FifoService {
     bustCache('ledger');
     bustCache('projects');
     bustCache('deals');
+    bustCache('vendors');
+    bustCache('journals');
     return result;
   }
 

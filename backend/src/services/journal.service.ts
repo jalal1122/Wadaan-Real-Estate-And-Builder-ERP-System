@@ -117,6 +117,7 @@ export class JournalService {
     bustCache('accounts');
     bustCache('ledger');
     bustCache('projects');
+    bustCache('journals');
     return result;
   }
 
@@ -195,6 +196,7 @@ export class JournalService {
     bustCache('accounts');
     bustCache('ledger');
     bustCache('projects');
+    bustCache('journals');
     return reversed;
   }
 
@@ -216,7 +218,10 @@ export class JournalService {
       prisma.journalEntry.findMany({
         skip,
         take: limit,
-        orderBy: { entryDate: 'desc' },
+        orderBy: [
+          { entryDate: 'desc' },
+          { entryNumber: 'desc' }
+        ],
         include: {
           lines: {
             include: {

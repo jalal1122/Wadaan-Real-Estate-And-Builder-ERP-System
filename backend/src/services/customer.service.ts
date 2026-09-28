@@ -2,7 +2,7 @@ import { prisma } from '../config/db';
 import { Decimal } from 'decimal.js';
 import { CreateCustomerInput } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
-import { getCache, setCache } from '../utils/cache.util';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class CustomerService {
   /**
@@ -172,12 +172,14 @@ export class CustomerService {
    * Creates a new customer with an initial 0.00 walletBalance.
    */
   static async createCustomer(data: CreateCustomerInput) {
-    return prisma.customer.create({
+    const customer = await prisma.customer.create({
       data: {
         fullName: data.fullName,
         phone: data.phone,
         walletBalance: 0
       }
     });
+    bustCache('customers');
+    return customer;
   }
 }

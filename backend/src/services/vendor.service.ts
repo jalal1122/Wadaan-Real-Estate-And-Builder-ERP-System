@@ -2,19 +2,21 @@ import Decimal from 'decimal.js';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { CreateVendorInput } from '../utils/validation.util';
-import { getCache, setCache } from '../utils/cache.util';
+import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class VendorService {
   /**
    * Adds a new supplier.
    */
   static async createVendor(data: CreateVendorInput) {
-    return await prisma.vendor.create({
+    const vendor = await prisma.vendor.create({
       data: {
         vendorName: data.vendorName,
         phone: data.phone || null
       }
     });
+    bustCache('vendors');
+    return vendor;
   }
 
   /**
