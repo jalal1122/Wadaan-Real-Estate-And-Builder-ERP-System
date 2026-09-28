@@ -46,11 +46,11 @@ export const authGuard = async (req: Request, res: Response, next: NextFunction)
 
     req.user = decoded;
 
-    // Sliding session: Re-issue refreshed JWT cookie on every active authenticated request
     const refreshedToken = CryptoUtility.generateJWT(decoded.userId);
+    const isSecure = Boolean(req.secure || process.env.COOKIE_SECURE === 'true');
     res.cookie('token', refreshedToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'strict',
       maxAge: SESSION_DURATION_MS
     });

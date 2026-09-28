@@ -52,9 +52,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const user = await AuthService.verifyCredentials(pin);
     const token = CryptoUtility.generateJWT(user.id);
 
+    const isSecure = Boolean(req.secure || process.env.COOKIE_SECURE === 'true');
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'strict',
       maxAge: SESSION_DURATION_MS
     });
