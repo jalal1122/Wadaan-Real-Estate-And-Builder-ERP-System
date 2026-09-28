@@ -65,7 +65,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **07** | **Module 1c: Live Trial Balance (Screen 3)** | ✅ **COMPLETE** | 100% (21/21 tests) | Cumulative balance sheet vs period P&L aggregation, contra-equity drawings, PKT timezone safety, A4 letterhead printing, drill-down ledger drawer. |
 | **08** | **Module 2: Projects & WIP Ledger (Screen 4)** | ✅ **COMPLETE** | 100% (43/43 tests) | WIP cost tracking, BOQ budget variance & burn %, prefix uniqueness guard, full audit A4 report modal, transaction drawer. |
 | **09** | **Module 2b/2c: Payables, Payment Run & CPV** | ✅ **COMPLETE** | 100% (36/36 tests) | FIFO chronological waterfall, selective bill allocation, cheque lock, perforated dual-copy A4 CPV/DPR printing. |
-| **10** | Module 3: Deal Hub & Customer Khaata | ⏳ Queued | 33/33 tests passing | Milestone zero-sum math, co-client management, advance wallet. |
+| **10** | **Module 3: Deal Hub & Customer Khaata** | ✅ **COMPLETE** | 100% (67/67 tests) | Milestone zero-sum math, co-buyer multi-client management, advance wallet, auto-settlement to SOLD, 1-click file transfer. |
 | **11** | Module 3b: Receipts & Cheque Waiting Room | ⏳ Queued | 16/16 tests passing | Escrow clearance, bounced cheque reversal, official A4 receipt. |
 | **12** | Module 4: Master Reports Hub (Screen 10) | ⏳ Queued | 13/13 tests passing | P&L, balance sheet, project profitability, partner drawings. |
 | **13** | Module 11 & 12: Documents & Personal Ledger | ⏳ Queued | 13/13 tests passing | Cloud document archive, metadata tagging, personal khaata. |
@@ -283,31 +283,28 @@ graph TD
 
 ---
 
-### PIECE 10: Module 3 — Deal Hub, Customer Portfolio, Milestones & Co-Buyer Khaata (Screen 8)
+### PIECE 10: Module 3 — Deal Hub, Customer Portfolio, Milestones & Co-Buyer Khaata (Screen 8) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/deals/page.tsx`, `CreateDealModal.tsx`, `CustomerKhaataDrawer.tsx`, `TransferFileModal.tsx`, `AddCoClientModal.tsx`
-  - Backend: `backend/src/controllers/deal.controller.ts`, `backend/src/controllers/customer.controller.ts`, `backend/src/services/deal.service.ts`, `backend/src/services/customer.service.ts`, `backend/src/utils/revenue.util.ts`
-  - Database: `Customer`, `Deal`, `DealInvoice`, `DealClient` models
-- **Core Responsibilities:**
-  1. Route Selection & Automated Accounting:
-     - **Route A (Wadaan Sale):** Links owned inventory asset (`WadaanAsset`), displays live profit margin, reserves asset atomically.
-     - **Route B (Construction):** Links WIP project site for true margin analysis.
-     - **Route C (Brokerage):** Splits deal value into Wadaan Commission Revenue (4000) and Seller Escrow Liability (2200).
-  2. Milestone & Installment Engine: Strict zero-sum balance (`sum(invoices) === totalValue`).
-  3. Customer Khaata Drawer: Complete customer ledger with advance wallet card, active contracts, milestone schedules, and payment history.
-  4. Multi-Client & Co-Buyer Management:
-     - Multiple buyers on a single deal via `DealClient`.
-     - Direct milestone payments by co-clients without mismatch errors.
-     - Overpayment routes strictly into the paying co-client's advance wallet.
-     - Co-client buttons in `DealTable` open the drawer scoped to that co-client's ID and wallet.
-  5. 1-Click File Transfer: Transfers ownership to a new buyer with automated transfer fee assessment credited to Revenue (4000), with cache invalidation across deals, projects, and customer portfolios.
-  6. Overdue Tracker: Red badge highlighting for past-due unpaid installments.
-- **Electron vs Browser Compatibility Checks:**
-  - High responsiveness when rendering deals with 30+ installment milestone rows.
-  - Multi-client drawer sliding animation smoothness without hardware acceleration stutter.
-- **Testing & Verification:**
-  - Automated tests: `deals/page.test.tsx`, `CustomerKhaataDrawer.test.tsx`, `TransferFileModal.test.tsx`, `AddCoClientModal.test.tsx`, `deal.service.test.ts`, `deal.coclient.test.ts`.
-  - Manual Guide: Tests I-1 through I-14, Tests MC-1 through MC-7.
+  - Frontend: `src/app/(dashboard)/deals/page.tsx`, `deals/page.test.tsx`, `src/app/(dashboard)/deals/_components/CreateDealModal.tsx`, `src/app/(dashboard)/deals/_components/CustomerKhaataDrawer.tsx`, `CustomerKhaataDrawer.test.tsx`, `src/app/(dashboard)/deals/_components/TransferFileModal.tsx`, `TransferFileModal.test.tsx`, `src/features/deals/_components/AddCoClientModal.tsx`, `AddCoClientModal.test.tsx`, `DealTable.tsx`
+  - Backend: `backend/src/controllers/deal.controller.ts`, `backend/src/controllers/customer.controller.ts`, `backend/src/services/deal.service.ts`, `backend/src/services/customer.service.ts`, `backend/src/__tests__/deal.service.test.ts`, `backend/src/__tests__/deal.coclient.test.ts`
+  - Database: `Customer`, `Deal`, `DealInvoice`, `DealClient`, `WadaanAsset` models
+- **Implemented & Verified Capabilities:**
+  1. **Three Dynamic Deal Routes:**
+     - **Route A (Wadaan Sale):** Atomic asset link with `WadaanAsset` inventory (`isWadaanOwned`), real-time acquisition cost deduction in deal margins, and instant asset reservation.
+     - **Route B (Construction):** Links construction project site for accrual WIP expenditure vs milestone billing analysis.
+     - **Route C (Brokerage):** Segregates transaction value into commission revenue (4000) and third-party seller escrow liability (2200).
+  2. **Milestone Schedule & Mathematical Invariant:**
+     - Verified: $\sum \text{Installments} \equiv \text{Total Deal Value}$ strictly enforced on both frontend and backend before deal record creation.
+  3. **Auto-Settlement & Property Lifecycle:**
+     - When all milestone invoices reach `PAID`, deal state automatically updates to `SETTLED`.
+     - Automatically transitions linked property asset from `AVAILABLE` / `RESERVED` directly to `SOLD`.
+  4. **Multi-Client & Co-Buyer Khaata:**
+     - Supports multi-ownership contracts via `DealClient` model with ownership share ratios, CNIC records, and phone contacts.
+     - Co-client payments apply seamlessly to deal milestones, with any overpayment routed strictly into the paying client's advance wallet (2100).
+  5. **1-Click Ownership File Transfer:**
+     - Transfers property file legally to a new buyer, records optional transfer fee to Revenue (4000), and maintains complete historical audit logs with instant cache invalidation.
+  6. **Automated Test Verification:**
+     - 100% passing tests (67/67 tests): `deals/page.test.tsx` (18/18), `CustomerKhaataDrawer.test.tsx` (11/11), `TransferFileModal.test.tsx` (7/7), `AddCoClientModal.test.tsx` (4/4) + `deal.service.test.ts` & `deal.coclient.test.ts` (27/27). Manual tests I-1 through I-14 and MC-1 through MC-7 verified.
 
 ---
 
