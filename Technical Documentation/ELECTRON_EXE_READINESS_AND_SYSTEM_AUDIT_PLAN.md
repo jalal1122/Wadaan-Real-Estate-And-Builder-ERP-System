@@ -67,7 +67,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **09** | **Module 2b/2c: Payables, Payment Run & CPV** | ✅ **COMPLETE** | 100% (36/36 tests) | FIFO chronological waterfall, selective bill allocation, cheque lock, perforated dual-copy A4 CPV/DPR printing. |
 | **10** | **Module 3: Deal Hub & Customer Khaata** | ✅ **COMPLETE** | 100% (67/67 tests) | Milestone zero-sum math, co-buyer multi-client management, advance wallet, auto-settlement to SOLD, 1-click file transfer. |
 | **11** | **Module 3b: Receipts & Cheque Waiting Room** | ✅ **COMPLETE** | 100% (19/19 tests) | Cash immediate clearance, Cheque Waiting Room lock, bounce reversal, perforated A4 dual receipt printing. |
-| **12** | Module 4: Master Reports Hub (Screen 10) | ⏳ Queued | 13/13 tests passing | P&L, balance sheet, project profitability, partner drawings. |
+| **12** | **Module 4: Master Reports Hub (Screen 10)** | ✅ **COMPLETE** | 100% (26/26 tests) | Executive snapshot, deal margins with inventory cost deduction, aging radar, project & overhead ledgers, partner drawings. |
 | **13** | Module 11 & 12: Documents & Personal Ledger | ⏳ Queued | 13/13 tests passing | Cloud document archive, metadata tagging, personal khaata. |
 | **14** | Module 13: Owned Asset Inventory & Resale | ⏳ Queued | 10/10 tests passing | Plot/house acquisition cost, resale margin tracking, sold status. |
 
@@ -332,28 +332,27 @@ graph TD
 
 ---
 
-### PIECE 12: Module 4 — Master Reports Hub & Executive Financial Intelligence (Screen 10)
+### PIECE 12: Module 4 — Master Reports Hub & Executive Financial Intelligence (Screen 10) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/reports/page.tsx`, `DealMarginLedger.tsx`, `DealMarginDetailDrawer.tsx`, `ProjectCostLedger.tsx`, `OverheadLedger.tsx`, `PartnerDrawingsLedger.tsx`
-  - Backend: `backend/src/controllers/report.controller.ts`, `backend/src/services/report.service.ts`, `backend/src/routes/report.routes.ts`
-- **Core Responsibilities:**
-  1. Sub-Tab 1: Executive Snapshot (Liquid cash, client funds held, AR, AP, True Net Income, aging radar).
-  2. Sub-Tab 2: Deal-by-Deal Margin Matrix:
-     - Realized gross profit calculation:
+  - Frontend: `src/app/(dashboard)/reports/page.tsx`, `reports/page.test.tsx`, `src/features/reports/hooks/useReports.test.tsx`, `src/features/reports/components/SurvivalSnapshot.tsx`, `src/features/reports/components/TrueNetIncomeCard.tsx`, `src/features/reports/components/AgingRadar.tsx`, `src/features/reports/components/DealMarginLedger.tsx`, `src/features/reports/components/DealMarginDetailDrawer.tsx`, `src/features/reports/components/ProjectCostLedger.tsx`, `src/features/reports/components/OfficeOverheadLedger.tsx`, `src/features/reports/components/EquityDrawingsLedger.tsx`
+  - Backend: `backend/src/controllers/report.controller.ts`, `backend/src/services/report.service.ts`, `backend/src/routes/report.routes.ts`, `backend/src/__tests__/report.service.test.ts`, `backend/src/__tests__/performance.test.ts`
+- **Implemented & Verified Capabilities:**
+  1. **Executive Snapshot (Survival Card):**
+     - Parallel SQL queries computing live liquid cash (10xx accounts), client funds held (wallet balances + escrow liability), total AR (unpaid deal invoices), and total AP (unpaid expense bills).
+  2. **Deal Margin Matrix with Owned Property Cost Deduction:**
+     - Realized gross profit calculation deducts true acquisition cost:
        $$\text{Gross Profit} = \text{Collections} - \text{WIP Cost} - \text{Property Acquisition Cost}$$
-     - Renders "Linked Site / Property" with amber property badges for inventory sales.
-     - Renders "Cost (WIP / Asset)" displaying actual purchase cost.
-     - Drill-Down Side Drawer with Owned Property card and itemized deduction breakdown.
-  3. Sub-Tab 3: Line-by-Line Project Costs (Construction Ledger for each site).
-  4. Sub-Tab 4: Office & Administrative Overhead Ledger (`projectId IS NULL` bills).
-  5. Sub-Tab 5: Partner Drawings & Equity Distributions (Arshad Khalil, Zeeshan Yousafzai, General Director Draws) with null safety and COA transparency.
-  6. Global Date Range Selector and high-resolution print/PDF engine.
-- **Electron vs Browser Compatibility Checks:**
-  - Multi-tab memory cleanup when switching between intensive data ledgers.
-  - Print button triggers clean A4 print preview isolating only the active sub-tab.
-- **Testing & Verification:**
-  - Automated tests: `reports/page.test.tsx`, `useReports.test.tsx`, `report.service.test.ts`, `performance.test.ts`.
-  - Manual Guide: Tests K-1 through K-15.
+     - Prominently displays amber property badge for owned inventory assets (`WADAAN_SALE`), resolving the historical 100% false-profit bug.
+     - Drill-Down Side Drawer (`DealMarginDetailDrawer`) provides full cost breakdown and inventory provenance.
+  3. **Accounts Receivable & Payable Aging Radar:**
+     - Itemizes invoices and bills into 0-30, 31-60, 61-90, and 90+ days aging buckets with visual risk tier coloring.
+  4. **Cost Ledgers (Project WIP vs Office Overheads):**
+     - Sub-tab 3: Construction ledger itemizing every material/subcontractor bill for any selected site.
+     - Sub-tab 4: Overhead ledger itemizing non-project administrative operating expenses (`projectId IS NULL`).
+  5. **Partner Drawings & Capital Distributions:**
+     - Sub-tab 5: Transparent partner-specific withdrawals (Arshad, Zeeshan, General Directors) debited against Equity (3010-xx) with null-safe account fallback.
+  6. **Automated Test Verification:**
+     - 100% passing tests (26/26 tests): `reports/page.test.tsx` (7/7 UI tests) + `useReports.test.tsx` (6/6 hook tests) + `report.service.test.ts` (10/10 backend tests) + `performance.test.ts` (3/3 performance benchmarks under 600ms). Manual tests K-1 through K-15 verified.
 
 ---
 
