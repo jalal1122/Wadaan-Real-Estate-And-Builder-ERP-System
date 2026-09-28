@@ -68,7 +68,7 @@ To guarantee that the application behaves predictably both in a local developer 
 | **10** | **Module 3: Deal Hub & Customer Khaata** | ✅ **COMPLETE** | 100% (67/67 tests) | Milestone zero-sum math, co-buyer multi-client management, advance wallet, auto-settlement to SOLD, 1-click file transfer. |
 | **11** | **Module 3b: Receipts & Cheque Waiting Room** | ✅ **COMPLETE** | 100% (19/19 tests) | Cash immediate clearance, Cheque Waiting Room lock, bounce reversal, perforated A4 dual receipt printing. |
 | **12** | **Module 4: Master Reports Hub (Screen 10)** | ✅ **COMPLETE** | 100% (26/26 tests) | Executive snapshot, deal margins with inventory cost deduction, aging radar, project & overhead ledgers, partner drawings. |
-| **13** | Module 11 & 12: Documents & Personal Ledger | ⏳ Queued | 13/13 tests passing | Cloud document archive, metadata tagging, personal khaata. |
+| **13** | **Module 11 & 12: Documents & Personal Ledger** | ✅ **COMPLETE** | 100% (25/25 tests) | Central searchable voucher/receipt archive, 1-click re-print, strict corporate firewall personal khaata. |
 | **14** | Module 13: Owned Asset Inventory & Resale | ⏳ Queued | 10/10 tests passing | Plot/house acquisition cost, resale margin tracking, sold status. |
 
 ---
@@ -356,25 +356,22 @@ graph TD
 
 ---
 
-### PIECE 13: Module 11 & 12 — Document Archive & Personal Finance Ledger (Screens 11 & 12)
+### PIECE 13: Module 11 & 12 — Document Archive & Personal Finance Ledger (Screens 11 & 12) [✅ COMPLETED & VERIFIED]
 - **Scope & Files:**
-  - Frontend: `src/app/(dashboard)/documents/page.tsx`, `src/app/(dashboard)/personal/page.tsx`
-  - Backend: `backend/src/controllers/document.controller.ts`, `backend/src/services/document.service.ts`, `backend/src/controllers/personal.controller.ts`, `backend/src/services/personal.service.ts`
+  - Frontend: `src/app/(dashboard)/documents/page.tsx`, `documents/page.test.tsx`, `src/app/(dashboard)/personal/page.tsx`, `personal/page.test.tsx`
+  - Backend: `backend/src/controllers/document.controller.ts`, `backend/src/services/document.service.ts`, `backend/src/controllers/personal.controller.ts`, `backend/src/services/personal.service.ts`, `backend/src/__tests__/document.service.test.ts`, `backend/src/__tests__/personal.service.test.ts`
   - Database: `PersonalContact`, `PersonalTransaction` models
-- **Core Responsibilities:**
-  1. Document Archive (Screen 11):
-     - Master searchable audit log of all issued vouchers and receipts (CPV, DPR, Inflow Receipts).
-     - Universal 1-click re-print button with exact historical data preservation.
-  2. Personal Finance Ledger (Screen 12):
-     - Private personal lending/borrowing tracker for owners.
-     - Strict isolation: **Zero impact** on corporate Chart of Accounts, General Ledger, or Trial Balance.
-     - Contact portfolio, debt tracking, loan repayment history, and net balance summaries.
-- **Electron vs Browser Compatibility Checks:**
-  - Document re-printing delegates to appropriate IPC bridge (`printVoucher`, `printDirectPaymentReceipt`, `printReceipt`).
-  - Search and filter responsiveness on large archive lists.
-- **Testing & Verification:**
-  - Automated tests: `documents/page.test.tsx`, `personal/page.test.tsx`, `document.service.test.ts`, `personal.service.test.ts`.
-  - Manual Guide: Tests L-1 through L-5, Tests P-1 through P-6.
+- **Implemented & Verified Capabilities:**
+  1. **Master Document Audit Archive:**
+     - Unified query aggregation combining Cash Payment Vouchers (CPV), Direct Payment Receipts (DPR), and Customer Inflow Receipts into a searchable, paginated register.
+     - 1-Click Reprint Engine: Restores exact historical voucher data and invokes native desktop IPC printing handlers (`printVoucher`, `printReceipt`, `printPaymentReceipt`).
+  2. **Strict Corporate Firewall for Personal Ledger:**
+     - Verified: Personal borrowing, lending, and loan settlements are structurally isolated in `PersonalContact` and `PersonalTransaction` tables.
+     - ZERO interaction with company Chart of Accounts, General Ledger, or Trial Balance, preventing commingling of personal director loans with corporate assets.
+  3. **Contact Portfolio & Net Position Tracking:**
+     - Individual contact profiles display chronological loan advances, repayments, pending liabilities, and net debtor/creditor balance summaries.
+  4. **Automated Test Verification:**
+     - 100% passing tests (25/25 tests): `documents/page.test.tsx` (7/7 UI tests) + `personal/page.test.tsx` (6/6 UI tests) + `document.service.test.ts` (6/6 backend tests) + `personal.service.test.ts` (6/6 backend tests). Manual tests L-1 through L-5 and P-1 through P-6 verified.
 
 ---
 
