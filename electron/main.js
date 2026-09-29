@@ -116,6 +116,7 @@ async function startBackend() {
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
 
+  let lastStderr = '';
   if (backendProcess.stdout) {
     backendProcess.stdout.on('data', (chunk) => {
       console.log(`[Backend API] ${chunk.toString().trim()}`);
@@ -124,7 +125,9 @@ async function startBackend() {
 
   if (backendProcess.stderr) {
     backendProcess.stderr.on('data', (chunk) => {
-      console.error(`[Backend ERR] ${chunk.toString().trim()}`);
+      const msg = chunk.toString().trim();
+      lastStderr = msg;
+      console.error(`[Backend ERR] ${msg}`);
     });
   }
 
@@ -136,7 +139,8 @@ async function startBackend() {
   console.log('[Electron Supervisor] Waiting for backend to become healthy...');
   const ready = await waitForServer(`${BACKEND_URL}/health`, 15000);
   if (!ready) {
-    throw new Error('Backend engine failed to respond within 15 seconds.');
+    const detail = lastStderr ? `\n\nProcess Output:\n${lastStderr}` : '';
+    throw new Error(`Backend engine failed to respond within 15 seconds.${detail}`);
   }
   console.log('[Electron Supervisor] Backend is healthy and ready.');
   return true;

@@ -79,8 +79,11 @@ if (fs.existsSync(frontendOutDir)) {
   console.log(`[Express] Mounting static frontend bundle from ${frontendOutDir}`);
   app.use(express.static(frontendOutDir, { extensions: ['html'] }));
 
-  // HTML5 History API fallback for client-side navigation
-  app.get('*', (req, res, next) => {
+  // HTML5 History API fallback for client-side navigation (Express 5 compatible)
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') {
+      return next();
+    }
     if (req.path.startsWith('/api/') || req.path === '/health') {
       return next();
     }
