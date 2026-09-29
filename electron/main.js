@@ -786,6 +786,8 @@ function generateReceiptHtml(receiptData) {
   </div>
 </body>
 </html>`;
+}
+
 /**
  * Generates an A4 dual-copy HTML document for Direct Payment Receipts (Screen 5).
  * Contains Payee / Vendor Copy (Original) and Wadaan Accounts Copy with perforated divider.
