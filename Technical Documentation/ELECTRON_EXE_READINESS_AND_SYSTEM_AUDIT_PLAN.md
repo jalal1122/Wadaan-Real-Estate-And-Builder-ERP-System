@@ -431,8 +431,8 @@ graph TD
 1. **Transfer Installer:** Copy `Wadaan-ERP-Setup-1.0.0.exe` via USB drive or network share to the client's laptop.
 2. **Execute Setup:** Double-click `Wadaan-ERP-Setup-1.0.0.exe`. The NSIS installer will guide the client through destination directory selection and automatically create Desktop and Start Menu shortcuts labeled **"Wadaan Real Estate & Builders ERP"**.
 3. **Launch & Supervisor Startup:** 
-   - Upon launching the shortcut, the Electron supervisor automatically initiates an embedded Express API process on loopback (`http://127.0.0.1:4000`), binds the local SQLite database via Prisma, loads the pre-compiled static Next.js SPA on `http://127.0.0.1:3000`, and displays the splash screen with brand logo.
-   - Dual-window single-instance locking ensures only one process runs at any time.
+   - Upon launching the shortcut, the Electron supervisor automatically initializes an embedded Express API engine in-process directly within the Node.js runtime on loopback (`http://127.0.0.1:4000`), binds the local SQLite database via Prisma, mounts and serves the static Next.js SPA, and displays the UI within seconds without external child process spawning or OS pipe latency.
+   - Dual-window single-instance locking ensures only one process runs at any time, restoring focus if launched again.
 4. **First-Time Setup / Login:**
    - If starting fresh, the system prompts for Setup (Initial Admin PIN creation).
    - If migrating existing data, the client enters their 4-to-6 digit Admin PIN.
