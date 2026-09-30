@@ -104,7 +104,7 @@ if (fs.existsSync(frontendOutDir)) {
 app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Wadaan ERP Backend running on http://localhost:${PORT}`);
   // Pre-warm single-tenant master administrator cache
   AuthService.getMasterAdmin().catch((err) => {
@@ -112,4 +112,5 @@ app.listen(PORT, () => {
   });
 });
 
+export { server };
 export default app;

@@ -70,13 +70,17 @@ async function waitForServer(url, maxTimeoutMs = 15000, intervalMs = 250) {
   return false;
 }
 
+let expressServer = null;
+
 /**
- * Supervised backend lifecycle manager. Spawns Express server in production.
+ * Supervised backend lifecycle manager.
+ * Loads the Express server in-process directly inside Electron's Node.js runtime,
+ * eliminating child-process fork/spawn overhead, single-instance conflicts, and OS pipe timeouts.
  */
 async function startBackend() {
-  const isAlive = await isServerAlive(`${BACKEND_URL}/health`, 800);
+  const isAlive = await isServerAlive(`${BACKEND_URL}/health`, 500);
   if (isAlive) {
-    console.log(`[Electron Supervisor] Backend is already responding on port ${BACKEND_PORT}.`);
+    console.log(`[Electron Supervisor] Backend is already active on port ${BACKEND_PORT}.`);
     return true;
   }
 
@@ -86,9 +90,11 @@ async function startBackend() {
   if (app.isPackaged) {
     serverScript = path.join(process.resourcesPath, 'backend', 'dist', 'server.js');
     backendCwd = path.join(process.resourcesPath, 'backend');
+    process.env.FRONTEND_STATIC_PATH = path.join(process.resourcesPath, 'frontend', 'out');
   } else {
     serverScript = path.resolve(__dirname, '../backend/dist/server.js');
     backendCwd = path.resolve(__dirname, '../backend');
+    process.env.FRONTEND_STATIC_PATH = path.resolve(__dirname, '../frontend/out');
   }
 
   if (!fs.existsSync(serverScript)) {
@@ -100,70 +106,44 @@ async function startBackend() {
     throw new Error(`Executable core missing at: ${serverScript}`);
   }
 
-  const frontendStaticPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'frontend', 'out')
-    : path.resolve(__dirname, '../frontend/out');
+  process.env.PORT = String(BACKEND_PORT);
+  process.env.NODE_ENV = isDev ? 'development' : 'production';
 
-  console.log(`[Electron Supervisor] Spawning backend supervisor at ${serverScript}...`);
-  backendProcess = fork(serverScript, [], {
-    cwd: backendCwd,
-    env: {
-      ...process.env,
-      PORT: String(BACKEND_PORT),
-      NODE_ENV: isDev ? 'development' : 'production',
-      FRONTEND_STATIC_PATH: frontendStaticPath,
-    },
-    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-  });
-
-  let lastStderr = '';
-  if (backendProcess.stdout) {
-    backendProcess.stdout.on('data', (chunk) => {
-      console.log(`[Backend API] ${chunk.toString().trim()}`);
-    });
+  try {
+    process.chdir(backendCwd);
+  } catch (err) {
+    console.warn('[Electron Supervisor] Could not chdir to backendCwd:', err.message);
   }
 
-  if (backendProcess.stderr) {
-    backendProcess.stderr.on('data', (chunk) => {
-      const msg = chunk.toString().trim();
-      lastStderr = msg;
-      console.error(`[Backend ERR] ${msg}`);
-    });
+  console.log(`[Electron Supervisor] Initializing embedded backend engine from ${serverScript}...`);
+  try {
+    const serverModule = require(serverScript);
+    expressServer = serverModule.server || serverModule.default || serverModule;
+    console.log('[Electron Supervisor] Embedded backend engine initialized successfully.');
+  } catch (requireErr) {
+    console.error('[Electron Supervisor] Direct initialization error:', requireErr);
+    throw new Error(`Backend startup error: ${requireErr.message}`);
   }
 
-  backendProcess.on('exit', (code, signal) => {
-    console.log(`[Electron Supervisor] Backend exited with code ${code}, signal ${signal}`);
-    backendProcess = null;
-  });
-
-  console.log('[Electron Supervisor] Waiting for backend to become healthy...');
-  const ready = await waitForServer(`${BACKEND_URL}/health`, 15000);
+  console.log('[Electron Supervisor] Verifying backend engine readiness...');
+  const ready = await waitForServer(`${BACKEND_URL}/health`, 8000);
   if (!ready) {
-    const detail = lastStderr ? `\n\nProcess Output:\n${lastStderr}` : '';
-    throw new Error(`Backend engine failed to respond within 15 seconds.${detail}`);
+    throw new Error('Backend engine initialized but failed health verification within 8 seconds.');
   }
   console.log('[Electron Supervisor] Backend is healthy and ready.');
   return true;
 }
 
 /**
- * Cleanly terminates child backend process to avoid orphaned processes.
+ * Gracefully shuts down embedded server upon application quit.
  */
 function stopBackend() {
-  if (backendProcess && !backendProcess.killed) {
-    console.log('[Electron Supervisor] Terminating backend process...');
+  if (expressServer && typeof expressServer.close === 'function') {
+    console.log('[Electron Supervisor] Closing embedded server...');
     try {
-      if (process.platform === 'win32') {
-        execSync(`taskkill /pid ${backendProcess.pid} /T /F`);
-      } else {
-        backendProcess.kill('SIGTERM');
-      }
-    } catch {
-      try {
-        backendProcess.kill('SIGKILL');
-      } catch {}
-    }
-    backendProcess = null;
+      expressServer.close();
+    } catch {}
+    expressServer = null;
   }
 }
 
