@@ -66,6 +66,8 @@ export interface ProjectTransactionsResponse {
   transactions: ProjectTransactionItem[];
 }
 
+export type ProjectPaymentMethod = 'CASH' | 'CHEQUE' | 'ONLINE' | 'WALLET' | string;
+
 export interface ProjectReportClientPayment {
   invoiceDescription: string;
   dueDate: string;
@@ -73,7 +75,7 @@ export interface ProjectReportClientPayment {
   amount: number | string;
   paidAmount: number | string;
   paymentStatus: string;
-  paymentMethod: string | null;
+  paymentMethod: ProjectPaymentMethod | null;
   bankRefNumber: string | null;
   paidByCustomerName: string | null;
 }
