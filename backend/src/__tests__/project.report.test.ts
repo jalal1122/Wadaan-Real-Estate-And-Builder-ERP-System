@@ -335,4 +335,64 @@ describe('ProjectService.getProjectReport', () => {
     expect(report.summary.budgetVariance.toString()).toBe('5000000');
     expect(report.summary.isOverBudget).toBe(false);
   });
+
+  test('6. attributes wallet advance payments with paymentMethod "WALLET" and payer name', async () => {
+    const mockProject = {
+      id: 'proj-wallet',
+      projectName: 'Wadaan Heights',
+      projectPrefix: 'WH',
+      masterBOQ: new Decimal(10000000),
+      createdAt: new Date('2026-01-01'),
+      expenseBills: [],
+      journalLines: [],
+    };
+
+    const mockDeals = [
+      {
+        id: 'deal-1',
+        projectId: 'proj-wallet',
+        customerId: 'cust-primary',
+        dealType: 'CONSTRUCTION',
+        totalValue: new Decimal(5000000),
+        customer: {
+          id: 'cust-primary',
+          fullName: 'Tariq Khan',
+          phone: '0300-1111111',
+        },
+        invoices: [
+          {
+            id: 'inv-wallet-1',
+            dealId: 'deal-1',
+            description: 'Foundation Advance Milestone',
+            dueDate: new Date('2026-02-01'),
+            amount: new Decimal(500000),
+            paidAmount: new Decimal(500000),
+            paymentStatus: 'PAID',
+            receiptId: null,
+            walletPayerId: 'cust-payer-2',
+            receipt: null,
+            walletPayer: {
+              fullName: 'Asim Munir (Co-Client)',
+            },
+          },
+        ],
+      },
+    ];
+
+    (mockPrisma.project.findUnique as jest.Mock).mockResolvedValue(mockProject);
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.deal.findMany as jest.Mock).mockResolvedValue(mockDeals);
+    (mockPrisma.journalLine.findMany as jest.Mock).mockResolvedValue([]);
+
+    const report = await ProjectService.getProjectReport('proj-wallet');
+
+    expect(report.clientReceipts).toHaveLength(1);
+    const client = report.clientReceipts[0];
+    expect(client.payments).toHaveLength(1);
+    const payment = client.payments[0];
+    expect(payment.paymentMethod).toBe('WALLET');
+    expect(payment.paidByCustomerName).toBe('Asim Munir (Co-Client)');
+    expect(payment.paidAmount.toString()).toBe('500000');
+    expect(report.grandTotalFromClients.toString()).toBe('500000');
+  });
 });
