@@ -34,6 +34,7 @@ export const useExecutePaymentRun = () => {
       queryClient.invalidateQueries({ queryKey: ['vendor-unpaid', variables.vendorId] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['bills'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
