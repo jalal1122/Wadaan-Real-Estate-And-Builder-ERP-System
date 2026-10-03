@@ -172,6 +172,10 @@ vi.mock('@/features/customers/hooks/useCustomers', () => ({
     mutateAsync: mockCreateCustomerMutate,
     isPending: false,
   }),
+  useUpdateCustomer: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
   useApplyCustomerWallet: () => ({
     mutateAsync: mockApplyWalletMutate,
     isPending: false,
@@ -639,5 +643,18 @@ describe('Screen 8: Deal Hub & Customer Portfolio (DealHubPage)', () => {
     const hookSource = (await import('@/features/deals/hooks/useDeals?raw' as any)).default as string;
     expect(hookSource).toContain("queryKey: ['assets']");
   });
+
+  it('19. DealTable renders prominent "Edit Client" action button and opens EditCustomerModal', () => {
+    render(<DealHubPage />);
+
+    const editClientBtn = screen.getByTestId('btn-edit-client-deal-sale-1');
+    expect(editClientBtn).toBeInTheDocument();
+    expect(editClientBtn).toHaveTextContent('Edit Client');
+
+    fireEvent.click(editClientBtn);
+    expect(screen.getByTestId('edit-customer-modal')).toBeInTheDocument();
+    expect(screen.getByText('Edit Client Profile')).toBeInTheDocument();
+  });
 });
+
 

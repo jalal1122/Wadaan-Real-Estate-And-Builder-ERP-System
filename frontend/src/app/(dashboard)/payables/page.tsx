@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import { RecordBillPanel } from '@/components/payables/RecordBillPanel';
 import { PaymentRunPanel } from '@/components/payables/PaymentRunPanel';
-import { Receipt, Banknote } from 'lucide-react';
+import { VendorsDirectoryPanel } from '@/components/payables/VendorsDirectoryPanel';
+import { Receipt, Banknote, Users } from 'lucide-react';
 
-type PayablesTab = 'bill' | 'payment';
+type PayablesTab = 'bill' | 'payment' | 'vendors';
 
 export default function PayablesPage() {
   const [activeTab, setActiveTab] = useState<PayablesTab>('bill');
@@ -21,7 +22,9 @@ export default function PayablesPage() {
           <p className="text-sm text-slate-500 mt-0.5">
             {activeTab === 'bill'
               ? 'Log supplier invoices, assign WIP capitalization, and post directly to General Ledger.'
-              : 'Execute strict FIFO vendor payment runs, enforce cheque lock, and generate payment vouchers.'}
+              : activeTab === 'payment'
+              ? 'Execute strict FIFO vendor payment runs, enforce cheque lock, and generate payment vouchers.'
+              : 'Directory of suppliers, contact information, phone numbers, and live outstanding debt.'}
           </p>
         </div>
 
@@ -30,7 +33,7 @@ export default function PayablesPage() {
           <button
             type="button"
             onClick={() => setActiveTab('bill')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               activeTab === 'bill'
                 ? 'bg-white text-[#0F172A] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -42,7 +45,7 @@ export default function PayablesPage() {
           <button
             type="button"
             onClick={() => setActiveTab('payment')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               activeTab === 'payment'
                 ? 'bg-white text-[#0F172A] shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -51,11 +54,30 @@ export default function PayablesPage() {
             <Banknote className="w-4 h-4" />
             Payment Run
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('vendors')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'vendors'
+                ? 'bg-white text-[#0F172A] shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+            data-testid="tab-vendors"
+          >
+            <Users className="w-4 h-4" />
+            Manage Vendors
+          </button>
         </div>
       </div>
 
       {/* Tab Panels */}
-      {activeTab === 'bill' ? <RecordBillPanel /> : <PaymentRunPanel />}
+      {activeTab === 'bill' ? (
+        <RecordBillPanel />
+      ) : activeTab === 'payment' ? (
+        <PaymentRunPanel />
+      ) : (
+        <VendorsDirectoryPanel />
+      )}
     </div>
   );
 }

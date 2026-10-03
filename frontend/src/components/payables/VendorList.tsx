@@ -122,14 +122,16 @@ export const VendorList: React.FC<VendorListProps> = ({
                   </div>
                   <button
                     type="button"
-                    title="Edit Vendor"
+                    title={`Edit ${vendor.vendorName}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingVendor(vendor);
                     }}
-                    className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
+                    data-testid={`edit-vendor-list-btn-${vendor.id}`}
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="w-3 h-3" />
+                    <span>Edit</span>
                   </button>
                 </div>
               </div>

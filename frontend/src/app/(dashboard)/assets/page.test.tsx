@@ -159,4 +159,28 @@ describe('AssetInventoryPage Component (/assets)', () => {
     expect(screen.getByTestId('reacquire-asset-modal')).toBeInTheDocument();
     expect(screen.getByText('Re-acquire Property')).toBeInTheDocument();
   });
+
+  // AP-5
+  it('AP-5: renders prominent Edit button for AVAILABLE assets and opens EditAssetModal', () => {
+    render(<AssetInventoryPage />);
+
+    const editBtn = screen.getByTestId('edit-asset-btn-asset-1');
+    expect(editBtn).toBeInTheDocument();
+    expect(editBtn).toHaveTextContent('Edit');
+
+    fireEvent.click(editBtn);
+    expect(screen.getByTestId('edit-asset-modal')).toBeInTheDocument();
+    expect(screen.getByText('Edit Asset Details')).toBeInTheDocument();
+  });
+
+  // AP-6
+  it('AP-6: renders disabled Edit (Locked) button for RESERVED assets', () => {
+    render(<AssetInventoryPage />);
+
+    const lockedBtn = screen.getByTestId('edit-asset-btn-asset-2-disabled');
+    expect(lockedBtn).toBeInTheDocument();
+    expect(lockedBtn).toHaveTextContent('Edit (Locked)');
+    expect(lockedBtn).toBeDisabled();
+  });
 });
+

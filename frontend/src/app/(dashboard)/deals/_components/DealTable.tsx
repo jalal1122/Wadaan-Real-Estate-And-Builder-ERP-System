@@ -16,8 +16,10 @@ import {
   AlertCircle,
   AlertTriangle,
   Users,
+  Pencil,
 } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton';
+import { EditCustomerModal } from './EditCustomerModal';
 
 interface DealTableProps {
   deals: Deal[];
@@ -35,6 +37,11 @@ export const DealTable: React.FC<DealTableProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | DealType>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNPAID' | 'SETTLED'>('ALL');
+  const [editingCustomer, setEditingCustomer] = useState<{
+    id: string;
+    fullName: string;
+    phone?: string | null;
+  } | null>(null);
 
   const filteredDeals = useMemo(() => {
     if (!deals) return [];
@@ -245,14 +252,25 @@ export const DealTable: React.FC<DealTableProps> = ({
 
                     {/* Customer */}
                     <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onSelectCustomer(deal.customerId)}
-                        className="text-left font-semibold text-[#0F172A] hover:text-[#059669] hover:underline"
-                        data-testid={`client-link-${deal.customerId}`}
-                      >
-                        {deal.customer.fullName}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onSelectCustomer(deal.customerId)}
+                          className="text-left font-semibold text-[#0F172A] hover:text-[#059669] hover:underline"
+                          data-testid={`client-link-${deal.customerId}`}
+                        >
+                          {deal.customer.fullName}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingCustomer(deal.customer)}
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                          title={`Edit ${deal.customer.fullName} Profile`}
+                          data-testid={`edit-client-icon-${deal.customerId}`}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </div>
                       <div className="text-[10px] text-slate-400">
                         {deal.customer.phone}
                         {Number(deal.customer.walletBalance) > 0 && (
@@ -356,7 +374,7 @@ export const DealTable: React.FC<DealTableProps> = ({
                         <button
                           type="button"
                           onClick={() => onSelectCustomer(deal.customerId)}
-                          className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors inline-flex items-center gap-1"
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer"
                           title="Open Customer Khaata"
                           data-testid={`btn-khaata-${deal.id}`}
                         >
@@ -364,8 +382,17 @@ export const DealTable: React.FC<DealTableProps> = ({
                         </button>
                         <button
                           type="button"
+                          onClick={() => setEditingCustomer(deal.customer)}
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                          title={`Edit ${deal.customer.fullName} details`}
+                          data-testid={`btn-edit-client-${deal.id}`}
+                        >
+                          <Pencil className="w-3 h-3 text-blue-600" /> Edit Client
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => onTransferDeal(deal)}
-                          className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors inline-flex items-center gap-1"
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer"
                           title="Transfer File Ownership"
                           data-testid={`btn-transfer-${deal.id}`}
                         >
@@ -380,6 +407,13 @@ export const DealTable: React.FC<DealTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Edit Customer Modal */}
+      <EditCustomerModal
+        customer={editingCustomer}
+        isOpen={!!editingCustomer}
+        onClose={() => setEditingCustomer(null)}
+      />
     </div>
   );
 };

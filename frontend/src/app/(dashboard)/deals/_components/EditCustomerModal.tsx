@@ -4,7 +4,7 @@ import { Customer } from '@/features/customers/types';
 import { X, User, AlertCircle, Loader2 } from 'lucide-react';
 
 interface EditCustomerModalProps {
-  customer: { id: string; fullName: string; phone: string } | null;
+  customer: { id: string; fullName: string; phone?: string | null } | null;
   isOpen: boolean;
   onClose: () => void;
   onCustomerUpdated?: (customer: Customer) => void;
@@ -73,7 +73,10 @@ export const EditCustomerModal: React.FC<EditCustomerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+      data-testid="edit-customer-modal"
+    >
       <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2">

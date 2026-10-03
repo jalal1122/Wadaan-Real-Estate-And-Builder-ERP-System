@@ -361,7 +361,20 @@ export default function AssetInventoryPage() {
                       data-testid={`asset-row-${asset.id}`}
                     >
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900">{asset.assetTitle}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900">{asset.assetTitle}</span>
+                          {asset.status === 'AVAILABLE' && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingAsset(asset)}
+                              title="Edit Asset Details"
+                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                              data-testid={`inline-edit-asset-${asset.id}`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                         {asset.description && (
                           <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
                             {asset.description}
@@ -409,14 +422,27 @@ export default function AssetInventoryPage() {
                               <span>Re-acquire</span>
                             </button>
                           )}
-                          {asset.status === 'AVAILABLE' && (
+                          {asset.status === 'AVAILABLE' ? (
                             <button
+                              type="button"
                               onClick={() => setEditingAsset(asset)}
                               title="Edit Asset Details"
-                              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors shadow-2xs"
                               data-testid={`edit-asset-btn-${asset.id}`}
                             >
-                              <Pencil className="w-4 h-4" />
+                              <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Edit</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title={`Asset is currently ${asset.status.toLowerCase()} and linked to a deal; financial details are locked`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
+                              data-testid={`edit-asset-btn-${asset.id}-disabled`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Edit (Locked)</span>
                             </button>
                           )}
                           {asset.status === 'AVAILABLE' ? (

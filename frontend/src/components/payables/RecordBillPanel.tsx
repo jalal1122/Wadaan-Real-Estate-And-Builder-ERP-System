@@ -5,10 +5,13 @@ import { useChartOfAccounts } from '@/features/accounting/hooks/useAccounting';
 import { useCreateBill } from '@/features/bills/hooks/useBills';
 import { PaymentType } from '@/features/bills/types';
 import { CreateVendorModal } from './CreateVendorModal';
+import { EditVendorModal } from './EditVendorModal';
+import { VendorItem } from '@/features/vendors/types';
 import { LineItemRow, LineItemState } from './LineItemRow';
 import { formatPKR } from '@/lib/formatters';
 import {
   Plus,
+  Pencil,
   Building2,
   AlertCircle,
   AlertTriangle,
@@ -39,9 +42,14 @@ export const RecordBillPanel: React.FC = () => {
 
   // Modal state
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<VendorItem | null>(null);
 
   // Form states
   const [selectedVendorId, setSelectedVendorId] = useState('');
+  const selectedVendor = useMemo(
+    () => vendors.find((v) => v.id === selectedVendorId) || null,
+    [vendors, selectedVendorId]
+  );
   const [selectedProjectId, setSelectedProjectId] = useState<string>(''); // '' means null / overhead
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [billDate, setBillDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -293,14 +301,28 @@ export const RecordBillPanel: React.FC = () => {
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
                   Vendor / Supplier *
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setIsVendorModalOpen(true)}
-                  className="text-xs font-medium text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  New Vendor
-                </button>
+                <div className="flex items-center gap-2">
+                  {selectedVendor && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingVendor(selectedVendor)}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200 transition-colors"
+                      title="Edit selected vendor name and contact details"
+                      data-testid="edit-selected-vendor-btn"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Edit Vendor
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsVendorModalOpen(true)}
+                    className="text-xs font-medium text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Vendor
+                  </button>
+                </div>
               </div>
               <select
                 aria-label="Vendor / Supplier"
@@ -605,6 +627,13 @@ export const RecordBillPanel: React.FC = () => {
         isOpen={isVendorModalOpen}
         onClose={() => setIsVendorModalOpen(false)}
         onVendorCreated={(v) => setSelectedVendorId(v.id)}
+      />
+
+      {/* Inline Edit Vendor Modal */}
+      <EditVendorModal
+        vendor={editingVendor}
+        isOpen={!!editingVendor}
+        onClose={() => setEditingVendor(null)}
       />
     </div>
   );
