@@ -352,6 +352,34 @@ export const CreateBillSchema = z
 
 export type CreateBillInput = z.infer<typeof CreateBillSchema>;
 
+export const UpdateBillSchema = z
+  .object({
+    invoiceNumber: z.string().min(1, 'Invoice number cannot be empty').optional(),
+    billDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'billDate must be a valid date'
+      })
+      .optional(),
+    projectId: z.string().uuid('Invalid project ID format').optional().nullable(),
+    lineItems: z
+      .array(CreateBillLineItemSchema)
+      .min(1, 'At least one line item is required')
+      .optional()
+  })
+  .refine(
+    (data) =>
+      data.invoiceNumber !== undefined ||
+      data.billDate !== undefined ||
+      data.projectId !== undefined ||
+      data.lineItems !== undefined,
+    {
+      message: 'At least one field must be provided for update'
+    }
+  );
+
+export type UpdateBillInput = z.infer<typeof UpdateBillSchema>;
+
 export const InvoiceAllocationItemSchema = z.object({
   billId: z.string().uuid('Invalid bill ID format'),
   amount: z
@@ -401,6 +429,41 @@ export const CreatePaymentSchema = z
   );
 
 export type CreatePaymentInput = z.infer<typeof CreatePaymentSchema>;
+
+export const UpdatePaymentSchema = z
+  .object({
+    paymentDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'paymentDate must be a valid date'
+      })
+      .optional(),
+    sourceAccountId: z.string().uuid('Invalid source account ID format').optional(),
+    chequeRef: z.string().optional().nullable(),
+    transactionId: z.string().optional().nullable(),
+    amountPaid: z
+      .union([
+        z.number().positive('amountPaid must be greater than 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'amountPaid must be a positive number')
+      ])
+      .refine((val) => new Decimal(val).gt(0), {
+        message: 'amountPaid must be greater than 0'
+      })
+      .optional()
+  })
+  .refine(
+    (data) =>
+      data.paymentDate !== undefined ||
+      data.sourceAccountId !== undefined ||
+      data.chequeRef !== undefined ||
+      data.transactionId !== undefined ||
+      data.amountPaid !== undefined,
+    {
+      message: 'At least one field must be provided for update'
+    }
+  );
+
+export type UpdatePaymentInput = z.infer<typeof UpdatePaymentSchema>;
 
 // ==========================================
 // MODULE 3: RECEIVABLES & REVENUE SCHEMAS

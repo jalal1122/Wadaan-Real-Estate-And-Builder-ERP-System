@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import { PaymentStatus } from '@prisma/client';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { CreatePaymentInput } from '../utils/validation.util';
+import { CreatePaymentInput, UpdatePaymentInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
 import { bustCache } from '../utils/cache.util';
 
@@ -300,5 +300,186 @@ export class FifoService {
     }
 
     return payment;
+  }
+
+  /**
+   * Updates a posted Vendor Payment.
+   * Supports modifying paymentDate, sourceAccountId (disbursement safe/bank),
+   * chequeRef / transactionId, and amountPaid.
+   * Synchronizes the linked General Ledger journal entry and adjusts bill pending balances.
+   */
+  static async updatePayment(id: string, data: UpdatePaymentInput) {
+    const existingPayment = await prisma.vendorPayment.findUnique({
+      where: { id },
+      include: { vendor: true }
+    });
+
+    if (!existingPayment) {
+      throw new AppError(`Vendor payment with ID '${id}' not found`, 404, 'PAYMENT_NOT_FOUND');
+    }
+
+    if (data.sourceAccountId) {
+      const acc = await prisma.account.findUnique({ where: { id: data.sourceAccountId } });
+      if (!acc) {
+        throw new AppError('Source account not found', 404, 'ACCOUNT_NOT_FOUND');
+      }
+      if (acc.category !== 'ASSET') {
+        throw new AppError('Source account must be an ASSET account', 400, 'INVALID_ACCOUNT_CATEGORY');
+      }
+    }
+
+    const updatedDate = data.paymentDate ? new Date(data.paymentDate) : existingPayment.paymentDate;
+    const updatedSourceAccountId = data.sourceAccountId || existingPayment.sourceAccountId;
+    const updatedChequeRef = data.chequeRef !== undefined ? data.chequeRef : existingPayment.chequeRef;
+    const updatedTransactionId = data.transactionId !== undefined ? data.transactionId : existingPayment.transactionId;
+    const oldAmount = new Decimal(existingPayment.amountPaid);
+    const newAmount = data.amountPaid !== undefined ? new Decimal(data.amountPaid) : oldAmount;
+    const diff = newAmount.minus(oldAmount);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // If amount changed:
+      if (diff.gt(0)) {
+        // Paying more: apply diff to oldest unpaid bills for this vendor
+        let pool = new Decimal(diff);
+        const unpaidBills = await tx.expenseBill.findMany({
+          where: {
+            vendorId: existingPayment.vendorId,
+            pendingAmount: { gt: 0 }
+          },
+          orderBy: { billDate: 'asc' }
+        });
+
+        for (const bill of unpaidBills) {
+          if (pool.lte(0)) break;
+          const pending = new Decimal(bill.pendingAmount);
+          const deduct = Decimal.min(pool, pending);
+          const remainingPending = pending.minus(deduct);
+          const status = remainingPending.eq(0) ? PaymentStatus.PAID : PaymentStatus.PARTIAL;
+
+          await tx.expenseBill.update({
+            where: { id: bill.id },
+            data: {
+              pendingAmount: remainingPending,
+              paymentStatus: status
+            }
+          });
+          pool = pool.minus(deduct);
+        }
+      } else if (diff.lt(0)) {
+        // Paying less: restore abs(diff) to the most recently settled bills for this vendor
+        let returnPool = diff.abs();
+        const settledBills = await tx.expenseBill.findMany({
+          where: {
+            vendorId: existingPayment.vendorId
+          },
+          orderBy: { billDate: 'desc' }
+        });
+
+        for (const bill of settledBills) {
+          if (returnPool.lte(0)) break;
+          const grandTotal = new Decimal(bill.grandTotal);
+          const pending = new Decimal(bill.pendingAmount);
+          const roomToRestore = grandTotal.minus(pending);
+          if (roomToRestore.lte(0)) continue;
+
+          const restore = Decimal.min(returnPool, roomToRestore);
+          const newPending = pending.plus(restore);
+          const status = newPending.eq(grandTotal)
+            ? PaymentStatus.UNPAID
+            : PaymentStatus.PARTIAL;
+
+          await tx.expenseBill.update({
+            where: { id: bill.id },
+            data: {
+              pendingAmount: newPending,
+              paymentStatus: status
+            }
+          });
+          returnPool = returnPool.minus(restore);
+        }
+      }
+
+      // Update payment record
+      const updatedPayment = await tx.vendorPayment.update({
+        where: { id },
+        data: {
+          paymentDate: updatedDate,
+          sourceAccountId: updatedSourceAccountId,
+          chequeRef: updatedChequeRef,
+          transactionId: updatedTransactionId,
+          amountPaid: newAmount
+        },
+        include: {
+          vendor: true
+        }
+      });
+
+      // Synchronize linked Journal Entry
+      const linkedJournal = await tx.journalEntry.findFirst({
+        where: {
+          description: {
+            contains: `Vendor Payment to ${existingPayment.vendor.vendorName}`
+          },
+          lines: {
+            some: {
+              accountId: existingPayment.sourceAccountId,
+              creditAmount: oldAmount
+            }
+          }
+        },
+        include: {
+          lines: true
+        }
+      });
+
+      if (linkedJournal) {
+        const refNote = updatedTransactionId
+          ? ` (Online: ${updatedTransactionId})`
+          : updatedChequeRef
+          ? ` (Cheque: ${updatedChequeRef})`
+          : '';
+        const newJournalDesc = `Vendor Payment to ${existingPayment.vendor.vendorName}${refNote}`;
+
+        await tx.journalEntry.update({
+          where: { id: linkedJournal.id },
+          data: {
+            entryDate: updatedDate,
+            description: newJournalDesc
+          }
+        });
+
+        for (const line of linkedJournal.lines) {
+          const isDebit = new Decimal(line.debitAmount).gt(0);
+          if (isDebit) {
+            // Debit line: AP 2000
+            await tx.journalLine.update({
+              where: { id: line.id },
+              data: {
+                debitAmount: newAmount
+              }
+            });
+          } else {
+            // Credit line: Source account
+            await tx.journalLine.update({
+              where: { id: line.id },
+              data: {
+                accountId: updatedSourceAccountId,
+                creditAmount: newAmount
+              }
+            });
+          }
+        }
+      }
+
+      return updatedPayment;
+    }, { maxWait: 10000, timeout: 30000 });
+
+    bustCache('bills');
+    bustCache('vendors');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
+    bustCache('journals');
+    return result;
   }
 }

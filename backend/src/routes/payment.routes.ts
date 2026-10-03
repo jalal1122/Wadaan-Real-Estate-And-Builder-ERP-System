@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   processPaymentRun,
   getAllPayments,
-  getPaymentById
+  getPaymentById,
+  updatePayment
 } from '../controllers/payment.controller';
 import { authGuard } from '../middleware/authGuard';
 
@@ -17,5 +18,7 @@ router.get('/vendor', getAllPayments);
 router.get('/', getAllPayments);
 router.get('/vendor/:id', getPaymentById);
 router.get('/:id', getPaymentById);
+router.put('/vendor/:id', updatePayment);
+router.put('/:id', updatePayment);
 
 export default router;

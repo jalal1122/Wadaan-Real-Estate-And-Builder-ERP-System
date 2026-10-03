@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PaymentStatus } from '@prisma/client';
 import { BillService } from '../services/bill.service';
-import { CreateBillSchema } from '../utils/validation.util';
+import { CreateBillSchema, UpdateBillSchema } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
 export const createBill = async (req: Request, res: Response, next: NextFunction) => {
@@ -62,3 +62,27 @@ export const getBillById = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+export const updateBill = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const parseResult = UpdateBillSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const updated = await BillService.updateBill(id, parseResult.data);
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Expense bill updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

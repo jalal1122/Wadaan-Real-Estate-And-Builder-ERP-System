@@ -45,5 +45,28 @@ When you click "Execute Payment & Print Receipt", the system automatically:
 5. Blocks overpayments exceeding outstanding vendor debt or exceeding individual bill pending balances.
 6. Vendor Profile Edits (Name and Phone) update display details across payment receipts and aging lists without altering historical payment allocations or FIFO cascade order.
 
-This concludes Module 2: Outflow Engine (Enhanced v3.1.0).
+---
+
+## 6. Payment Run History & Payment Editing (`EditPaymentModal`) [v3.3.0]
+
+- **Route / Tab**: `/payables` (Tab: "Payment History", `PaymentHistoryPanel.tsx`)
+- **Key Metrics & KPIs**: Total Disbursements count, Cumulative Capital Disbursed, Issued Cheque payments count, and Online Wire / Direct Cash settlements count.
+- **Filtering & Search**:
+  - Filter by specific supplier or view all suppliers.
+  - Live text search matching vendor name, cheque number, or wire transfer reference.
+- **Editing Workflow (`EditPaymentModal.tsx`)**:
+  - Accessible via the **Edit Payment** button on each payment disbursement record in the Payment History table.
+  - **Editable Attributes**:
+    - **Payment Date (`paymentDate`)**: Modifiable date.
+    - **Source Account (`sourceAccountId`)**: Modify disbursement asset account (e.g. switch between Bank Accounts or Cash in Safe). Validated to enforce `ASSET` category.
+    - **Cheque Reference (`chequeRef`)**: Update physical cheque tracking number.
+    - **Online Transaction ID (`transactionId`)**: Update electronic fund transfer / wire confirmation reference.
+    - **Amount Paid (`amountPaid`)**: Adjust disbursed sum.
+  - **FIFO & Ledger Automatic Rebalancing**:
+    - **Upward Adjustment**: If amount is increased, the extra capital automatically cascades to pay down the oldest outstanding bills for this vendor in strict FIFO order.
+    - **Downward Adjustment**: If amount is decreased, the refunded capital reopens and restores pending balances to the vendor's bills in reverse order.
+    - **General Ledger Synchronizer**: Automatically updates the linked double-entry `JournalEntry` (date, description with updated cheque/online ref) and `JournalLine` entries (updates AP debit amount and source account credit amount and account ID).
+  - **Cache Synchronization**: Automatically invalidates `bills`, `vendors`, `reports`, `accounts`, `ledger`, and `journals`.
+
+This concludes Module 2: Outflow Engine (Enhanced v3.3.0).
 

@@ -78,4 +78,30 @@ The screen uses a split-panel architecture matching the institutional design sys
   - Editing vendor profile details mutates only the parent `Vendor` record in PostgreSQL.
   - All existing `ExpenseBill` items, line item breakdowns, and historical FIFO payment vouchers remain completely unaltered.
 - **Cache Synchronization**:
-  - Executes `bustCache('vendors')` and `bustCache('reports')` on the backend, immediately synchronizing Screen 5 bill entry dropdowns, Screen 7 payment run queues, and executive aging reports without requiring page reloads.
+  - Executes `bustCache('vendors')` and `bustCache('reports')` on the backend, immediately synchronizing Screen 5 bill entry dropdowns, Screen 7 payment run queues, and executive aging reports without requiring page reloads.
+
+---
+
+## 6. Posted Bills Management & Line-Item Editing (`EditBillModal`) [v3.3.0]
+
+- **Route / Tab**: `/payables` (Tab: "Posted Bills", `PostedBillsPanel.tsx`)
+- **Key Metrics & KPIs**: Total Invoices count, Gross Billed volume, Outstanding Debt, and Settled count.
+- **Filtering & Search**:
+  - Payment status pills (`ALL`, `UNPAID`, `PARTIAL`, `PAID`).
+  - Project cost center allocation filter (`All Cost Centers`, `General Office Overhead`, or specific projects).
+  - Live search input targeting invoice number, supplier name, or project title.
+- **Editing Workflow (`EditBillModal.tsx`)**:
+  - Accessible via the **Edit Bill** button on each bill record in the Posted Bills table.
+  - **Editable Attributes**:
+    - **Invoice Number (`invoiceNumber`)**: Modifiable, validated against duplicate collisions for the same vendor.
+    - **Bill Date (`billDate`)**: Date picker.
+    - **Project Cost Center (`projectId`)**: Seamlessly switch between construction projects (WIP Asset 1200) and General Office Overhead (Operating Expense 5000).
+    - **Dynamic Line Items**: Add, remove, or modify line item descriptions, quantities, and unit prices. Grand total dynamically recalculates in real-time.
+  - **Strict Double-Entry & Partial Payment Guardrails**:
+    - **Settled Balance Protection**: If payments have already been executed against this invoice (`amountAlreadyPaid > 0`), the system strictly forbids reducing the grand total below the already settled amount (`INVALID_BILL_AMOUNT`).
+    - **General Ledger Synchronizer**: Automatically updates the linked double-entry `JournalEntry` (description, entry date) and `JournalLine` records:
+      - Shifts debit line between `1200` (WIP) and `5000` (Overhead) based on new project allocation.
+      - Adjusts debit and credit amounts to match the revised grand total.
+      - Recalculates remaining `pendingAmount` and updates `paymentStatus` (`UNPAID`, `PARTIAL`, `PAID`).
+  - **Cache Busting**: Executes atomic invalidation for `bills`, `projects`, `vendors`, `reports`, `accounts`, `ledger`, and `journals`.
+

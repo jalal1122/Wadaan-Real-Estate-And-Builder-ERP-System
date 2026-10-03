@@ -5,6 +5,7 @@ import {
   ProcessPaymentPayload,
   PaymentRunResponse,
   VendorPaymentItem,
+  UpdatePaymentPayload,
 } from '../types';
 
 /**
@@ -32,3 +33,15 @@ export const fetchPayments = async (vendorId?: string): Promise<VendorPaymentIte
   });
   return response.data.data!;
 };
+
+/**
+ * Updates a posted vendor payment.
+ */
+export const updatePayment = async (
+  id: string,
+  payload: UpdatePaymentPayload
+): Promise<VendorPaymentItem> => {
+  const response = await apiClient.put<ApiResponse<VendorPaymentItem>>(`/payments/vendor/${id}`, payload);
+  return response.data.data!;
+};
+

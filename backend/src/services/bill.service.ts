@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import { PaymentStatus, PaymentType } from '@prisma/client';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { CreateBillInput } from '../utils/validation.util';
+import { CreateBillInput, UpdateBillInput } from '../utils/validation.util';
 import { JournalService } from './journal.service';
 import { bustCache, getCache, setCache } from '../utils/cache.util';
 
@@ -275,5 +275,220 @@ export class BillService {
 
     setCache(CACHE_KEY, bill, 60_000);
     return bill;
+  }
+
+  /**
+   * Updates a posted Expense Bill.
+   * Supports modifying invoiceNumber, billDate, project allocation (WIP vs Overhead),
+   * and line items / amounts.
+   * Synchronizes the linked double-entry General Ledger journal entry so WIP, overhead,
+   * and AP balances remain 100% accurate.
+   */
+  static async updateBill(id: string, data: UpdateBillInput) {
+    const existingBill = await prisma.expenseBill.findUnique({
+      where: { id },
+      include: {
+        lineItems: true,
+        vendor: true,
+        project: true
+      }
+    });
+
+    if (!existingBill) {
+      throw new AppError(`Expense bill with ID '${id}' not found`, 404, 'BILL_NOT_FOUND');
+    }
+
+    // 1. Check invoiceNumber uniqueness if changed
+    if (data.invoiceNumber && data.invoiceNumber !== existingBill.invoiceNumber) {
+      const duplicate = await prisma.expenseBill.findUnique({
+        where: {
+          vendorId_invoiceNumber: {
+            vendorId: existingBill.vendorId,
+            invoiceNumber: data.invoiceNumber
+          }
+        }
+      });
+      if (duplicate && duplicate.id !== id) {
+        throw new AppError(
+          `Invoice number '${data.invoiceNumber}' already exists for this vendor`,
+          409,
+          'DUPLICATE_INVOICE'
+        );
+      }
+    }
+
+    // 2. Check project existence if changing project
+    let newProject = existingBill.project;
+    if (data.projectId !== undefined) {
+      if (data.projectId) {
+        newProject = await prisma.project.findUnique({
+          where: { id: data.projectId }
+        });
+        if (!newProject) {
+          throw new AppError('Target project not found', 404, 'PROJECT_NOT_FOUND');
+        }
+      } else {
+        newProject = null;
+      }
+    }
+
+    // 3. Compute line items and grand total if line items are updated
+    let newGrandTotal = new Decimal(existingBill.grandTotal);
+    let newPendingAmount = new Decimal(existingBill.pendingAmount);
+    let newPaymentStatus = existingBill.paymentStatus;
+    let lineItemsData: any[] | null = null;
+
+    if (data.lineItems && data.lineItems.length > 0) {
+      let calculatedTotal = new Decimal(0);
+      lineItemsData = data.lineItems.map((item) => {
+        const qty = Number(item.quantity);
+        const unitPrice = new Decimal(item.unitPrice);
+        const lineTotal = unitPrice.times(qty);
+        calculatedTotal = calculatedTotal.plus(lineTotal);
+        return {
+          description: item.description,
+          quantity: qty,
+          unitPrice,
+          lineTotal
+        };
+      });
+
+      if (calculatedTotal.lte(0)) {
+        throw new AppError('Grand total of the bill must be greater than 0', 400, 'INVALID_BILL_AMOUNT');
+      }
+
+      const amountAlreadyPaid = new Decimal(existingBill.grandTotal).minus(new Decimal(existingBill.pendingAmount));
+      if (calculatedTotal.lt(amountAlreadyPaid)) {
+        throw new AppError(
+          `Cannot reduce bill grand total below already settled amount of Rs. ${amountAlreadyPaid.toString()}`,
+          400,
+          'INVALID_BILL_AMOUNT'
+        );
+      }
+
+      newGrandTotal = calculatedTotal;
+      newPendingAmount = calculatedTotal.minus(amountAlreadyPaid);
+      newPaymentStatus = newPendingAmount.eq(0)
+        ? PaymentStatus.PAID
+        : newPendingAmount.lt(calculatedTotal)
+        ? PaymentStatus.PARTIAL
+        : PaymentStatus.UNPAID;
+    }
+
+    const updatedInvoiceNumber = data.invoiceNumber || existingBill.invoiceNumber;
+    const updatedBillDate = data.billDate ? new Date(data.billDate) : existingBill.billDate;
+    const updatedProjectId = data.projectId !== undefined ? data.projectId : existingBill.projectId;
+
+    // 4. Execute atomic update
+    const result = await prisma.$transaction(async (tx) => {
+      // If line items updated, delete and re-create
+      if (lineItemsData) {
+        await tx.billLineItem.deleteMany({ where: { billId: id } });
+        await tx.billLineItem.createMany({
+          data: lineItemsData.map((li) => ({
+            ...li,
+            billId: id
+          }))
+        });
+      }
+
+      const updatedBill = await tx.expenseBill.update({
+        where: { id },
+        data: {
+          invoiceNumber: updatedInvoiceNumber,
+          billDate: updatedBillDate,
+          projectId: updatedProjectId,
+          grandTotal: newGrandTotal,
+          pendingAmount: newPendingAmount,
+          paymentStatus: newPaymentStatus
+        },
+        include: {
+          lineItems: true,
+          vendor: true,
+          project: true
+        }
+      });
+
+      // Synchronize linked Journal Entry
+      const linkedJournal = await tx.journalEntry.findFirst({
+        where: {
+          description: {
+            contains: `(Invoice: ${existingBill.invoiceNumber})`
+          },
+          lines: {
+            some: {
+              vendorId: existingBill.vendorId
+            }
+          }
+        },
+        include: {
+          lines: true
+        }
+      });
+
+      if (linkedJournal) {
+        // Construct new description
+        let newJournalDescription = updatedProjectId
+          ? `Expense for Project: ${newProject?.projectName} (Invoice: ${updatedInvoiceNumber})`
+          : `Office Overhead Expense (Invoice: ${updatedInvoiceNumber})`;
+
+        // Preserve transaction ref if existing had [Trx Ref: ...]
+        const trxRefMatch = linkedJournal.description.match(/\[Trx Ref: [^\]]+\]/);
+        if (trxRefMatch) {
+          newJournalDescription += ` ${trxRefMatch[0]}`;
+        }
+
+        // Update journal date and description
+        await tx.journalEntry.update({
+          where: { id: linkedJournal.id },
+          data: {
+            entryDate: updatedBillDate,
+            description: newJournalDescription
+          }
+        });
+
+        // Determine correct debit account
+        const targetDebitCode = updatedProjectId ? '1200' : '5000';
+        const targetDebitAccount = await tx.account.findUnique({
+          where: { accountCode: targetDebitCode }
+        });
+
+        // Update lines
+        for (const line of linkedJournal.lines) {
+          const isDebit = new Decimal(line.debitAmount).gt(0);
+          if (isDebit) {
+            // Debit line: WIP or Overhead
+            await tx.journalLine.update({
+              where: { id: line.id },
+              data: {
+                accountId: targetDebitAccount ? targetDebitAccount.id : line.accountId,
+                debitAmount: newGrandTotal,
+                projectId: updatedProjectId
+              }
+            });
+          } else {
+            // Credit line: AP or Cash
+            await tx.journalLine.update({
+              where: { id: line.id },
+              data: {
+                creditAmount: newGrandTotal,
+                projectId: updatedProjectId
+              }
+            });
+          }
+        }
+      }
+
+      return updatedBill;
+    }, { maxWait: 10000, timeout: 30000 });
+
+    bustCache('bills');
+    bustCache('vendors');
+    bustCache('projects');
+    bustCache('reports');
+    bustCache('accounts');
+    bustCache('ledger');
+    bustCache('journals');
+    return result;
   }
 }

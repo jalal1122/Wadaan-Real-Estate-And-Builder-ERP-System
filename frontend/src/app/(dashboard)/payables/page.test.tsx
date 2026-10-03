@@ -136,9 +136,87 @@ vi.mock('@/features/accounting/hooks/useAccounting', () => ({
   }),
 }));
 
+const mockUpdateBillMutateAsync = vi.fn().mockResolvedValue({});
+const mockUpdatePaymentMutateAsync = vi.fn().mockResolvedValue({});
+
+const mockBillsList = [
+  {
+    id: 'bill-1',
+    vendorId: 'vend-1',
+    projectId: 'proj-1',
+    invoiceNumber: 'INV-101',
+    billDate: '2026-01-10T00:00:00Z',
+    paymentType: 'ACCOUNTS_PAYABLE',
+    paymentStatus: 'PARTIAL' as const,
+    grandTotal: 300000,
+    pendingAmount: 200000,
+    createdAt: '2026-01-10T00:00:00Z',
+    project: {
+      id: 'proj-1',
+      projectName: 'Wadaan Heights',
+      projectPrefix: 'WHT',
+    },
+    vendor: mockVendors[0],
+    lineItems: [
+      {
+        id: 'li-1',
+        description: 'Cement bags',
+        quantity: 300,
+        unitPrice: 1000,
+        lineTotal: 300000,
+      },
+    ],
+  },
+  {
+    id: 'bill-2',
+    vendorId: 'vend-1',
+    projectId: null,
+    invoiceNumber: 'INV-102',
+    billDate: '2026-02-15T00:00:00Z',
+    paymentType: 'ACCOUNTS_PAYABLE',
+    paymentStatus: 'UNPAID' as const,
+    grandTotal: 200000,
+    pendingAmount: 200000,
+    createdAt: '2026-02-15T00:00:00Z',
+    project: null,
+    vendor: mockVendors[0],
+    lineItems: [
+      {
+        id: 'li-2',
+        description: 'Office supplies',
+        quantity: 200,
+        unitPrice: 1000,
+        lineTotal: 200000,
+      },
+    ],
+  },
+];
+
+const mockPaymentsList = [
+  {
+    id: 'pay-1',
+    vendorId: 'vend-1',
+    sourceAccountId: 'acc-safe',
+    paymentDate: '2026-02-10T00:00:00Z',
+    amountPaid: 100000,
+    chequeRef: 'CHQ-7788',
+    transactionId: null,
+    vendor: mockVendors[0],
+  },
+];
+
 vi.mock('@/features/bills/hooks/useBills', () => ({
   useCreateBill: () => ({
     mutate: mockCreateBillMutate,
+    isPending: false,
+  }),
+  useBills: () => ({
+    data: mockBillsList,
+    isLoading: false,
+    refetch: vi.fn(),
+  }),
+  useUpdateBill: () => ({
+    mutateAsync: mockUpdateBillMutateAsync,
     isPending: false,
   }),
 }));
@@ -151,6 +229,15 @@ vi.mock('@/features/payments/hooks/usePayments', () => ({
   }),
   useExecutePaymentRun: () => ({
     mutate: mockExecutePaymentMutate,
+    isPending: false,
+  }),
+  usePayments: () => ({
+    data: mockPaymentsList,
+    isLoading: false,
+    refetch: vi.fn(),
+  }),
+  useUpdatePayment: () => ({
+    mutateAsync: mockUpdatePaymentMutateAsync,
     isPending: false,
   }),
 }));
@@ -547,6 +634,107 @@ describe('Accounts Payable Page (Screens 5 & 7)', () => {
       const summary = screen.getByTestId('selected-invoices-summary');
       expect(summary).toHaveTextContent(/2 of 2 selected/i);
       expect(summary).toHaveTextContent(/500,000/i);
+    });
+  });
+
+  describe('Posted Bills Panel & Edit Bill Modal', () => {
+    it('switches to Posted Bills tab and displays posted bills list and KPI metrics', () => {
+      render(<PayablesPage />);
+      const postedBillsTab = screen.getByTestId('tab-posted-bills');
+      fireEvent.click(postedBillsTab);
+
+      expect(screen.getByTestId('posted-bills-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('kpi-total-bills')).toHaveTextContent('2');
+      expect(screen.getByText('INV-101')).toBeInTheDocument();
+      expect(screen.getByText('INV-102')).toBeInTheDocument();
+    });
+
+    it('opens Edit Bill modal when clicking Edit Bill and submits updated data', async () => {
+      render(<PayablesPage />);
+      fireEvent.click(screen.getByTestId('tab-posted-bills'));
+
+      const editBtn = screen.getByTestId('edit-bill-btn-bill-1');
+      fireEvent.click(editBtn);
+
+      expect(screen.getByTestId('edit-bill-modal')).toBeInTheDocument();
+      const invInput = screen.getByTestId('edit-bill-invoice-input');
+      expect(invInput).toHaveValue('INV-101');
+
+      fireEvent.change(invInput, { target: { value: 'INV-101-MOD' } });
+
+      const saveBtn = screen.getByTestId('save-edit-bill-btn');
+      fireEvent.click(saveBtn);
+
+      await waitFor(() => {
+        expect(mockUpdateBillMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'bill-1',
+            payload: expect.objectContaining({
+              invoiceNumber: 'INV-101-MOD',
+            }),
+          })
+        );
+      });
+    });
+
+    it('prevents reducing bill total below already settled amount in Edit Bill modal', async () => {
+      render(<PayablesPage />);
+      fireEvent.click(screen.getByTestId('tab-posted-bills'));
+
+      // Bill 1: grandTotal 300,000, pending 200,000 -> already settled 100,000
+      fireEvent.click(screen.getByTestId('edit-bill-btn-bill-1'));
+
+      // Change unit price to 100 (total = 300 * 100 = 30,000 which is < 100,000 settled)
+      const priceInput = screen.getByTestId('line-item-price-0');
+      fireEvent.change(priceInput, { target: { value: '100' } });
+
+      const saveBtn = screen.getByTestId('save-edit-bill-btn');
+      fireEvent.click(saveBtn);
+
+      expect(
+        await screen.findByText(/Cannot reduce bill total below already settled amount/i)
+      ).toBeInTheDocument();
+      expect(mockUpdateBillMutateAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Payment History Panel & Edit Payment Modal', () => {
+    it('switches to Payment History tab and displays executed payments list', () => {
+      render(<PayablesPage />);
+      const historyTab = screen.getByTestId('tab-payment-history');
+      fireEvent.click(historyTab);
+
+      expect(screen.getByTestId('payment-history-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('kpi-total-payments')).toHaveTextContent('1');
+      expect(screen.getByText(/CHQ-7788/i)).toBeInTheDocument();
+    });
+
+    it('opens Edit Payment modal and submits updated details', async () => {
+      render(<PayablesPage />);
+      fireEvent.click(screen.getByTestId('tab-payment-history'));
+
+      const editBtn = screen.getByTestId('edit-payment-btn-pay-1');
+      fireEvent.click(editBtn);
+
+      expect(screen.getByTestId('edit-payment-modal')).toBeInTheDocument();
+      const chequeInput = screen.getByTestId('edit-payment-cheque-input');
+      expect(chequeInput).toHaveValue('CHQ-7788');
+
+      fireEvent.change(chequeInput, { target: { value: 'CHQ-9999' } });
+
+      const saveBtn = screen.getByTestId('save-edit-payment-btn');
+      fireEvent.click(saveBtn);
+
+      await waitFor(() => {
+        expect(mockUpdatePaymentMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'pay-1',
+            payload: expect.objectContaining({
+              chequeRef: 'CHQ-9999',
+            }),
+          })
+        );
+      });
     });
   });
 });

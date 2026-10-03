@@ -7,7 +7,10 @@ jest.mock('../config/db', () => {
   const mockClient: any = {
     vendor: { findUnique: jest.fn() },
     project: { findUnique: jest.fn() },
-    expenseBill: { findUnique: jest.fn(), create: jest.fn(), findMany: jest.fn() },
+    expenseBill: { findUnique: jest.fn(), create: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    billLineItem: { deleteMany: jest.fn(), createMany: jest.fn() },
+    journalEntry: { findFirst: jest.fn(), update: jest.fn() },
+    journalLine: { update: jest.fn() },
     account: { findUnique: jest.fn() },
     $transaction: jest.fn((cb) => cb(mockClient)),
   };
@@ -224,3 +227,134 @@ describe('BillService.createBill', () => {
     );
   });
 });
+
+describe('BillService.updateBill', () => {
+  const mockBill = {
+    id: 'bill-1',
+    vendorId: 'vend-1',
+    projectId: 'proj-1',
+    invoiceNumber: 'INV-001',
+    billDate: new Date('2026-01-01'),
+    paymentType: 'ACCOUNTS_PAYABLE',
+    paymentStatus: 'UNPAID',
+    grandTotal: new Decimal(100000),
+    pendingAmount: new Decimal(100000),
+    lineItems: [
+      { id: 'li-1', description: 'Item 1', quantity: 1, unitPrice: new Decimal(100000), lineTotal: new Decimal(100000) }
+    ],
+    vendor: { id: 'vend-1', vendorName: 'Al-Madina Bricks' },
+    project: { id: 'proj-1', projectName: 'Wadaan Commercial' }
+  };
+
+  const mockJournal = {
+    id: 'je-1',
+    entryDate: new Date('2026-01-01'),
+    description: 'Expense for Project: Wadaan Commercial (Invoice: INV-001)',
+    lines: [
+      { id: 'jl-1', accountId: 'acc-1200', debitAmount: new Decimal(100000), creditAmount: new Decimal(0), projectId: 'proj-1', vendorId: 'vend-1' },
+      { id: 'jl-2', accountId: 'acc-2000', debitAmount: new Decimal(0), creditAmount: new Decimal(100000), projectId: 'proj-1', vendorId: 'vend-1' }
+    ]
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockPrisma.expenseBill.findUnique as jest.Mock).mockResolvedValue(mockBill);
+    (mockPrisma.expenseBill.update as jest.Mock).mockImplementation(({ data }) => Promise.resolve({ ...mockBill, ...data }));
+    (mockPrisma.journalEntry.findFirst as jest.Mock).mockResolvedValue(mockJournal);
+    (mockPrisma.journalEntry.update as jest.Mock).mockResolvedValue(mockJournal);
+    (mockPrisma.journalLine.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.billLineItem.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.billLineItem.createMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.account.findUnique as jest.Mock).mockResolvedValue({ id: 'acc-1200', accountCode: '1200' });
+  });
+
+  test('UB-1: updates invoiceNumber and synchronizes linked journal description', async () => {
+    const updated = await BillService.updateBill('bill-1', {
+      invoiceNumber: 'INV-001-REV',
+    });
+
+    expect(mockPrisma.expenseBill.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'bill-1' },
+        data: expect.objectContaining({
+          invoiceNumber: 'INV-001-REV',
+        }),
+      })
+    );
+
+    expect(mockPrisma.journalEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'je-1' },
+        data: expect.objectContaining({
+          description: expect.stringContaining('(Invoice: INV-001-REV)'),
+        }),
+      })
+    );
+  });
+
+  test('UB-2: updates line items and grand total on an UNPAID bill and syncs journal lines', async () => {
+    await BillService.updateBill('bill-1', {
+      lineItems: [
+        { description: 'Cement Grade A', quantity: 2, unitPrice: 75000 } // Total: 150,000
+      ]
+    });
+
+    expect(mockPrisma.billLineItem.deleteMany).toHaveBeenCalledWith({ where: { billId: 'bill-1' } });
+    expect(mockPrisma.billLineItem.createMany).toHaveBeenCalled();
+    expect(mockPrisma.expenseBill.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          grandTotal: new Decimal(150000),
+          pendingAmount: new Decimal(150000),
+          paymentStatus: 'UNPAID',
+        }),
+      })
+    );
+
+    expect(mockPrisma.journalLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'jl-1' },
+        data: expect.objectContaining({
+          debitAmount: new Decimal(150000),
+        }),
+      })
+    );
+  });
+
+  test('UB-3: throws error if reducing total below already settled amount on PARTIAL bill', async () => {
+    const partialBill = {
+      ...mockBill,
+      paymentStatus: 'PARTIAL',
+      grandTotal: new Decimal(100000),
+      pendingAmount: new Decimal(40000), // 60,000 already paid
+    };
+    (mockPrisma.expenseBill.findUnique as jest.Mock).mockResolvedValue(partialBill);
+
+    await expect(
+      BillService.updateBill('bill-1', {
+        lineItems: [
+          { description: 'Reduced Item', quantity: 1, unitPrice: 50000 } // 50,000 is less than 60,000 paid
+        ]
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_BILL_AMOUNT',
+    });
+  });
+
+  test('UB-4: throws DUPLICATE_INVOICE (409) if new invoice number already exists for vendor', async () => {
+    (mockPrisma.expenseBill.findUnique as jest.Mock)
+      .mockResolvedValueOnce(mockBill) // first call: finds bill-1
+      .mockResolvedValueOnce({ id: 'bill-duplicate', vendorId: 'vend-1', invoiceNumber: 'INV-EXISTING' }); // duplicate check
+
+    await expect(
+      BillService.updateBill('bill-1', {
+        invoiceNumber: 'INV-EXISTING',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'DUPLICATE_INVOICE',
+    });
+  });
+});
+

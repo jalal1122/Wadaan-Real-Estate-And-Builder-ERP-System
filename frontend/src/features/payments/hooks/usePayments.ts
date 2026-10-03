@@ -1,10 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchVendorUnpaidBills, executePaymentRun, fetchPayments } from '../api/paymentApi';
+import {
+  fetchVendorUnpaidBills,
+  executePaymentRun,
+  fetchPayments,
+  updatePayment,
+} from '../api/paymentApi';
 import {
   VendorUnpaidQueueResponse,
   ProcessPaymentPayload,
   PaymentRunResponse,
   VendorPaymentItem,
+  UpdatePaymentPayload,
 } from '../types';
 
 /**
@@ -35,6 +41,7 @@ export const useExecutePaymentRun = () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['bills'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
     },
   });
 };
@@ -49,3 +56,26 @@ export const usePayments = (vendorId?: string) => {
     retry: false,
   });
 };
+
+/**
+ * Hook to update a posted vendor payment.
+ * Automatically invalidates vendors, vendor-unpaid, accounts, bills, payments, and reports cache.
+ */
+export const useUpdatePayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<VendorPaymentItem, Error, { id: string; payload: UpdatePaymentPayload }>({
+    mutationFn: ({ id, payload }) => updatePayment(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-unpaid'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['journals'] });
+    },
+  });
+};
+

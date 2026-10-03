@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { FifoService } from '../services/fifo.service';
-import { CreatePaymentSchema } from '../utils/validation.util';
+import { CreatePaymentSchema, UpdatePaymentSchema } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
 export const processPaymentRun = async (req: Request, res: Response, next: NextFunction) => {
@@ -54,3 +54,27 @@ export const getPaymentById = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+export const updatePayment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const parseResult = UpdatePaymentSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const updated = await FifoService.updatePayment(id, parseResult.data);
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Vendor payment updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

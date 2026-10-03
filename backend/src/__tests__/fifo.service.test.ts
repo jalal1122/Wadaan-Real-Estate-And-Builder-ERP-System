@@ -8,7 +8,9 @@ jest.mock('../config/db', () => {
     vendor: { findUnique: jest.fn() },
     account: { findUnique: jest.fn() },
     expenseBill: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-    vendorPayment: { create: jest.fn() },
+    vendorPayment: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    journalEntry: { findFirst: jest.fn(), update: jest.fn() },
+    journalLine: { update: jest.fn() },
     $transaction: jest.fn((cb) => cb(mockClient)),
   };
   return { prisma: mockClient };
@@ -331,3 +333,151 @@ describe('FifoService.processPaymentRun', () => {
     });
   });
 });
+
+describe('FifoService.updatePayment', () => {
+  const mockVendor = { id: 'vend-1', vendorName: 'Al-Haq Cement' };
+  const mockSourceAccount = { id: 'acc-bank', accountCode: '1002', accountName: 'Meezan Bank - Ops', category: 'ASSET' };
+  const mockSafeAccount = { id: 'acc-safe', accountCode: '1001', accountName: 'Office Cash Safe', category: 'ASSET' };
+
+  const mockPayment = {
+    id: 'pay-1',
+    vendorId: 'vend-1',
+    sourceAccountId: 'acc-bank',
+    amountPaid: new Decimal(100000),
+    chequeRef: 'CHQ-112233',
+    transactionId: null,
+    paymentDate: new Date('2026-02-01'),
+    vendor: mockVendor,
+  };
+
+  const mockJournal = {
+    id: 'je-pay-1',
+    entryDate: new Date('2026-02-01'),
+    description: 'Vendor Payment to Al-Haq Cement (Cheque: CHQ-112233)',
+    lines: [
+      { id: 'jl-1', accountId: 'acc-2000', debitAmount: new Decimal(100000), creditAmount: new Decimal(0) },
+      { id: 'jl-2', accountId: 'acc-bank', debitAmount: new Decimal(0), creditAmount: new Decimal(100000) },
+    ]
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockPrisma.vendorPayment.findUnique as jest.Mock).mockResolvedValue(mockPayment);
+    (mockPrisma.vendorPayment.update as jest.Mock).mockImplementation(({ data }) => Promise.resolve({ ...mockPayment, ...data }));
+    (mockPrisma.account.findUnique as jest.Mock).mockImplementation(({ where }) => {
+      if (where.id === 'acc-bank') return Promise.resolve(mockSourceAccount);
+      if (where.id === 'acc-safe') return Promise.resolve(mockSafeAccount);
+      return Promise.resolve(null);
+    });
+    (mockPrisma.journalEntry.findFirst as jest.Mock).mockResolvedValue(mockJournal);
+    (mockPrisma.journalEntry.update as jest.Mock).mockResolvedValue(mockJournal);
+    (mockPrisma.journalLine.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.expenseBill.update as jest.Mock).mockResolvedValue({});
+  });
+
+  test('UP-1: updates chequeRef and synchronizes linked journal description', async () => {
+    await FifoService.updatePayment('pay-1', {
+      chequeRef: 'CHQ-998877',
+    });
+
+    expect(mockPrisma.vendorPayment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'pay-1' },
+        data: expect.objectContaining({
+          chequeRef: 'CHQ-998877',
+        }),
+      })
+    );
+
+    expect(mockPrisma.journalEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'je-pay-1' },
+        data: expect.objectContaining({
+          description: 'Vendor Payment to Al-Haq Cement (Cheque: CHQ-998877)',
+        }),
+      })
+    );
+  });
+
+  test('UP-2: updates sourceAccountId from Bank to Safe and updates credit journal line', async () => {
+    await FifoService.updatePayment('pay-1', {
+      sourceAccountId: 'acc-safe',
+    });
+
+    expect(mockPrisma.vendorPayment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceAccountId: 'acc-safe',
+        }),
+      })
+    );
+
+    expect(mockPrisma.journalLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'jl-2' },
+        data: expect.objectContaining({
+          accountId: 'acc-safe',
+        }),
+      })
+    );
+  });
+
+  test('UP-3: updates amount upwards and allocates difference to unpaid bills', async () => {
+    const unpaidBill = {
+      id: 'bill-unpaid-1',
+      vendorId: 'vend-1',
+      grandTotal: new Decimal(50000),
+      pendingAmount: new Decimal(50000),
+    };
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([unpaidBill]);
+
+    await FifoService.updatePayment('pay-1', {
+      amountPaid: 130000, // 30,000 extra
+    });
+
+    expect(mockPrisma.expenseBill.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'bill-unpaid-1' },
+        data: expect.objectContaining({
+          pendingAmount: new Decimal(20000),
+          paymentStatus: 'PARTIAL',
+        }),
+      })
+    );
+
+    expect(mockPrisma.journalLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'jl-1' },
+        data: expect.objectContaining({
+          debitAmount: new Decimal(130000),
+        }),
+      })
+    );
+  });
+
+  test('UP-4: updates amount downwards and restores difference to settled bills', async () => {
+    const settledBill = {
+      id: 'bill-settled-1',
+      vendorId: 'vend-1',
+      grandTotal: new Decimal(100000),
+      pendingAmount: new Decimal(0), // fully paid
+    };
+    (mockPrisma.expenseBill.findMany as jest.Mock).mockResolvedValue([settledBill]);
+
+    await FifoService.updatePayment('pay-1', {
+      amountPaid: 70000, // 30,000 less
+    });
+
+    expect(mockPrisma.expenseBill.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'bill-settled-1' },
+        data: expect.objectContaining({
+          pendingAmount: new Decimal(30000),
+          paymentStatus: 'PARTIAL',
+        }),
+      })
+    );
+  });
+});
+

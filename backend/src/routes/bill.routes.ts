@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   createBill,
   getAllBills,
-  getBillById
+  getBillById,
+  updateBill
 } from '../controllers/bill.controller';
 import { authGuard } from '../middleware/authGuard';
 
@@ -14,5 +15,6 @@ router.use(authGuard);
 router.post('/', createBill);
 router.get('/', getAllBills);
 router.get('/:id', getBillById);
+router.put('/:id', updateBill);
 
 export default router;

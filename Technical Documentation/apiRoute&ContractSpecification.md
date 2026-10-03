@@ -2391,4 +2391,78 @@ All report endpoints accepting `startDate` and `endDate` query parameters run th
   }
   ```
 
+### PATCH /api/v1/bills/:id
+- **Purpose**: Updates an existing posted Expense Bill (invoice number, date, project cost center allocation, and line items) and synchronizes the linked General Ledger journal entry.
+- **Access**: Protected (`authGuard`).
+- **Validation**:
+  - `invoiceNumber` (optional): Checked for unique collision within the same vendor (returns 409 `DUPLICATE_INVOICE`).
+  - `projectId` (optional): Validated against Project table if not null.
+  - `lineItems` (optional): If provided, grand total must be > 0 and cannot be reduced below the amount already settled by executed payments (returns 400 `INVALID_BILL_AMOUNT`).
+- **Payload**:
+  ```json
+  {
+    "invoiceNumber": "INV-1045-REV",
+    "billDate": "2026-02-05",
+    "projectId": "proj-uuid-or-null",
+    "lineItems": [
+      {
+        "description": "Cement bags grade 53",
+        "quantity": 350,
+        "unitPrice": 1200
+      }
+    ]
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "bill-uuid",
+      "vendorId": "vendor-uuid",
+      "invoiceNumber": "INV-1045-REV",
+      "billDate": "2026-02-05T00:00:00.000Z",
+      "grandTotal": "420000.00",
+      "pendingAmount": "320000.00",
+      "paymentStatus": "PARTIAL",
+      "projectId": "proj-uuid-or-null"
+    },
+    "message": "Bill updated successfully"
+  }
+  ```
+
+### PATCH /api/v1/payments/:id
+- **Purpose**: Updates an existing posted Vendor Payment (date, disbursement asset account, cheque/online references, and amount paid) and synchronizes the General Ledger journal entry while rebalancing FIFO bill allocations.
+- **Access**: Protected (`authGuard`).
+- **Validation**:
+  - `sourceAccountId` (optional): Must be a valid `ASSET` category account (returns 400 `INVALID_ACCOUNT_CATEGORY` if not).
+  - `amountPaid` (optional): Must be > 0.
+- **Payload**:
+  ```json
+  {
+    "paymentDate": "2026-02-12",
+    "sourceAccountId": "acc-bank-uuid",
+    "chequeRef": "CHQ-889900",
+    "transactionId": null,
+    "amountPaid": 150000
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "payment-uuid",
+      "vendorId": "vendor-uuid",
+      "sourceAccountId": "acc-bank-uuid",
+      "paymentDate": "2026-02-12T00:00:00.000Z",
+      "chequeRef": "CHQ-889900",
+      "transactionId": null,
+      "amountPaid": "150000.00"
+    },
+    "message": "Payment updated successfully"
+  }
+  ```
+
+
 

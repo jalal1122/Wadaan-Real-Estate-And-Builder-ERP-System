@@ -68,3 +68,11 @@ export interface BillFilter {
   projectId?: string;
   paymentStatus?: PaymentStatus;
 }
+
+export interface UpdateBillPayload {
+  invoiceNumber?: string;
+  billDate?: string;
+  projectId?: string | null;
+  lineItems?: BillLineItemPayload[];
+}
+

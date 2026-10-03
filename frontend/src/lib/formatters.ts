@@ -20,3 +20,6 @@ export const formatPKR = (value?: string | number | null): string => {
     maximumFractionDigits: 0,
   }).format(num);
 };
+
+export { formatDate } from './format';
+

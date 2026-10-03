@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createBill, fetchBills, fetchBillById } from '../api/billApi';
-import { CreateBillPayload, CreateBillResponse, ExpenseBillItem, BillFilter } from '../types';
+import { createBill, updateBill, fetchBills, fetchBillById } from '../api/billApi';
+import {
+  CreateBillPayload,
+  CreateBillResponse,
+  ExpenseBillItem,
+  BillFilter,
+  UpdateBillPayload,
+} from '../types';
 
 /**
  * Hook to fetch expense bills with optional filters.
@@ -44,3 +50,25 @@ export const useCreateBill = () => {
     },
   });
 };
+
+/**
+ * Hook to update a posted expense bill.
+ * Automatically invalidates projects, vendors, accounts, bills, and reports cache.
+ */
+export const useUpdateBill = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<ExpenseBillItem, Error, { id: string; payload: UpdateBillPayload }>({
+    mutationFn: ({ id, payload }) => updateBill(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['journals'] });
+    },
+  });
+};
+

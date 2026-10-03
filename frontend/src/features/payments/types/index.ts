@@ -83,3 +83,12 @@ export interface PaymentRunResponse {
   totalSettled: string | number;
   remainingVendorOutstanding: string | number;
 }
+
+export interface UpdatePaymentPayload {
+  paymentDate?: string;
+  sourceAccountId?: string;
+  chequeRef?: string | null;
+  transactionId?: string | null;
+  amountPaid?: number | string;
+}
+
