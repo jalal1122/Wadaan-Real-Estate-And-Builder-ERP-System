@@ -31,17 +31,26 @@ import {
 
 type TabId = 'snapshot' | 'deal-margins' | 'project-costs' | 'overhead' | 'drawings';
 
+const formatLocalDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function MasterReportsHubPage() {
   const [activeTab, setActiveTab] = useState<TabId>('snapshot');
 
-  // Global Date Filter State
-  const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
+  // Global Date Filter State - defaults to This Fiscal Year (July 1 - June 30) for full corporate visibility
+  const [datePreset, setDatePreset] = useState<string>('THIS_FY');
   const [startDate, setStartDate] = useState<string>(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const currentYear = now.getFullYear();
+    const fyStartYear = now.getMonth() >= 6 ? currentYear : currentYear - 1;
+    return `${fyStartYear}-07-01`;
   });
   const [endDate, setEndDate] = useState<string>(() => {
-    return new Date().toISOString().slice(0, 10);
+    return formatLocalDate(new Date());
   });
 
   const handlePresetChange = (preset: string) => {
@@ -49,23 +58,19 @@ export default function MasterReportsHubPage() {
     const now = new Date();
 
     if (preset === 'THIS_MONTH') {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-      const end = now.toISOString().slice(0, 10);
-      setStartDate(start);
-      setEndDate(end);
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      setStartDate(formatLocalDate(start));
+      setEndDate(formatLocalDate(now));
     } else if (preset === 'LAST_MONTH') {
-      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-      const end = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
-      setStartDate(start);
-      setEndDate(end);
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      setStartDate(formatLocalDate(start));
+      setEndDate(formatLocalDate(end));
     } else if (preset === 'THIS_FY') {
-      // Pakistani fiscal year: July 1st of current year (or previous year if before July)
       const currentYear = now.getFullYear();
       const fyStartYear = now.getMonth() >= 6 ? currentYear : currentYear - 1;
-      const start = new Date(fyStartYear, 6, 1).toISOString().slice(0, 10);
-      const end = now.toISOString().slice(0, 10);
-      setStartDate(start);
-      setEndDate(end);
+      setStartDate(`${fyStartYear}-07-01`);
+      setEndDate(formatLocalDate(now));
     } else if (preset === 'ALL_TIME') {
       setStartDate('');
       setEndDate('');

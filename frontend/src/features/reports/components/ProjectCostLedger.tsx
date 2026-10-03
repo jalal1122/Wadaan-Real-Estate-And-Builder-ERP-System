@@ -22,14 +22,15 @@ export const ProjectCostLedger: React.FC<ProjectCostLedgerProps> = ({
   const { data: projects = [], isLoading: isLoadingProjects } = useProjects();
   const [projectId, setProjectId] = useState<string>(initialProjectId || '');
 
-  // Default to first active project if none selected
+  // Default to project with expenses, or first active project if none selected
   useEffect(() => {
     if (initialProjectId && initialProjectId !== projectId) {
       setProjectId(initialProjectId);
     } else if (!projectId && projects.length > 0) {
-      const firstId = projects[0].id;
-      setProjectId(firstId);
-      if (onProjectChange) onProjectChange(firstId);
+      const projectWithExpenses = projects.find((p) => Number(p.spentToDate) > 0);
+      const targetId = projectWithExpenses ? projectWithExpenses.id : projects[0].id;
+      setProjectId(targetId);
+      if (onProjectChange) onProjectChange(targetId);
     }
   }, [projects, projectId, initialProjectId, onProjectChange]);
 
@@ -82,7 +83,7 @@ export const ProjectCostLedger: React.FC<ProjectCostLedgerProps> = ({
             )}
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.projectName} {p.projectPrefix ? `(${p.projectPrefix})` : ''}
+                {p.projectName} {p.projectPrefix ? `(${p.projectPrefix})` : ''} {Number(p.spentToDate) > 0 ? `• Spent: PKR ${Number(p.spentToDate).toLocaleString()}` : ''}
               </option>
             ))}
           </select>
