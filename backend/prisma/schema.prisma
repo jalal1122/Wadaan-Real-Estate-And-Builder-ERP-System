@@ -195,6 +195,7 @@ model Customer {
   dealClients  DealClient[]
   receipts     Receipt[]
   journalLines JournalLine[] // Party linkage from manual journals
+  walletSettledInvoices DealInvoice[] @relation("WalletPayer")
 }
 
 model Deal {
@@ -258,12 +259,15 @@ model DealInvoice {
   dueDate       DateTime
   paymentStatus PaymentStatus @default(UNPAID)
   receiptId     String?
+  walletPayerId String?
 
   deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
   receipt       Receipt?      @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  walletPayer   Customer?     @relation("WalletPayer", fields: [walletPayerId], references: [id], onDelete: SetNull)
 
   @@index([dealId, paymentStatus])
   @@index([receiptId])
+  @@index([walletPayerId])
 }
 
 model Receipt {
