@@ -57,3 +57,20 @@ Forensic tracking of personal withdrawals and equity draws debited against princ
 ## 3. Business Rules & Guardrails
 - **The Read-Only Absolute**: Like Screen 3 (Trial Balance), it is physically impossible to edit, post, or manipulate numbers directly on this dashboard. All figures are derived directly from immutable General Ledger journals and verified expense bills.
 - **No Escrow Mixing**: Client escrow is kept distinct and clearly highlighted as a restricted liability, preventing unauthorized executive capital draws.
+---
+
+## 4. Real-Time Cache Invalidation & Date Boundary Engine (v3.8.1)
+
+### Prisma ORM Ledger Architecture
+- **Project Cost Ledger (Sub-Tab 3)**: Fetches project metadata via `prisma.project.findUnique` and queries associated expense bills via `prisma.expenseBill.findMany({ where: { projectId, billDate: ... }, include: { vendor, lineItems } })`. This replaces fragile raw SQL aggregation with structured, type-safe queries.
+- **Office Overhead Ledger (Sub-Tab 4)**: Queries non-project operational expenses via `prisma.expenseBill.findMany({ where: { projectId: null, billDate: ... }, include: { vendor } })`.
+
+### End-of-Day Boundary Normalization (`23:59:59.999Z`)
+- Date filter query parameters (`endDate=YYYY-MM-DD`) are normalized via `parseReportDateFilter` in `report.controller.ts` to the final millisecond of the selected date (`23:59:59.999Z`).
+- Additionally, `FiscalYearUtility.getCurrentBoundary()` and `calculateTrueNetIncome` enforce that midnight UTC timestamps (`00:00:00.000Z`) are bumped to `23:59:59.999Z`.
+- **Impact**: Expense bills logged on the current day or the selected end date are never prematurely cut off. They appear immediately in True Net Income, Project Cost Ledger, and Office Overhead Ledger.
+
+### Comprehensive Query Invalidation
+- Creating, updating, or paying an expense bill (`useCreateBill`, `usePayBill`, `useCreatePayment`) automatically invalidates `['reports']`.
+- Applying customer wallet advances (`useApplyCustomerWallet`) invalidates `['reports']` and `['projects']`.
+- Clicking **"Refresh All"** on the Master Reports Hub forces an active query bust across `['reports']`, refreshing all five analytical sub-tabs simultaneously.

@@ -1009,8 +1009,8 @@ GET /api/v1/projects/:id/report
 Purpose: Fetches the comprehensive financial report for a project, including:
 - Project metadata and master BOQ
 - Financial summary (spentToDate, totalReceivedFromClients, netCashMargin, budgetVariance, isOverBudget, budgetBurnPct)
-- Client receipts breakdown grouped by client/contract (with milestone descriptions, due dates, paid dates, paid amounts, payment methods, bank ref numbers, and actual payer names supporting co-client deals)
-- Grand total collected across all clients
+- Client receipts breakdown grouped by client/contract (with milestone descriptions, due dates, paid dates, paid amounts, payment methods—including `WALLET` for advances applied from customer wallet balances—bank ref numbers, and actual payer names supporting co-client deals and wallet settlements)
+- Grand total collected across all clients (accurately unifying direct receipts and wallet advance settlements)
 - Vendor expenses breakdown grouped by vendor (with invoice numbers, bill dates, line item summaries, billed totals, paid totals, pending amounts, and payment statuses)
 - Grand total billed/spent across all vendors
 - General ledger audit trail (`JournalLine` records with debit, credit, running balances) and GL summary (totalDebit, totalCredit, netBalance)
@@ -1910,6 +1910,9 @@ Protected under `authGuard`.
 ### Module 4: Executive Analytics & Master Reports Hub (Screen 10)
 
 The Master Reports Hub exposes read-only endpoints providing real-time financial health, deal profitability, project construction ledgers, overheads, and partner equity distributions.
+
+**Date Filtering & Boundary Normalization**:
+All report endpoints accepting `startDate` and `endDate` query parameters run through `parseReportDateFilter`. If an `endDate` date string is supplied (e.g. `2026-09-30`), it is automatically normalized to `23:59:59.999Z` (end of that calendar day in UTC). This guarantees that bills, payments, and journals created at any point during that day are completely included in True Net Income, Project Cost Ledger, Overhead Ledger, and Trial Balance calculations.
 
 #### 1. Executive Solvency Snapshot
 - **`GET /api/v1/reports/snapshot`**

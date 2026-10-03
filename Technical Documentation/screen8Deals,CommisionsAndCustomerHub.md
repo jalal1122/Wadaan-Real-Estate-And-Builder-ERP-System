@@ -163,3 +163,25 @@ Previously, when selling company-owned properties under `WADAAN_SALE`, deals lac
      - `acquisitionDate`: The buyback contract date.
    - **Resale Margin**: When Deal #2 is later created for this unit, its profit is calculated against the new buyback cost, achieving 100% mathematical accuracy across both historical and future books.
 
+
+---
+
+### 8. Customer Advance Khaata & Project Milestone Settlement Integration (v3.8.1)
+
+**Business Problem Solved**:
+When a client deposited funds into their customer account without selecting a specific installment upfront, the payment was credited to their Customer Advance Wallet (`Customer.advanceBalance`). Later, when applying this wallet balance to settle an active milestone installment (`DealInvoice`), the Deal page updated to `PAID`, but the Project Page ("Client Paid") and the Project Print Report modal were missing the payment attribution because the installment was settled without a direct `Receipt` record.
+
+**Solution Architecture**:
+1. **Schema Attribution (`DealInvoice.walletPayerId`)**:
+   - Added `walletPayerId` foreign key relation on `DealInvoice` referencing `Customer(id)`.
+   - When `WalletManager.consumeAdvance()` is executed, it atomically marks `DealInvoice` as `PAID` and stamps `walletPayerId: customerId`.
+2. **Project Report Reconciliation (`ProjectService.getProjectReport`)**:
+   - Queries both direct `Receipt` payments and `DealInvoice` records settled via wallet (`walletPayerId IS NOT NULL`).
+   - Maps wallet disbursements with `paymentMethod: 'WALLET'` and `paidByCustomerName: invoice.walletPayer.fullName`.
+   - Project financial summary ("Client Paid") and cash margin compute the true unified client collections.
+3. **Real-Time Cache Synchronization**:
+   - Upon successfully applying advance in `CustomerKhaataDrawer.tsx`, the `useApplyCustomerWallet` mutation invalidates:
+     - `['customers']`: Refreshes customer advance balance.
+     - `['deals']`: Refreshes deal installment payment status and milestones.
+     - `['projects']`: Refreshes Project Cards and Project Report Modal ("Client Paid").
+     - `['reports']`: Refreshes True Net Income and Deal Margins.

@@ -54,7 +54,7 @@ When Wadaan builds a house or commercial plaza on behalf of a private client (Ro
 
 - **Client Banner**: Displays client full name, contact phone number, and a `Client Contract` badge.
 - **Contract Value**: The total agreed contract price with the client.
-- **Client Paid**: Total funds actually received from the client across settled milestones and applied mobilization advances.
+- **Client Paid**: Total funds actually received from the client across settled milestones, direct cash/bank receipts, and customer advance wallet disbursements (`DealInvoice.walletPayerId`).
 - **Net Cash Margin**: Calculated in real-time as `Total Collected - Total Spent (WIP)`:
   - **Positive Margin (Green)**: Wadaan is cash-flow positive on this construction job (client payments exceed site expenses to date).
   - **Negative Margin (Red)**: Site expenses have temporarily outpaced client collections, signaling management to bill the upcoming milestone installment immediately.
@@ -69,13 +69,14 @@ Every project card and the GL Transaction Drawer expose a **"Print Report"** act
 - **Executive Financial Summary**:
   - Approved Master BOQ.
   - Total Spent (WIP) and budget burn percentage (with budget overrun warnings).
-  - Total Received from Clients across all client deals.
+  - Total Received from Clients across all client deals (including direct `Receipt` payments and `DealInvoice` settled via Customer Advance Wallet).
   - Net Cash Margin (`Total Received - Total Spent`), indicating whether the project is cash-flow positive or running a deficit.
   - Budget Variance / remaining envelope.
 - **Client Receipts Breakdown**:
   - Breakdown per client contract (supporting multiple clients and co-client payments).
   - Contract Value, Total Paid, and Total Pending per client.
-  - Detailed payment ledger: Milestone / Description, Due Date, Receipt Date, Paid Amount, Payment Status, Payment Method, Bank Ref #, and actual payer name (`Receipt.customer.fullName`).
+  - Detailed payment ledger: Milestone / Description, Due Date, Receipt Date, Paid Amount, Payment Status, Payment Method, Bank Ref #, and actual payer name (`Receipt.customer.fullName` or `DealInvoice.walletPayer.fullName`).
+  - **Wallet Advance Attribution & Badge**: Invoices settled via Customer Advance Khaata (`walletPayerId`) are clearly distinguished with an indigo **"Wallet Advance"** badge and labeled with the settlement date and customer name, maintaining a 100% transparent audit trail between customer khaata deposits and project milestone realizations.
   - Grand total received from all clients combined.
 - **Vendor Expenses & Subcontractors**:
   - Breakdown per vendor.
@@ -94,7 +95,8 @@ Every project card and the GL Transaction Drawer expose a **"Print Report"** act
   - **Paged Media Pagination**: The printed container adheres to normal document flow (`position: static`), allowing natural A4 pagination. Critical sections (`.report-header-block`, `.report-kpi-summary`, `.report-signatures-block`) utilize `break-inside: avoid !important` to prevent fragmented signature lines or split summary strips. Table wrappers enforce `print:overflow-visible` to prevent horizontal clipping.
 
 **Backend API Contract**:
-- `GET /api/v1/projects/:id/report`
+- `GET /api/v1/projects/:id/report`: Returns unified receipts combining `Receipt` payments and `DealInvoice` settled with `walletPayerId`, exposing `paymentMethod: 'WALLET'` and `paidByCustomerName`.
+
 
 
 
