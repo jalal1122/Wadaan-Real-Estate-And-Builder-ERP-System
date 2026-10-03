@@ -28,6 +28,10 @@ vi.mock('@/features/projects/hooks/useProjects', () => ({
     mutate: mockUpdateStatusMutate,
     isPending: false,
   }),
+  useUpdateProject: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
   useProjectTransactions: () => ({
     data: null,
     isLoading: false,

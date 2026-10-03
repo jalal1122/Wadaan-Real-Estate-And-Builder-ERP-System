@@ -1,7 +1,24 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MasterReportsHubPage from './page';
+
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
+const renderWithClient = (ui: React.ReactElement) => {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  );
+};
 
 // Mock the report hooks
 const mockRefetchSnapshot = vi.fn();
@@ -217,7 +234,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('renders Master Reports Hub title, export button, and all 5 sub-tabs', () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     expect(screen.getByText('Master Reports Hub')).toBeDefined();
     expect(screen.getByText('Export to PDF / Print')).toBeDefined();
@@ -229,7 +246,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('renders all 4 survival snapshot KPI cards on Tab 1', () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     expect(screen.getByText('Total Liquid Cash')).toBeDefined();
     expect(screen.getByText('Client Funds Held')).toBeDefined();
@@ -238,7 +255,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('switches to Deal Margins tab and opens drill-down drawer', () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     const dealMarginsTab = screen.getByTestId('tab-deal-margins');
     fireEvent.click(dealMarginsTab);
@@ -256,7 +273,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('switches to Project Cost Ledger tab and renders line items', () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     const projectCostsTab = screen.getByTestId('tab-project-costs');
     fireEvent.click(projectCostsTab);
@@ -268,7 +285,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('switches to Office Overhead tab and renders overhead bills', () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     const overheadTab = screen.getByTestId('tab-overhead');
     fireEvent.click(overheadTab);
@@ -279,7 +296,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('switches to Partner Drawings tab and displays both partner sections and general director drawings', () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     const drawingsTab = screen.getByTestId('tab-drawings');
     fireEvent.click(drawingsTab);
@@ -298,7 +315,7 @@ describe('Master Reports Hub Page (Screen 10)', () => {
   });
 
   it('triggers refresh of all report metrics when Refresh button is clicked', async () => {
-    render(<MasterReportsHubPage />);
+    renderWithClient(<MasterReportsHubPage />);
 
     const refreshButton = screen.getByRole('button', { name: /Refresh/i });
     fireEvent.click(refreshButton);

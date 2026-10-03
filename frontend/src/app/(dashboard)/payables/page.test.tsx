@@ -116,6 +116,10 @@ vi.mock('@/features/vendors/hooks/useVendors', () => ({
     mutate: mockCreateVendorMutate,
     isPending: false,
   }),
+  useUpdateVendor: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/features/projects/hooks/useProjects', () => ({

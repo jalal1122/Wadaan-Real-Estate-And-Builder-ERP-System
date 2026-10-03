@@ -28,6 +28,10 @@ vi.mock('@/features/assets/hooks/useAssets', () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
+  useUpdateAsset: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 describe('AssetInventoryPage Component (/assets)', () => {

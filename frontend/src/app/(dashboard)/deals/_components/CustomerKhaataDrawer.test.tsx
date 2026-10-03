@@ -21,6 +21,10 @@ vi.mock('@/features/customers/hooks/useCustomers', () => ({
     mutateAsync: mockApplyWalletMutateAsync,
     isPending: false,
   }),
+  useUpdateCustomer: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/features/deals/hooks/useDeals', () => ({
