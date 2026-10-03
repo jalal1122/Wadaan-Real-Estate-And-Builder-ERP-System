@@ -3,6 +3,7 @@ import {
   createProject,
   getAllProjects,
   getProjectById,
+  updateProject,
   updateProjectStatus,
   getProjectTransactions,
   getProjectReport
@@ -17,6 +18,7 @@ router.use(authGuard);
 router.post('/', createProject);
 router.get('/', getAllProjects);
 router.get('/:id', getProjectById);
+router.patch('/:id', updateProject);
 router.get('/:id/transactions', getProjectTransactions);
 router.get('/:id/report', getProjectReport);
 router.patch('/:id/status', updateProjectStatus);

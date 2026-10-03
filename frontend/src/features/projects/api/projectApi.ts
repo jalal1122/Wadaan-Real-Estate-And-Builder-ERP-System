@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { ApiResponse } from '@/types/api';
-import { ProjectItem, CreateProjectPayload, ProjectStatus, ProjectTransactionsResponse, ProjectReportResponse } from '../types';
+import { ProjectItem, CreateProjectPayload, UpdateProjectPayload, ProjectStatus, ProjectTransactionsResponse, ProjectReportResponse } from '../types';
 
 /**
  * Fetches all construction projects with calculated live health metrics.
@@ -15,6 +15,14 @@ export const fetchProjects = async (): Promise<ProjectItem[]> => {
  */
 export const createProject = async (payload: CreateProjectPayload): Promise<ProjectItem> => {
   const response = await apiClient.post<ApiResponse<ProjectItem>>('/projects', payload);
+  return response.data.data!;
+};
+
+/**
+ * Updates project details (name and/or budget BOQ).
+ */
+export const updateProject = async (id: string, payload: UpdateProjectPayload): Promise<ProjectItem> => {
+  const response = await apiClient.patch<ApiResponse<ProjectItem>>(`/projects/${id}`, payload);
   return response.data.data!;
 };
 

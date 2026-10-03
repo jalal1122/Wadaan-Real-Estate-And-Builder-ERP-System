@@ -3,11 +3,12 @@ import {
   fetchProjects,
   fetchProjectById,
   createProject,
+  updateProject,
   updateProjectStatus,
   fetchProjectTransactions,
   fetchProjectReport
 } from '../api/projectApi';
-import { ProjectItem, CreateProjectPayload, ProjectStatus, ProjectTransactionsResponse, ProjectReportResponse } from '../types';
+import { ProjectItem, CreateProjectPayload, UpdateProjectPayload, ProjectStatus, ProjectTransactionsResponse, ProjectReportResponse } from '../types';
 
 /**
  * Hook to fetch active projects and budget burn status for dashboard monitoring.
@@ -83,6 +84,23 @@ export const useUpdateProjectStatus = () => {
     mutationFn: ({ id, status }) => updateProjectStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+};
+
+/**
+ * Hook to update a project's name and/or approved budget BOQ.
+ */
+export const useUpdateProject = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<ProjectItem, Error, { id: string; payload: UpdateProjectPayload }>({
+    mutationFn: ({ id, payload }) => updateProject(id, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['projects', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['projects', variables.id, 'report'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };

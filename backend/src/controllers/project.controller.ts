@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ProjectService } from '../services/project.service';
-import { CreateProjectSchema, UpdateProjectStatusSchema } from '../utils/validation.util';
+import { CreateProjectSchema, UpdateProjectStatusSchema, UpdateProjectSchema } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 
 export const createProject = async (req: Request, res: Response, next: NextFunction) => {
@@ -69,6 +69,29 @@ export const updateProjectStatus = async (req: Request, res: Response, next: Nex
       success: true,
       data: project,
       message: 'Project status updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProject = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const parseResult = UpdateProjectSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const project = await ProjectService.updateProject(id, parseResult.data);
+
+    res.status(200).json({
+      success: true,
+      data: project,
+      message: 'Project updated successfully'
     });
   } catch (error) {
     next(error);

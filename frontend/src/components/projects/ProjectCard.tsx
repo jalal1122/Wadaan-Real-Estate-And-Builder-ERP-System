@@ -3,7 +3,8 @@ import { ProjectItem, ProjectStatus } from '@/features/projects/types';
 import { useUpdateProjectStatus } from '@/features/projects/hooks/useProjects';
 import { formatPKR } from '@/lib/formatters';
 import { ProjectReportModal } from './ProjectReportModal';
-import { MoreVertical, AlertTriangle, CheckCircle2, PauseCircle, PlayCircle, User, Printer } from 'lucide-react';
+import { EditProjectModal } from './EditProjectModal';
+import { MoreVertical, AlertTriangle, CheckCircle2, PauseCircle, PlayCircle, User, Printer, Edit3 } from 'lucide-react';
 
 interface ProjectCardProps {
   project: ProjectItem;
@@ -14,6 +15,7 @@ interface ProjectCardProps {
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransactions, onPrintReport }) => {
   const [reportOpen, setReportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const updateStatusMutation = useUpdateProjectStatus();
@@ -106,6 +108,18 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransac
 
           {menuOpen && (
             <div className="absolute right-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setEditModalOpen(true);
+                }}
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-medium"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                Edit Project
+              </button>
+              <div className="border-t border-slate-100 my-1"></div>
               <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Change Status
               </div>
@@ -273,6 +287,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onViewTransac
         <ProjectReportModal
           projectId={project.id}
           onClose={() => setReportOpen(false)}
+        />
+      )}
+
+      {editModalOpen && (
+        <EditProjectModal
+          project={project}
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
         />
       )}
     </div>

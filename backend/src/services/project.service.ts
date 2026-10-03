@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { CreateProjectInput, UpdateProjectStatusInput } from '../utils/validation.util';
+import { CreateProjectInput, UpdateProjectStatusInput, UpdateProjectInput } from '../utils/validation.util';
 import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export interface ProjectReportResult {
@@ -365,6 +365,34 @@ export class ProjectService {
     });
 
     bustCache('projects');
+    return updated;
+  }
+
+  /**
+   * Updates project details (name and/or approved budget BOQ).
+   */
+  static async updateProject(id: string, input: UpdateProjectInput) {
+    const project = await prisma.project.findUnique({ where: { id } });
+
+    if (!project) {
+      throw new AppError('Project not found', 404, 'PROJECT_NOT_FOUND');
+    }
+
+    const updateData: any = {};
+    if (input.projectName !== undefined) {
+      updateData.projectName = input.projectName.trim();
+    }
+    if (input.masterBOQ !== undefined) {
+      updateData.masterBOQ = new Decimal(input.masterBOQ);
+    }
+
+    const updated = await prisma.project.update({
+      where: { id },
+      data: updateData
+    });
+
+    bustCache('projects');
+    bustCache('reports');
     return updated;
   }
 

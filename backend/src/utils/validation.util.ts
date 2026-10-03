@@ -275,12 +275,39 @@ export const UpdateProjectStatusSchema = z.object({
 
 export type UpdateProjectStatusInput = z.infer<typeof UpdateProjectStatusSchema>;
 
+export const UpdateProjectSchema = z
+  .object({
+    projectName: z.string().min(1, 'Project name cannot be empty').optional(),
+    masterBOQ: z
+      .union([
+        z.number().min(0, 'masterBOQ must be greater than or equal to 0'),
+        z.string().regex(/^\d+(\.\d+)?$/, 'masterBOQ must be a non-negative number')
+      ])
+      .optional()
+  })
+  .refine((data) => data.projectName !== undefined || data.masterBOQ !== undefined, {
+    message: 'At least one field (projectName or masterBOQ) must be provided for update'
+  });
+
+export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
+
 export const CreateVendorSchema = z.object({
   vendorName: z.string().min(1, 'Vendor name is required'),
   phone: z.string().optional()
 });
 
 export type CreateVendorInput = z.infer<typeof CreateVendorSchema>;
+
+export const UpdateVendorSchema = z
+  .object({
+    vendorName: z.string().min(1, 'Vendor name cannot be empty').optional(),
+    phone: z.string().optional().nullable()
+  })
+  .refine((data) => data.vendorName !== undefined || data.phone !== undefined, {
+    message: 'At least one field (vendorName or phone) must be provided for update'
+  });
+
+export type UpdateVendorInput = z.infer<typeof UpdateVendorSchema>;
 
 export const CreateBillLineItemSchema = z.object({
   description: z.string().min(1, 'Description is required'),
@@ -385,6 +412,17 @@ export const CreateCustomerSchema = z.object({
 });
 
 export type CreateCustomerInput = z.infer<typeof CreateCustomerSchema>;
+
+export const UpdateCustomerSchema = z
+  .object({
+    fullName: z.string().min(1, 'Customer name cannot be empty').optional(),
+    phone: z.string().min(1, 'Phone number cannot be empty').optional()
+  })
+  .refine((data) => data.fullName !== undefined || data.phone !== undefined, {
+    message: 'At least one field (fullName or phone) must be provided for update'
+  });
+
+export type UpdateCustomerInput = z.infer<typeof UpdateCustomerSchema>;
 
 export const CreateDealInvoiceSchema = z.object({
   description: z.string().min(1, 'Invoice description is required'),

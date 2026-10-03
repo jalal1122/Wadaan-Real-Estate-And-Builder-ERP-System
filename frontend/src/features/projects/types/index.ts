@@ -35,6 +35,11 @@ export interface CreateProjectPayload {
   masterBOQ: string | number;
 }
 
+export interface UpdateProjectPayload {
+  projectName?: string;
+  masterBOQ?: string | number;
+}
+
 export interface ProjectTransactionItem {
   id: string;
   journalId: string;
