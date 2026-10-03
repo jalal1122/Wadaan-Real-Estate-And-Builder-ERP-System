@@ -79,6 +79,26 @@ export const reverseEntry = async (req: Request, res: Response, next: NextFuncti
 };
 
 /**
+ * Controller to reverse the last posted non-reversal journal entry in the ledger.
+ */
+export const reverseLastEntry = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { reversal, original } = await JournalService.reverseLastEntry();
+
+    res.status(201).json({
+      success: true,
+      message: `Last journal entry '${original.entryNumber}' (${original.description}) was reversed successfully. Reversal voucher '${reversal.entryNumber}' posted.`,
+      data: {
+        reversal,
+        original
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Controller to generate a chronological ledger statement for an account.
  * Supports query params ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD.
  */

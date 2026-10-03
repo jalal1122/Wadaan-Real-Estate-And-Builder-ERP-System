@@ -141,6 +141,14 @@ export class JournalService {
         );
       }
 
+      if (original.description.startsWith('[REVERSAL]')) {
+        throw new AppError(
+          `Journal entry '${original.entryNumber}' is already a reversal entry and cannot be reversed again.`,
+          400,
+          'ALREADY_REVERSED'
+        );
+      }
+
       // 2. Generate sequential voucher number for reversal
       const count = await tx.journalEntry.count();
       let nextNumber = count + 1;
@@ -157,11 +165,15 @@ export class JournalService {
         });
       }
 
-      // 3. Create reversal entry with inverted debits and credits
+      // 3. Create reversal entry with inverted debits and credits, preserving party and project tracking
       const reversedLines = original.lines.map((line) => ({
         accountId: line.accountId,
         debitAmount: line.creditAmount, // Inverted: credit becomes debit
-        creditAmount: line.debitAmount  // Inverted: debit becomes credit
+        creditAmount: line.debitAmount, // Inverted: debit becomes credit
+        memo: line.memo ? `[REVERSAL] ${line.memo}` : null,
+        customerId: line.customerId,
+        vendorId: line.vendorId,
+        projectId: line.projectId
       }));
 
       // Validate zero-sum on reversed lines
@@ -176,14 +188,21 @@ export class JournalService {
             create: reversedLines.map((l) => ({
               accountId: l.accountId,
               debitAmount: l.debitAmount,
-              creditAmount: l.creditAmount
+              creditAmount: l.creditAmount,
+              memo: l.memo,
+              customerId: l.customerId,
+              vendorId: l.vendorId,
+              projectId: l.projectId
             }))
           }
         },
         include: {
           lines: {
             include: {
-              account: true
+              account: true,
+              customer: true,
+              vendor: true,
+              project: true
             }
           }
         }
@@ -198,6 +217,33 @@ export class JournalService {
     bustCache('projects');
     bustCache('journals');
     return reversed;
+  }
+
+  /**
+   * Reverses the most recent non-reversal journal entry in the ledger.
+   * Useful for immediate one-click error correction.
+   */
+  static async reverseLastEntry(): Promise<{ reversal: JournalEntry; original: JournalEntry }> {
+    const lastEntry = await prisma.journalEntry.findFirst({
+      where: {
+        NOT: {
+          description: {
+            startsWith: '[REVERSAL]'
+          }
+        }
+      },
+      orderBy: [
+        { entryDate: 'desc' },
+        { entryNumber: 'desc' }
+      ]
+    });
+
+    if (!lastEntry) {
+      throw new AppError('No reversible journal entries found in the ledger.', 404, 'NOT_FOUND');
+    }
+
+    const reversal = await this.reverseEntry(lastEntry.id);
+    return { reversal, original: lastEntry };
   }
 
   /**

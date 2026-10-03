@@ -58,6 +58,17 @@ vi.mock('@/features/accounting/hooks/useJournals', () => ({
     error: null,
   }),
   useJournalEntries: (page?: number, limit?: number) => mockUseJournalEntriesHook(page, limit),
+  useReverseJournal: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ id: 'reversal-1', entryNumber: 'JV-0099' }),
+    isPending: false,
+  }),
+  useRevertLastJournal: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({
+      original: { id: 'orig-1', entryNumber: 'JV-0010', description: 'Office Supplies' },
+      reversal: { id: 'reversal-1', entryNumber: 'JV-0099' },
+    }),
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/features/accounting/hooks/useParties', () => ({
@@ -230,5 +241,73 @@ describe('JournalEntryForm / JournalsPage Component', () => {
     fireEvent.click(nextButton);
 
     expect(mockUseJournalEntriesHook).toHaveBeenCalledWith(2, 25);
+  });
+
+  it('8. opens Revert Last Ledger Entry modal and confirms reversal', async () => {
+    mockJournalEntriesData = {
+      entries: [
+        {
+          id: 'j-1',
+          entryNumber: 'JV-2026-0001',
+          entryDate: '2026-09-01',
+          description: 'Initial Opening Balance',
+          lines: [
+            { id: 'l-1', accountId: 'acc-cash', debitAmount: '50000', creditAmount: '0', memo: null, customerId: null, vendorId: null, projectId: null, account: { id: 'acc-cash', accountCode: '1001', accountName: 'Cash', category: 'ASSET' }, customer: null, vendor: null, project: null },
+            { id: 'l-2', accountId: 'acc-eq', debitAmount: '0', creditAmount: '50000', memo: null, customerId: null, vendorId: null, projectId: null, account: { id: 'acc-eq', accountCode: '3001', accountName: 'Equity', category: 'EQUITY' }, customer: null, vendor: null, project: null },
+          ],
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 25,
+    };
+
+    render(<JournalsPage />);
+
+    const revertLastBtn = screen.getByTestId('revert-last-ledger-btn');
+    expect(revertLastBtn).toBeInTheDocument();
+    fireEvent.click(revertLastBtn);
+
+    expect(screen.getByRole('heading', { name: 'Revert Last Ledger Entry' })).toBeInTheDocument();
+    const confirmBtn = screen.getByTestId('confirm-revert-last-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/was reversed successfully/i)).toBeInTheDocument();
+    });
+  });
+
+  it('9. opens row Revert modal and executes reversal for a specific entry', async () => {
+    mockJournalEntriesData = {
+      entries: [
+        {
+          id: 'j-1',
+          entryNumber: 'JV-2026-0001',
+          entryDate: '2026-09-01',
+          description: 'Payment for paint',
+          lines: [
+            { id: 'l-1', accountId: 'acc-cash', debitAmount: '20000', creditAmount: '0', memo: null, customerId: null, vendorId: null, projectId: null, account: { id: 'acc-cash', accountCode: '1001', accountName: 'Cash', category: 'ASSET' }, customer: null, vendor: null, project: null },
+            { id: 'l-2', accountId: 'acc-eq', debitAmount: '0', creditAmount: '20000', memo: null, customerId: null, vendorId: null, projectId: null, account: { id: 'acc-eq', accountCode: '3001', accountName: 'Equity', category: 'EQUITY' }, customer: null, vendor: null, project: null },
+          ],
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 25,
+    };
+
+    render(<JournalsPage />);
+
+    const revertBtn = screen.getByTestId('revert-entry-btn-j-1');
+    expect(revertBtn).toBeInTheDocument();
+    fireEvent.click(revertBtn);
+
+    expect(screen.getByText(/Are you sure you want to revert voucher/i)).toBeInTheDocument();
+    const confirmBtn = screen.getByTestId('confirm-revert-entry-btn');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/was reversed successfully/i)).toBeInTheDocument();
+    });
   });
 });

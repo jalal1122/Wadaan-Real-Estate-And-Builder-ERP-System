@@ -26,3 +26,23 @@ export const fetchJournalEntries = async (
   );
   return response.data.data!;
 };
+
+/**
+ * Reverses a specific journal entry by ID.
+ * POST /api/v1/journals/:id/reverse
+ */
+export const reverseJournalEntry = async (id: string): Promise<JournalEntry> => {
+  const response = await apiClient.post<ApiResponse<JournalEntry>>(`/journals/${id}/reverse`);
+  return response.data.data!;
+};
+
+/**
+ * Reverses the most recent non-reversal journal entry in the ledger.
+ * POST /api/v1/journals/revert-last
+ */
+export const reverseLastJournalEntry = async (): Promise<{ reversal: JournalEntry; original: JournalEntry }> => {
+  const response = await apiClient.post<ApiResponse<{ reversal: JournalEntry; original: JournalEntry }>>(
+    '/journals/revert-last'
+  );
+  return response.data.data!;
+};

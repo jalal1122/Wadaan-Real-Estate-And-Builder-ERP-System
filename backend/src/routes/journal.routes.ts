@@ -3,6 +3,7 @@ import {
   createEntry,
   getEntries,
   reverseEntry,
+  reverseLastEntry,
   getLedger
 } from '../controllers/journal.controller';
 import { authGuard } from '../middleware/authGuard';
@@ -16,6 +17,7 @@ router.get('/ledger/:accountId', authGuard, getLedger);
 // Screen 2: General Journal Entries & Reversals
 router.get('/', authGuard, getEntries);        // List journal entries (paginated)
 router.post('/', authGuard, createEntry);       // Create new journal entry
-router.post('/:id/reverse', authGuard, reverseEntry); // Reverse a journal entry
+router.post('/revert-last', authGuard, reverseLastEntry); // Revert most recent non-reversal journal entry
+router.post('/:id/reverse', authGuard, reverseEntry); // Reverse a specific journal entry
 
 export default router;

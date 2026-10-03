@@ -11,14 +11,22 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
+  X,
+  Loader2,
 } from 'lucide-react';
 import GLNavTabs from '@/components/accounting/GLNavTabs';
 import { useChartOfAccounts } from '@/features/accounting/hooks/useAccounting';
-import { useCreateJournal, useJournalEntries } from '@/features/accounting/hooks/useJournals';
+import {
+  useCreateJournal,
+  useJournalEntries,
+  useReverseJournal,
+  useRevertLastJournal,
+} from '@/features/accounting/hooks/useJournals';
 import { useCustomers, useVendors } from '@/features/accounting/hooks/useParties';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { formatPKR } from '@/lib/formatters';
-import { JournalLinePayload } from '@/features/accounting/types/journal';
+import { JournalLinePayload, JournalEntry } from '@/features/accounting/types/journal';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -70,6 +78,49 @@ export default function JournalsPage() {
   const totalPages = Math.max(1, Math.ceil((journalList?.total ?? 0) / (journalList?.limit || 25)));
 
   const { mutate: postJournal, isPending, error: postError } = useCreateJournal();
+  const reverseMutation = useReverseJournal();
+  const revertLastMutation = useRevertLastJournal();
+
+  const [revertingEntry, setRevertingEntry] = useState<JournalEntry | null>(null);
+  const [isRevertingLast, setIsRevertingLast] = useState(false);
+  const [reversalAlert, setReversalAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleConfirmReverseEntry = async () => {
+    if (!revertingEntry) return;
+    setReversalAlert(null);
+    try {
+      const res = await reverseMutation.mutateAsync(revertingEntry.id);
+      setReversalAlert({
+        type: 'success',
+        message: `Journal entry '${revertingEntry.entryNumber}' was reversed successfully. Reversal voucher '${res.entryNumber}' posted.`,
+      });
+      setRevertingEntry(null);
+      refetchList();
+    } catch (err: any) {
+      setReversalAlert({
+        type: 'error',
+        message: err?.response?.data?.message || err.message || 'Failed to reverse journal entry',
+      });
+    }
+  };
+
+  const handleConfirmRevertLast = async () => {
+    setReversalAlert(null);
+    try {
+      const res = await revertLastMutation.mutateAsync();
+      setReversalAlert({
+        type: 'success',
+        message: `Last journal entry '${res.original.entryNumber}' (${res.original.description}) was reversed successfully. Reversal voucher '${res.reversal.entryNumber}' posted.`,
+      });
+      setIsRevertingLast(false);
+      refetchList();
+    } catch (err: any) {
+      setReversalAlert({
+        type: 'error',
+        message: err?.response?.data?.message || err.message || 'Failed to revert last journal entry',
+      });
+    }
+  };
 
   // Filter out system-locked accounts from the dropdown per screen2JournalEntry.md rules
   const availableAccounts = (accountsData?.accounts ?? []).filter(
@@ -448,10 +499,52 @@ export default function JournalsPage() {
 
       {/* ── JOURNAL HISTORY TABLE ─────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <span className="text-sm font-bold text-[#0F172A]">Recent Journal Entries</span>
-          <span className="text-xs text-slate-400">{journalList?.total ?? 0} total entries</span>
+        <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/50">
+          <div>
+            <span className="text-sm font-bold text-[#0F172A] block">Recent Journal Entries</span>
+            <span className="text-xs text-slate-400">{journalList?.total ?? 0} total ledger entries</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsRevertingLast(true)}
+              disabled={revertLastMutation.isPending || !journalList?.entries?.length}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Revert the last non-reversal journal entry in the ledger"
+              data-testid="revert-last-ledger-btn"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Revert Last Ledger Entry</span>
+            </button>
+          </div>
         </div>
+
+        {reversalAlert && (
+          <div
+            className={`mx-6 mt-4 p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+              reversalAlert.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border-rose-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {reversalAlert.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{reversalAlert.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReversalAlert(null)}
+              className="p-1 hover:bg-black/5 rounded text-slate-500 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -462,7 +555,8 @@ export default function JournalsPage() {
                 <th className="py-3 px-6">Description</th>
                 <th className="py-3 px-6 text-right w-32">Total Dr</th>
                 <th className="py-3 px-6 text-right w-32">Total Cr</th>
-                <th className="py-3 px-4 w-20">Lines</th>
+                <th className="py-3 px-4 w-20 text-center">Lines</th>
+                <th className="py-3 px-6 w-24 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -475,11 +569,12 @@ export default function JournalsPage() {
                     <td className="py-4 px-6 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
                     <td className="py-4 px-6 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
                     <td className="py-4 px-4 text-center"><Skeleton className="h-4 w-8 mx-auto rounded" /></td>
+                    <td className="py-4 px-6 text-right"><Skeleton className="h-4 w-12 ml-auto" /></td>
                   </tr>
                 ))
               ) : journalList?.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 px-6 text-center text-xs text-slate-400 italic">
+                  <td colSpan={7} className="py-8 px-6 text-center text-xs text-slate-400 italic">
                     No journal entries yet. Post your first entry above.
                   </td>
                 </tr>
@@ -487,6 +582,7 @@ export default function JournalsPage() {
                 journalList?.entries.map((entry) => {
                   const dr = entry.lines.reduce((s, l) => s + parseFloat(l.debitAmount || '0'), 0);
                   const cr = entry.lines.reduce((s, l) => s + parseFloat(l.creditAmount || '0'), 0);
+                  const isReversal = entry.description.startsWith('[REVERSAL]');
                   return (
                     <tr key={entry.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-6 font-mono font-bold text-[#059669]">{entry.entryNumber}</td>
@@ -502,6 +598,24 @@ export default function JournalsPage() {
                         <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold">
                           {entry.lines.length}
                         </span>
+                      </td>
+                      <td className="py-3 px-6 text-right">
+                        {isReversal ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                            Reversal
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setRevertingEntry(entry)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                            title={`Revert ${entry.entryNumber}`}
+                            data-testid={`revert-entry-btn-${entry.id}`}
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Revert</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -550,6 +664,144 @@ export default function JournalsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── REVERT CONFIRMATION MODALS ─────────────────────────────────── */}
+      {/* 1. Single Entry Reversal Modal */}
+      {revertingEntry && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-5 bg-[#0F172A] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-rose-950/80 text-rose-400 rounded-lg border border-rose-800">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Revert Journal Entry</h3>
+                  <p className="text-xs text-slate-400">Compensating Double-Entry Reversal</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRevertingEntry(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to revert voucher <strong className="font-mono text-slate-900 font-bold">{revertingEntry.entryNumber}</strong>?
+              </p>
+
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Description:</span>
+                  <span className="font-medium text-slate-800 text-right">{revertingEntry.description}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Date:</span>
+                  <span className="font-mono text-slate-800">
+                    {new Date(revertingEntry.entryDate).toLocaleDateString('en-PK')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Volume:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    {formatPKR(revertingEntry.lines.reduce((s, l) => s + parseFloat(l.debitAmount || '0'), 0))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  This will post a mirror balancing journal entry inverting all debits and credits. No historical records are deleted, ensuring a 100% audit-proof general ledger.
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRevertingEntry(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmReverseEntry}
+                  disabled={reverseMutation.isPending}
+                  className="px-5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  data-testid="confirm-revert-entry-btn"
+                >
+                  {reverseMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Confirm Revert Entry
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Revert Last Entry Modal */}
+      {isRevertingLast && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-5 bg-[#0F172A] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-rose-950/80 text-rose-400 rounded-lg border border-rose-800">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Revert Last Ledger Entry</h3>
+                  <p className="text-xs text-slate-400">Immediate One-Click Correction</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRevertingLast(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                This will automatically identify and invert the <strong>most recent non-reversal journal voucher</strong> posted to the General Ledger.
+              </p>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  The reversal entry will mirror the last transaction with debits and credits swapped, neutralizing its impact on cash balances, project WIP, and accounts.
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsRevertingLast(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRevertLast}
+                  disabled={revertLastMutation.isPending}
+                  className="px-5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  data-testid="confirm-revert-last-btn"
+                >
+                  {revertLastMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Confirm Revert Last Entry
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

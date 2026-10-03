@@ -1,5 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createJournalEntry, fetchJournalEntries } from '../api/journalsApi';
+import {
+  createJournalEntry,
+  fetchJournalEntries,
+  reverseJournalEntry,
+  reverseLastJournalEntry,
+} from '../api/journalsApi';
 import { CreateJournalPayload, JournalEntriesResponse, JournalEntry } from '../types/journal';
 
 /**
@@ -25,6 +30,44 @@ export const useCreateJournal = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journals'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] }); // Refresh live balances
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+};
+
+/**
+ * Hook to reverse a specific journal entry by ID.
+ */
+export const useReverseJournal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<JournalEntry, Error, string>({
+    mutationFn: (id: string) => reverseJournalEntry(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journals'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['account-ledger'] });
+    },
+  });
+};
+
+/**
+ * Hook to revert the last posted non-reversal journal entry in the ledger.
+ */
+export const useRevertLastJournal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ reversal: JournalEntry; original: JournalEntry }, Error, void>({
+    mutationFn: () => reverseLastJournalEntry(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journals'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['account-ledger'] });
     },
   });
 };

@@ -9,6 +9,7 @@ jest.mock('../config/db', () => ({
     journalEntry: {
       count: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       findMany: jest.fn(),
     },
@@ -160,5 +161,117 @@ describe('JournalService.postEntry', () => {
 
     expect(getCache('journals:entries:page:1:limit:20')).toBeNull();
     delete process.env.ENABLE_TEST_CACHE;
+  });
+
+  test('7. reverseEntry inverts debits and credits and preserves memo, partyId, and projectId', async () => {
+    const originalEntry = {
+      id: 'je-orig-1',
+      entryNumber: 'JV-0010',
+      entryDate: new Date(),
+      description: 'Vendor payment for materials',
+      lines: [
+        {
+          id: 'jl-1',
+          accountId: 'acc-1',
+          debitAmount: 25000,
+          creditAmount: 0,
+          memo: 'Cement purchase',
+          customerId: null,
+          vendorId: 'vend-101',
+          projectId: 'proj-50',
+        },
+        {
+          id: 'jl-2',
+          accountId: 'acc-2',
+          debitAmount: 0,
+          creditAmount: 25000,
+          memo: 'Bank transfer',
+          customerId: null,
+          vendorId: null,
+          projectId: null,
+        },
+      ],
+    };
+
+    (mockPrisma.journalEntry.findUnique as jest.Mock).mockImplementation(({ where }) => {
+      if (where.id === 'je-orig-1') return Promise.resolve(originalEntry);
+      return Promise.resolve(null);
+    });
+
+    let createdReversalData: any = null;
+    (mockPrisma.journalEntry.create as jest.Mock).mockImplementation(({ data }) => {
+      createdReversalData = data;
+      return Promise.resolve({
+        id: 'je-rev-1',
+        ...data,
+      });
+    });
+
+    const reversal = await JournalService.reverseEntry('je-orig-1');
+
+    expect(reversal).toBeDefined();
+    expect(createdReversalData.description).toBe('[REVERSAL] Vendor payment for materials');
+    expect(createdReversalData.lines.create).toHaveLength(2);
+
+    // First line should invert (credit becomes 25000, debit becomes 0)
+    expect(createdReversalData.lines.create[0]).toMatchObject({
+      accountId: 'acc-1',
+      debitAmount: 0,
+      creditAmount: 25000,
+      memo: '[REVERSAL] Cement purchase',
+      vendorId: 'vend-101',
+      projectId: 'proj-50',
+    });
+
+    // Second line should invert (debit becomes 25000, credit becomes 0)
+    expect(createdReversalData.lines.create[1]).toMatchObject({
+      accountId: 'acc-2',
+      debitAmount: 25000,
+      creditAmount: 0,
+    });
+  });
+
+  test('8. reverseEntry rejects reversing an already reversed entry', async () => {
+    (mockPrisma.journalEntry.findUnique as jest.Mock).mockResolvedValue({
+      id: 'je-rev-existing',
+      entryNumber: 'JV-0011',
+      description: '[REVERSAL] Previous error fix',
+      lines: [],
+    });
+
+    await expect(JournalService.reverseEntry('je-rev-existing')).rejects.toMatchObject({
+      code: 'ALREADY_REVERSED',
+    });
+  });
+
+  test('9. reverseLastEntry finds the latest non-reversal entry and reverses it', async () => {
+    const lastEntry = {
+      id: 'je-latest',
+      entryNumber: 'JV-0099',
+      entryDate: new Date(),
+      description: 'Recent office supply cash expense',
+      lines: [
+        { id: 'jl-3', accountId: 'acc-1', debitAmount: 5000, creditAmount: 0, memo: null, customerId: null, vendorId: null, projectId: null },
+        { id: 'jl-4', accountId: 'acc-2', debitAmount: 0, creditAmount: 5000, memo: null, customerId: null, vendorId: null, projectId: null },
+      ],
+    };
+
+    (mockPrisma.journalEntry.findFirst as jest.Mock).mockResolvedValue(lastEntry);
+    (mockPrisma.journalEntry.findUnique as jest.Mock).mockImplementation(({ where }) => {
+      if (where.id === 'je-latest') return Promise.resolve(lastEntry);
+      return Promise.resolve(null);
+    });
+
+    const result = await JournalService.reverseLastEntry();
+
+    expect(result.original.id).toBe('je-latest');
+    expect(result.reversal).toBeDefined();
+    expect(mockPrisma.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          description: '[REVERSAL] Recent office supply cash expense',
+        }),
+      })
+    );
   });
 });
