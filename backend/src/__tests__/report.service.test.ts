@@ -132,53 +132,57 @@ describe('ReportService.getProjectLedger', () => {
   });
 
   test('throws an error if project is not found', async () => {
-    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+    mockPrisma.project.findUnique.mockResolvedValue(null);
     await expect(
       ReportService.getProjectLedger('invalid-proj-id')
     ).rejects.toThrow('Project with ID invalid-proj-id not found');
   });
 
   test('flattens bill line items and correctly calculates total project cost', async () => {
-    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+    mockPrisma.project.findUnique.mockResolvedValue({
+      id: 'proj-1',
+      projectName: 'Wadaan Heights',
+      projectPrefix: 'WH',
+    });
+
+    mockPrisma.expenseBill.findMany.mockResolvedValue([
       {
-        projectName: 'Wadaan Heights',
-        projectPrefix: 'WH',
-        lines: [
+        id: 'bill-1',
+        billDate: new Date('2026-09-15T00:00:00Z'),
+        invoiceNumber: 'INV-1001',
+        vendor: { vendorName: 'Al-Hadeed Steel Mills' },
+        lineItems: [
           {
-            billId: 'bill-1',
-            lineItemId: 'line-1',
-            billDate: '2026-09-15T00:00:00Z',
-            vendorName: 'Al-Hadeed Steel Mills',
-            invoiceNumber: 'INV-1001',
+            id: 'line-1',
             description: 'Deformed Grade 60 Steel 10mm',
             quantity: 10,
             unitPrice: 25000,
-            lineTotal: 250000
+            lineTotal: 250000,
           },
           {
-            billId: 'bill-1',
-            lineItemId: 'line-2',
-            billDate: '2026-09-15T00:00:00Z',
-            vendorName: 'Al-Hadeed Steel Mills',
-            invoiceNumber: 'INV-1001',
+            id: 'line-2',
             description: 'Binding Wire 50kg Roll',
             quantity: 2,
             unitPrice: 7500,
-            lineTotal: 15000
+            lineTotal: 15000,
           },
+        ],
+      },
+      {
+        id: 'bill-2',
+        billDate: new Date('2026-09-18T00:00:00Z'),
+        invoiceNumber: 'INV-1002',
+        vendor: { vendorName: 'Bestway Cement' },
+        lineItems: [
           {
-            billId: 'bill-2',
-            lineItemId: 'line-3',
-            billDate: '2026-09-18T00:00:00Z',
-            vendorName: 'Bestway Cement',
-            invoiceNumber: 'INV-1002',
+            id: 'line-3',
             description: 'OPC Grade 53 Cement 50kg Bags',
             quantity: 100,
             unitPrice: 1450,
-            lineTotal: 145000
-          }
-        ]
-      }
+            lineTotal: 145000,
+          },
+        ],
+      },
     ]);
 
     const result = await ReportService.getProjectLedger('proj-1');
@@ -191,6 +195,40 @@ describe('ReportService.getProjectLedger', () => {
     // Total: 250000 + 15000 + 145000 = 410000.00
     expect(result.totalProjectCost).toBe('410000.00');
   });
+
+  test('applies date filtering correctly when startDate and endDate are provided', async () => {
+    mockPrisma.project.findUnique.mockResolvedValue({
+      id: 'proj-1',
+      projectName: 'Wadaan Heights',
+      projectPrefix: 'WH',
+    });
+
+    mockPrisma.expenseBill.findMany.mockResolvedValue([]);
+
+    const startDate = new Date('2026-09-01T00:00:00.000Z');
+    const endDate = new Date('2026-09-30T23:59:59.999Z');
+
+    await ReportService.getProjectLedger('proj-1', startDate, endDate);
+
+    expect(mockPrisma.expenseBill.findMany).toHaveBeenCalledWith({
+      where: {
+        projectId: 'proj-1',
+        billDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        vendor: {
+          select: {
+            vendorName: true,
+          },
+        },
+        lineItems: true,
+      },
+      orderBy: { billDate: 'desc' },
+    });
+  });
 });
 
 describe('ReportService.getOverheadLedger', () => {
@@ -199,22 +237,22 @@ describe('ReportService.getOverheadLedger', () => {
   });
 
   test('fetches non-project bills (projectId: null) and sums grandTotal', async () => {
-    (mockPrisma.$queryRaw as jest.Mock).mockResolvedValue([
+    mockPrisma.expenseBill.findMany.mockResolvedValue([
       {
-        billId: 'bill-oh-1',
+        id: 'bill-oh-1',
         invoiceNumber: 'BILL-ELEC-01',
         billDate: new Date('2026-09-10T00:00:00Z'),
         grandTotal: '75000.00',
         paymentStatus: 'PAID',
-        vendorName: 'WAPDA Electricity',
+        vendor: { vendorName: 'WAPDA Electricity' },
       },
       {
-        billId: 'bill-oh-2',
+        id: 'bill-oh-2',
         invoiceNumber: 'BILL-OFFICE-RENT',
         billDate: new Date('2026-09-01T00:00:00Z'),
         grandTotal: '150000.00',
         paymentStatus: 'PAID',
-        vendorName: 'Property Landlord',
+        vendor: { vendorName: 'Property Landlord' },
       },
     ]);
 
@@ -224,6 +262,33 @@ describe('ReportService.getOverheadLedger', () => {
     expect(result.bills[0].vendorName).toBe('WAPDA Electricity');
     expect(result.bills[1].grandTotal).toBe('150000.00');
     expect(result.totalOverhead).toBe('225000.00');
+  });
+
+  test('applies date filtering correctly for overhead expenses', async () => {
+    mockPrisma.expenseBill.findMany.mockResolvedValue([]);
+
+    const startDate = new Date('2026-09-01T00:00:00.000Z');
+    const endDate = new Date('2026-09-30T23:59:59.999Z');
+
+    await ReportService.getOverheadLedger(startDate, endDate);
+
+    expect(mockPrisma.expenseBill.findMany).toHaveBeenCalledWith({
+      where: {
+        projectId: null,
+        billDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        vendor: {
+          select: {
+            vendorName: true,
+          },
+        },
+      },
+      orderBy: { billDate: 'desc' },
+    });
   });
 });
 

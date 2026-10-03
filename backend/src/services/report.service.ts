@@ -4,6 +4,7 @@ import { prisma } from '../config/db';
 import { DateUtility, MathUtility } from '../utils/aggregation.util';
 import { FiscalYearUtility } from '../utils/fiscal.util';
 import { getCache, setCache, bustCache } from '../utils/cache.util';
+import { AppError } from '../middleware/errorHandler';
 
 export interface TrialBalanceLineItem {
   accountId: string;
