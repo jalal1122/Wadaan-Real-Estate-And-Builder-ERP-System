@@ -429,7 +429,13 @@ export const ProjectReportModal: React.FC<ProjectReportModalProps> = ({
                                     {p.paidByCustomerName || client.customerName}
                                   </td>
                                   <td className="px-3 py-2 font-sans text-slate-600">
-                                    {p.paymentMethod || '—'}
+                                    {p.paymentMethod === 'WALLET' ? (
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        Wallet Advance
+                                      </span>
+                                    ) : (
+                                      p.paymentMethod || '—'
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 text-slate-500">
                                     {p.bankRefNumber || '—'}
