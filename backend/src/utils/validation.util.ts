@@ -575,7 +575,13 @@ export const CreateReceiptSchema = z
       }),
     paymentMethod: z.enum(['CASH', 'CHEQUE', 'ONLINE']),
     bankRefNumber: z.string().optional().nullable(),
-    targetAccountId: z.string().uuid('Invalid target account ID format').optional().nullable()
+    targetAccountId: z.string().uuid('Invalid target account ID format').optional().nullable(),
+    receiptDate: z
+      .string()
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: 'receiptDate must be a valid date'
+      })
+      .optional()
   })
   .refine(
     (data) => {

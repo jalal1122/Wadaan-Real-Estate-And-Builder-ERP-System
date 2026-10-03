@@ -16,7 +16,8 @@ import {
   Sparkles,
   Printer,
   UserPlus,
-  Plus
+  Plus,
+  Calendar
 } from 'lucide-react';
 import { printInflowReceiptDocument } from '@/lib/receiptPrinter';
 
@@ -33,6 +34,7 @@ export const FastInflowForm: React.FC<FastInflowFormProps> = ({ onReceiptLogged 
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [receiptDate, setReceiptDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [bankRefNumber, setBankRefNumber] = useState<string>('');
@@ -141,6 +143,7 @@ export const FastInflowForm: React.FC<FastInflowFormProps> = ({ onReceiptLogged 
     try {
       printInflowReceiptDocument({
         ...receiptData,
+        receiptDate: receiptData?.receiptDate || receiptDate,
         customer: customerDetail || customers.find((c) => c.id === selectedCustomerId),
       });
     } catch (err) {
@@ -174,6 +177,7 @@ export const FastInflowForm: React.FC<FastInflowFormProps> = ({ onReceiptLogged 
         paymentMethod,
         bankRefNumber: paymentMethod !== 'CASH' ? bankRefNumber.trim() : null,
         targetAccountId: paymentMethod !== 'CHEQUE' ? targetAccountId || null : null,
+        receiptDate: receiptDate || undefined,
       });
 
       setSuccessResult(result);
@@ -183,6 +187,7 @@ export const FastInflowForm: React.FC<FastInflowFormProps> = ({ onReceiptLogged 
       setAmount('');
       setBankRefNumber('');
       setSelectedInvoiceIds([]);
+      setReceiptDate(new Date().toISOString().split('T')[0]);
     } catch (err: any) {
       setFormError(err?.response?.data?.message || err.message || 'Failed to record receipt');
     }
@@ -432,33 +437,56 @@ export const FastInflowForm: React.FC<FastInflowFormProps> = ({ onReceiptLogged 
             </div>
           </div>
 
-          {/* Amount Input */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Received Amount (PKR) *
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">
-                PKR
-              </span>
-              <input
-                type="number"
-                min="1"
-                step="any"
-                placeholder="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full pl-12 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-semibold"
-                required
-                data-testid="amount-input"
-              />
-            </div>
-            {excessAmount > 0 && selectedInvoiceIds.length > 0 && (
-              <p className="text-[11px] text-emerald-600 mt-1 font-medium flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-emerald-500" />
-                Excess of {formatPKR(excessAmount)} will be deposited directly to Client Advance Wallet.
+          {/* Date and Amount Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Inflow Date */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Inflow / Receipt Date *
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={receiptDate}
+                  onChange={(e) => setReceiptDate(e.target.value)}
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white font-mono text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-semibold cursor-pointer"
+                  required
+                  data-testid="receipt-date-input"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Transaction date for receipt and general ledger posting
               </p>
-            )}
+            </div>
+
+            {/* Amount Input */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Received Amount (PKR) *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-xs text-slate-400 font-mono">
+                  PKR
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  step="any"
+                  placeholder="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full pl-12 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-semibold"
+                  required
+                  data-testid="amount-input"
+                />
+              </div>
+              {excessAmount > 0 && selectedInvoiceIds.length > 0 && (
+                <p className="text-[11px] text-emerald-600 mt-1 font-medium flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-emerald-500" />
+                  Excess of {formatPKR(excessAmount)} will be deposited directly to Client Advance Wallet.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Bank Reference Number (Required for Cheque & Online) */}

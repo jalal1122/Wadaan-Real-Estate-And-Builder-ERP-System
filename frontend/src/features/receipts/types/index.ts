@@ -49,6 +49,7 @@ export interface CreateReceiptPayload {
   paymentMethod: PaymentMethod;
   bankRefNumber?: string | null;
   targetAccountId?: string | null;
+  receiptDate?: string;
 }
 
 export interface ClearChequePayload {

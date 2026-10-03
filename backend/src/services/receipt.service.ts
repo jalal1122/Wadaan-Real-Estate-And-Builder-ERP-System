@@ -95,6 +95,7 @@ export class ReceiptService {
         }
 
         const excess = receiptAmount.minus(invoiceSum);
+        const txDate = data.receiptDate ? new Date(data.receiptDate) : new Date();
 
         // 3. Method Branching
         if (data.paymentMethod === 'CASH') {
@@ -105,7 +106,8 @@ export class ReceiptService {
               amount: receiptAmount,
               paymentMethod: 'CASH',
               bankRefNumber: data.bankRefNumber || null,
-              clearanceStatus: 'CLEARED'
+              clearanceStatus: 'CLEARED',
+              receiptDate: txDate
             }
           });
 
@@ -186,7 +188,7 @@ export class ReceiptService {
           await JournalService.postEntry(
             {
               description: `Cash Receipt from ${customer.fullName} (Settled: Rs. ${invoiceSum}, Advance: Rs. ${excess})`,
-              entryDate: new Date().toISOString(),
+              entryDate: txDate.toISOString(),
               lines: journalLines
             },
             tx,
@@ -208,7 +210,8 @@ export class ReceiptService {
               amount: receiptAmount,
               paymentMethod: data.paymentMethod,
               bankRefNumber: data.bankRefNumber,
-              clearanceStatus: 'PENDING'
+              clearanceStatus: 'PENDING',
+              receiptDate: txDate
             }
           });
 
