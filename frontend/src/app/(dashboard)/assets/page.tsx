@@ -5,6 +5,7 @@ import { useAssets, useDeleteAsset } from '@/features/assets/hooks/useAssets';
 import { AssetStatus, AssetCategory, WadaanAsset } from '@/features/assets/types';
 import { CreateAssetModal } from './_components/CreateAssetModal';
 import { ReacquireAssetModal } from './_components/ReacquireAssetModal';
+import { EditAssetModal } from './_components/EditAssetModal';
 import { formatPKR, formatDate } from '@/lib/format';
 import {
   Building,
@@ -17,7 +18,8 @@ import {
   Warehouse,
   Layers,
   Search,
-  RotateCcw
+  RotateCcw,
+  Pencil
 } from 'lucide-react';
 
 export default function AssetInventoryPage() {
@@ -26,6 +28,7 @@ export default function AssetInventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [reacquireTarget, setReacquireTarget] = useState<WadaanAsset | null>(null);
+  const [editingAsset, setEditingAsset] = useState<WadaanAsset | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data: assets = [], isLoading, isError, refetch } = useAssets();
@@ -406,11 +409,21 @@ export default function AssetInventoryPage() {
                               <span>Re-acquire</span>
                             </button>
                           )}
+                          {asset.status === 'AVAILABLE' && (
+                            <button
+                              onClick={() => setEditingAsset(asset)}
+                              title="Edit Asset Details"
+                              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                              data-testid={`edit-asset-btn-${asset.id}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
                           {asset.status === 'AVAILABLE' ? (
                             <button
                               onClick={() => handleDelete(asset)}
                               title="Delete Asset"
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               data-testid={`delete-asset-btn-${asset.id}`}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -438,6 +451,12 @@ export default function AssetInventoryPage() {
       <CreateAssetModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
+      <EditAssetModal
+        asset={editingAsset}
+        isOpen={!!editingAsset}
+        onClose={() => setEditingAsset(null)}
         onSuccess={() => refetch()}
       />
       <ReacquireAssetModal
