@@ -521,6 +521,9 @@ export class ProjectService {
             include: {
               receipt: {
                 include: { customer: true }
+              },
+              walletPayer: {
+                select: { fullName: true }
               }
             },
             orderBy: { dueDate: 'asc' }
@@ -644,9 +647,9 @@ export class ProjectService {
           amount: invAmount,
           paidAmount: paid,
           paymentStatus: inv.paymentStatus,
-          paymentMethod: inv.receipt?.paymentMethod || null,
+          paymentMethod: inv.receipt?.paymentMethod || (inv.walletPayerId ? 'WALLET' : null),
           bankRefNumber: inv.receipt?.bankRefNumber || null,
-          paidByCustomerName: inv.receipt?.customer?.fullName || null
+          paidByCustomerName: inv.receipt?.customer?.fullName || inv.walletPayer?.fullName || null
         };
       });
 
