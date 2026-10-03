@@ -52,14 +52,53 @@ export const getAgingRadar = async (_req: Request, res: Response, next: NextFunc
 };
 
 /**
+ * Safely parses and normalizes report start and end dates.
+ * If endDate is provided without explicit time (length <= 10 or YYYY-MM-DD),
+ * it sets UTC hours to 23:59:59.999Z to guarantee same-day transactions are included.
+ */
+export const parseReportDateFilter = (
+  rawStart?: unknown,
+  rawEnd?: unknown
+): { startDate?: Date; endDate?: Date } => {
+  let startDate: Date | undefined;
+  let endDate: Date | undefined;
+
+  if (rawStart) {
+    const s = String(rawStart).trim();
+    if (s) {
+      startDate = new Date(s);
+      if (isNaN(startDate.getTime())) {
+        throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
+      }
+      if (s.length <= 10) {
+        startDate.setUTCHours(0, 0, 0, 0);
+      }
+    }
+  }
+
+  if (rawEnd) {
+    const e = String(rawEnd).trim();
+    if (e) {
+      endDate = new Date(e);
+      if (isNaN(endDate.getTime())) {
+        throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
+      }
+      if (e.length <= 10) {
+        endDate.setUTCHours(23, 59, 59, 999);
+      }
+    }
+  }
+
+  return { startDate, endDate };
+};
+
+/**
  * Controller to fetch true net income (Gross Deal Profit + Brokerage - Overhead).
  * GET /api/v1/reports/net-income?startDate=2026-07-01&endDate=2026-09-30
  */
 export const getNetIncome = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
-    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
-
+    const { startDate, endDate } = parseReportDateFilter(req.query.startDate, req.query.endDate);
     const data = await ReportService.calculateTrueNetIncome(startDate, endDate);
     res.status(200).json({
       success: true,
@@ -78,20 +117,7 @@ export const getNetIncome = async (req: Request, res: Response, next: NextFuncti
  */
 export const getTrialBalance = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const startDate = req.query.startDate
-      ? new Date(String(req.query.startDate))
-      : undefined;
-    const endDate = req.query.endDate
-      ? new Date(String(req.query.endDate))
-      : undefined;
-
-    if (startDate && isNaN(startDate.getTime())) {
-      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-    if (endDate && isNaN(endDate.getTime())) {
-      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-
+    const { startDate, endDate } = parseReportDateFilter(req.query.startDate, req.query.endDate);
     const data = await ReportService.getTrialBalance(startDate, endDate);
     res.status(200).json({
       success: true,
@@ -113,16 +139,7 @@ export const getProjectLedger = async (req: Request, res: Response, next: NextFu
       throw new AppError('projectId route parameter is required.', 400, 'VALIDATION_ERROR');
     }
 
-    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
-    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
-
-    if (startDate && isNaN(startDate.getTime())) {
-      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-    if (endDate && isNaN(endDate.getTime())) {
-      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-
+    const { startDate, endDate } = parseReportDateFilter(req.query.startDate, req.query.endDate);
     const data = await ReportService.getProjectLedger(projectId, startDate, endDate);
     res.status(200).json({
       success: true,
@@ -139,16 +156,7 @@ export const getProjectLedger = async (req: Request, res: Response, next: NextFu
  */
 export const getOverheadLedger = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
-    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
-
-    if (startDate && isNaN(startDate.getTime())) {
-      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-    if (endDate && isNaN(endDate.getTime())) {
-      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-
+    const { startDate, endDate } = parseReportDateFilter(req.query.startDate, req.query.endDate);
     const data = await ReportService.getOverheadLedger(startDate, endDate);
     res.status(200).json({
       success: true,
@@ -165,16 +173,7 @@ export const getOverheadLedger = async (req: Request, res: Response, next: NextF
  */
 export const getEquityLedger = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
-    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
-
-    if (startDate && isNaN(startDate.getTime())) {
-      throw new AppError('Invalid startDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-    if (endDate && isNaN(endDate.getTime())) {
-      throw new AppError('Invalid endDate parameter.', 400, 'VALIDATION_ERROR');
-    }
-
+    const { startDate, endDate } = parseReportDateFilter(req.query.startDate, req.query.endDate);
     const data = await ReportService.getEquityLedger(startDate, endDate);
     res.status(200).json({
       success: true,
