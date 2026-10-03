@@ -3,12 +3,14 @@ import {
   fetchCustomers,
   fetchCustomerById,
   createCustomer,
+  updateCustomer,
   applyCustomerWallet
 } from '../api/customerApi';
 import {
   Customer,
   CustomerDetail,
   CreateCustomerPayload,
+  UpdateCustomerPayload,
   ApplyWalletPayload
 } from '../types';
 
@@ -44,6 +46,29 @@ export const useCreateCustomer = () => {
     mutationFn: (payload: CreateCustomerPayload) => createCustomer(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+};
+
+/**
+ * Hook to update customer details (fullName, phone).
+ */
+export const useUpdateCustomer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload
+    }: {
+      id: string;
+      payload: UpdateCustomerPayload;
+    }) => updateCustomer(id, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customers', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };

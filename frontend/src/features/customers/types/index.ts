@@ -28,6 +28,11 @@ export interface CreateCustomerPayload {
   phone: string;
 }
 
+export interface UpdateCustomerPayload {
+  fullName?: string;
+  phone?: string;
+}
+
 export interface ApplyWalletPayload {
   invoiceId: string;
   amount: number | string;

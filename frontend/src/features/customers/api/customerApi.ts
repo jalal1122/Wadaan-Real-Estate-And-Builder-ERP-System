@@ -4,6 +4,7 @@ import {
   Customer,
   CustomerDetail,
   CreateCustomerPayload,
+  UpdateCustomerPayload,
   ApplyWalletPayload
 } from '../types';
 
@@ -28,6 +29,17 @@ export const fetchCustomerById = async (id: string): Promise<CustomerDetail> => 
  */
 export const createCustomer = async (payload: CreateCustomerPayload): Promise<Customer> => {
   const response = await apiClient.post<ApiResponse<Customer>>('/customers', payload);
+  return response.data.data!;
+};
+
+/**
+ * Updates an existing customer's contact details (fullName, phone).
+ */
+export const updateCustomer = async (
+  id: string,
+  payload: UpdateCustomerPayload
+): Promise<Customer> => {
+  const response = await apiClient.patch<ApiResponse<Customer>>(`/customers/${id}`, payload);
   return response.data.data!;
 };
 

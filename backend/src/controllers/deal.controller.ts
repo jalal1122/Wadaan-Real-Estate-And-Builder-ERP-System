@@ -3,6 +3,7 @@ import { CustomerService } from '../services/customer.service';
 import { DealService } from '../services/deal.service';
 import {
   CreateCustomerSchema,
+  UpdateCustomerSchema,
   CreateDealSchema,
   TransferFileSchema,
   AddCoClientSchema,
@@ -50,6 +51,28 @@ export const createCustomer = async (req: Request, res: Response, next: NextFunc
       success: true,
       data: customer,
       message: 'Customer created successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateCustomer = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const parseResult = UpdateCustomerSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const errorMessage = parseResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      throw new AppError(errorMessage, 400, 'VALIDATION_ERROR');
+    }
+
+    const customer = await CustomerService.updateCustomer(id, parseResult.data);
+    res.status(200).json({
+      success: true,
+      data: customer,
+      message: 'Customer updated successfully'
     });
   } catch (error) {
     next(error);

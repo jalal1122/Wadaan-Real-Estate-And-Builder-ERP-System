@@ -3,6 +3,7 @@ import {
   getCustomers,
   getCustomerById,
   createCustomer,
+  updateCustomer,
   createDeal,
   getDeals,
   getDealById,
@@ -32,6 +33,7 @@ router.use(authGuard);
 router.get('/customers', getCustomers);
 router.post('/customers', createCustomer);
 router.get('/customers/:id', getCustomerById);
+router.patch('/customers/:id', updateCustomer);
 router.post('/customers/:customerId/apply-wallet', applyWalletAdvance);
 
 router.get('/deals', getDeals);

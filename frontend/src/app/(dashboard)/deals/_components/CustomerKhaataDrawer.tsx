@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useCustomer, useApplyCustomerWallet } from '@/features/customers/hooks/useCustomers';
 import { useRemoveCoClient } from '@/features/deals/hooks/useDeals';
 import { AddCoClientModal } from '@/features/deals/_components/AddCoClientModal';
+import { EditCustomerModal } from './EditCustomerModal';
 import { Deal } from '@/features/deals/types';
 import { formatPKR, formatDate, isInvoiceOverdue, getDaysOverdue } from '@/lib/format';
 import {
@@ -23,6 +24,7 @@ import {
   UserPlus,
   Trash2,
   Warehouse,
+  Pencil,
 } from 'lucide-react';
 
 interface CustomerKhaataDrawerProps {
@@ -47,6 +49,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
   const [coClientDeal, setCoClientDeal] = useState<Deal | null>(null);
   const [isAddCoClientOpen, setIsAddCoClientOpen] = useState<boolean>(false);
   const [coClientError, setCoClientError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
   React.useEffect(() => {
     setSelectedInvoiceId('');
@@ -55,6 +58,7 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
     setActionSuccess(null);
     setCoClientDeal(null);
     setIsAddCoClientOpen(false);
+    setIsEditModalOpen(false);
     setCoClientError(null);
   }, [customerId]);
 
@@ -179,9 +183,21 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
               <User className="w-5 h-5 text-[#059669]" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white leading-tight">
-                {customer?.fullName || 'Loading Customer...'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white leading-tight">
+                  {customer?.fullName || 'Loading Customer...'}
+                </h2>
+                {customer && (
+                  <button
+                    type="button"
+                    title="Edit Client Details"
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
                 <span className="flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5" />
@@ -731,6 +747,18 @@ export const CustomerKhaataDrawer: React.FC<CustomerKhaataDrawerProps> = ({
             setCoClientDeal(null);
           }}
           onSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Edit Customer Modal */}
+      {isEditModalOpen && customer && (
+        <EditCustomerModal
+          customer={customer}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onCustomerUpdated={() => {
             refetch();
           }}
         />

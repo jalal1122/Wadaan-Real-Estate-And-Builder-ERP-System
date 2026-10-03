@@ -1,6 +1,6 @@
 import { prisma } from '../config/db';
 import { Decimal } from 'decimal.js';
-import { CreateCustomerInput } from '../utils/validation.util';
+import { CreateCustomerInput, UpdateCustomerInput } from '../utils/validation.util';
 import { AppError } from '../middleware/errorHandler';
 import { getCache, setCache, bustCache } from '../utils/cache.util';
 
@@ -183,5 +183,35 @@ export class CustomerService {
     });
     bustCache('customers');
     return customer;
+  }
+
+  /**
+   * Updates an existing customer's contact details (fullName, phone).
+   */
+  static async updateCustomer(id: string, data: UpdateCustomerInput) {
+    const existing = await prisma.customer.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      throw new AppError(`Customer with ID '${id}' not found`, 404, 'CUSTOMER_NOT_FOUND');
+    }
+
+    const updateData: any = {};
+    if (data.fullName !== undefined) {
+      updateData.fullName = data.fullName.trim();
+    }
+    if (data.phone !== undefined) {
+      updateData.phone = data.phone.trim();
+    }
+
+    const updated = await prisma.customer.update({
+      where: { id },
+      data: updateData
+    });
+
+    bustCache('customers');
+    bustCache('reports');
+    return updated;
   }
 }
