@@ -412,7 +412,10 @@ export class ReportService {
   ): Promise<NetIncomeReport> {
     const { startDate: defaultStart, endDate: defaultEnd } = FiscalYearUtility.getCurrentBoundary();
     const start = startDate ?? defaultStart;
-    const end = endDate ?? defaultEnd;
+    const end = endDate ? new Date(endDate) : defaultEnd;
+    if (endDate && end.getUTCHours() === 0 && end.getUTCMinutes() === 0 && end.getUTCSeconds() === 0) {
+      end.setUTCHours(23, 59, 59, 999);
+    }
 
     const CACHE_KEY = `reports:net-income:${start.toISOString()}:${end.toISOString()}`;
     const cached = getCache<NetIncomeReport>(CACHE_KEY);
@@ -617,85 +620,67 @@ export class ReportService {
     const cached = getCache<ProjectLedgerReport>(CACHE_KEY);
     if (cached) return cached;
 
-    const startFilter = startDate ? Prisma.sql`AND eb."billDate" >= ${startDate}` : Prisma.empty;
-    const endFilter = endDate ? Prisma.sql`AND eb."billDate" <= ${endDate}` : Prisma.empty;
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        projectName: true,
+        projectPrefix: true
+      }
+    });
 
-    const rows = await prisma.$queryRaw<
-      Array<{
-        projectId: string;
-        projectName: string;
-        projectPrefix: string;
-        lines: Array<{
-          billId: string;
-          lineItemId: string;
-          billDate: string;
-          vendorName: string;
-          invoiceNumber: string;
-          description: string;
-          quantity: string | number | Decimal;
-          unitPrice: string | number | Decimal;
-          lineTotal: string | number | Decimal;
-        }>;
-      }>
-    >`
-      SELECT 
-        p.id AS "projectId", 
-        p."projectName", 
-        p."projectPrefix",
-        COALESCE((
-          SELECT json_agg(
-            json_build_object(
-              'billId', eb.id,
-              'lineItemId', bli.id,
-              'billDate', eb."billDate",
-              'vendorName', COALESCE(v."vendorName", 'Direct Vendor'),
-              'invoiceNumber', eb."invoiceNumber",
-              'description', bli.description,
-              'quantity', bli.quantity,
-              'unitPrice', bli."unitPrice",
-              'lineTotal', bli."lineTotal"
-            ) ORDER BY eb."billDate" DESC
-          )
-          FROM "ExpenseBill" eb
-          JOIN "BillLineItem" bli ON bli."billId" = eb.id
-          LEFT JOIN "Vendor" v ON v.id = eb."vendorId"
-          WHERE eb."projectId" = p.id
-            ${startFilter} ${endFilter}
-        ), '[]'::json) AS lines
-      FROM "Project" p
-      WHERE p.id = ${projectId}
-    `;
-
-    const row = rows[0];
-    if (!row) {
-      throw new Error(`Project with ID ${projectId} not found`);
+    if (!project) {
+      throw new AppError(`Project with ID ${projectId} not found`, 404, 'PROJECT_NOT_FOUND');
     }
+
+    const billDateFilter: Prisma.DateTimeFilter = {};
+    if (startDate) billDateFilter.gte = startDate;
+    if (endDate) billDateFilter.lte = endDate;
+
+    const bills = await prisma.expenseBill.findMany({
+      where: {
+        projectId,
+        ...(startDate || endDate ? { billDate: billDateFilter } : {})
+      },
+      include: {
+        vendor: {
+          select: {
+            vendorName: true
+          }
+        },
+        lineItems: true
+      },
+      orderBy: { billDate: 'desc' }
+    });
 
     let totalCost = new Decimal(0);
     const lineItems: ProjectLedgerLineItem[] = [];
 
-    for (const line of row.lines) {
-      const lineTotalDec = new Decimal(line.lineTotal?.toString() || '0');
-      totalCost = totalCost.plus(lineTotalDec);
+    for (const bill of bills) {
+      const vendorName = bill.vendor?.vendorName || 'Direct Vendor';
+      for (const line of bill.lineItems) {
+        const lineTotalDec = new Decimal(line.lineTotal?.toString() || '0');
+        totalCost = totalCost.plus(lineTotalDec);
 
-      lineItems.push({
-        billId: line.billId,
-        lineItemId: line.lineItemId,
-        billDate: new Date(line.billDate).toISOString(),
-        vendorName: line.vendorName,
-        invoiceNumber: line.invoiceNumber,
-        description: line.description,
-        quantity: line.quantity.toString(),
-        unitPrice: line.unitPrice.toString(),
-        lineTotal: lineTotalDec.toFixed(2)
-      });
+        lineItems.push({
+          billId: bill.id,
+          lineItemId: line.id,
+          billDate: bill.billDate.toISOString(),
+          vendorName,
+          invoiceNumber: bill.invoiceNumber,
+          description: line.description,
+          quantity: line.quantity.toString(),
+          unitPrice: new Decimal(line.unitPrice).toFixed(2),
+          lineTotal: lineTotalDec.toFixed(2)
+        });
+      }
     }
 
     const result: ProjectLedgerReport = {
       project: {
-        id: row.projectId,
-        projectName: row.projectName,
-        projectPrefix: row.projectPrefix
+        id: project.id,
+        projectName: project.projectName,
+        projectPrefix: project.projectPrefix
       },
       period: {
         startDate: startDate ? startDate.toISOString() : undefined,
@@ -721,32 +706,24 @@ export class ReportService {
     const cached = getCache<OverheadLedgerReport>(CACHE_KEY);
     if (cached) return cached;
 
-    const startFilter = startDate ? Prisma.sql`AND eb."billDate" >= ${startDate}` : Prisma.empty;
-    const endFilter = endDate ? Prisma.sql`AND eb."billDate" <= ${endDate}` : Prisma.empty;
+    const billDateFilter: Prisma.DateTimeFilter = {};
+    if (startDate) billDateFilter.gte = startDate;
+    if (endDate) billDateFilter.lte = endDate;
 
-    const rows = await prisma.$queryRaw<
-      Array<{
-        billId: string;
-        billDate: string;
-        vendorName: string;
-        invoiceNumber: string;
-        grandTotal: string | number | Decimal;
-        paymentStatus: PaymentStatus;
-      }>
-    >`
-      SELECT
-        eb.id AS "billId",
-        eb."billDate",
-        COALESCE(v."vendorName", 'General Supplier') AS "vendorName",
-        eb."invoiceNumber",
-        eb."grandTotal",
-        eb."paymentStatus"
-      FROM "ExpenseBill" eb
-      LEFT JOIN "Vendor" v ON v.id = eb."vendorId"
-      WHERE eb."projectId" IS NULL
-        ${startFilter} ${endFilter}
-      ORDER BY eb."billDate" DESC
-    `;
+    const rows = await prisma.expenseBill.findMany({
+      where: {
+        projectId: null,
+        ...(startDate || endDate ? { billDate: billDateFilter } : {})
+      },
+      include: {
+        vendor: {
+          select: {
+            vendorName: true
+          }
+        }
+      },
+      orderBy: { billDate: 'desc' }
+    });
 
     let totalOverhead = new Decimal(0);
     const ledgerItems: OverheadLedgerItem[] = [];
@@ -756,9 +733,9 @@ export class ReportService {
       totalOverhead = totalOverhead.plus(gt);
 
       ledgerItems.push({
-        billId: row.billId,
-        billDate: new Date(row.billDate).toISOString(),
-        vendorName: row.vendorName,
+        billId: row.id,
+        billDate: row.billDate.toISOString(),
+        vendorName: row.vendor?.vendorName || 'General Supplier',
         invoiceNumber: row.invoiceNumber,
         grandTotal: gt.toFixed(2),
         paymentStatus: row.paymentStatus
