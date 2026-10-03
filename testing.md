@@ -1,6 +1,11 @@
 # Wadaan ERP System Test Data, Master Credentials & Testing Guide
 
-This guide covers end-to-end verification and testing workflows for Modules 0 through 4 (Screens 0 through 11).
+> [!IMPORTANT]
+> **Installed Desktop Executable (.exe) Testing & Client Handover**:
+> If you have packaged and installed `Wadaan-ERP-Setup-1.0.1.exe` on the PC and are performing full system acceptance testing before handover to the client, please refer to the dedicated, comprehensive 16-phase guide:
+> 🔗 [INSTALLED_DESKTOP_CLIENT_HANDOVER_TESTING_GUIDE.md](file:///j:/Programming/Clients/Wadaan%20Real%20Estate%20And%20Builders/Source%20Code/Technical%20Documentation/INSTALLED_DESKTOP_CLIENT_HANDOVER_TESTING_GUIDE.md)
+>
+> This file below contains quick test reference scenarios, credentials, and automated terminal commands.
 
 ---
 
