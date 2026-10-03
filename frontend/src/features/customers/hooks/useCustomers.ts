@@ -66,6 +66,8 @@ export const useApplyCustomerWallet = () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customers', variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
       queryClient.invalidateQueries({ queryKey: ['ar-aging'] });
       queryClient.invalidateQueries({ queryKey: ['journals'] });
