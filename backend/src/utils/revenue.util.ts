@@ -176,7 +176,8 @@ export class WalletManager {
       where: { id: invoiceId },
       data: {
         paidAmount: newPaidAmount,
-        paymentStatus: isFullyPaid ? 'PAID' : 'PARTIAL'
+        paymentStatus: isFullyPaid ? 'PAID' : 'PARTIAL',
+        walletPayerId: customerId
       }
     });
 
