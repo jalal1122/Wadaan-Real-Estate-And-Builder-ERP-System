@@ -24,12 +24,14 @@ export const ProjectCostLedger: React.FC<ProjectCostLedgerProps> = ({
 
   // Default to first active project if none selected
   useEffect(() => {
-    if (!projectId && projects.length > 0) {
+    if (initialProjectId && initialProjectId !== projectId) {
+      setProjectId(initialProjectId);
+    } else if (!projectId && projects.length > 0) {
       const firstId = projects[0].id;
       setProjectId(firstId);
       if (onProjectChange) onProjectChange(firstId);
     }
-  }, [projects, projectId, onProjectChange]);
+  }, [projects, projectId, initialProjectId, onProjectChange]);
 
   const handleProjectSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;

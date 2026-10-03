@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useExecutiveSnapshot,
   useDealMargins,
@@ -96,12 +97,15 @@ export default function MasterReportsHubPage() {
     refetch: refetchNetIncome,
   } = useNetIncome(startDate || undefined, endDate || undefined);
 
+  const queryClient = useQueryClient();
   const [selectedDeal, setSelectedDeal] = useState<DealMarginItem | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
     await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['reports'] }),
       refetchSnapshot(),
       refetchMargins(),
       refetchAging(),
@@ -319,6 +323,8 @@ export default function MasterReportsHubPage() {
         <ProjectCostLedger
           startDate={startDate || undefined}
           endDate={endDate || undefined}
+          selectedProjectId={selectedProjectId}
+          onProjectChange={(id) => setSelectedProjectId(id)}
         />
       </div>
 
