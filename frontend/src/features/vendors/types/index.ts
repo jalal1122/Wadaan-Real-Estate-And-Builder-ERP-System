@@ -15,3 +15,8 @@ export interface CreateVendorPayload {
   vendorName: string;
   phone?: string;
 }
+
+export interface UpdateVendorPayload {
+  vendorName?: string;
+  phone?: string | null;
+}

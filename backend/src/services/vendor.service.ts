@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import { prisma } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { CreateVendorInput } from '../utils/validation.util';
+import { CreateVendorInput, UpdateVendorInput } from '../utils/validation.util';
 import { getCache, setCache, bustCache } from '../utils/cache.util';
 
 export class VendorService {
@@ -17,6 +17,36 @@ export class VendorService {
     });
     bustCache('vendors');
     return vendor;
+  }
+
+  /**
+   * Updates an existing supplier/vendor.
+   */
+  static async updateVendor(id: string, data: UpdateVendorInput) {
+    const existing = await prisma.vendor.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      throw new AppError('Vendor not found', 404, 'VENDOR_NOT_FOUND');
+    }
+
+    const updateData: any = {};
+    if (data.vendorName !== undefined) {
+      updateData.vendorName = data.vendorName.trim();
+    }
+    if (data.phone !== undefined) {
+      updateData.phone = data.phone?.trim() || null;
+    }
+
+    const updated = await prisma.vendor.update({
+      where: { id },
+      data: updateData
+    });
+
+    bustCache('vendors');
+    bustCache('reports');
+    return updated;
   }
 
   /**

@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { VendorItem } from '@/features/vendors/types';
 import { formatPKR } from '@/lib/formatters';
-import { Search, Building, Phone, AlertCircle } from 'lucide-react';
+import { Search, Building, Phone, AlertCircle, Pencil } from 'lucide-react';
 import { SkeletonList } from '@/components/ui/skeleton';
+import { EditVendorModal } from './EditVendorModal';
 
 interface VendorListProps {
   vendors: VendorItem[];
@@ -18,6 +19,7 @@ export const VendorList: React.FC<VendorListProps> = ({
   isLoading,
 }) => {
   const [search, setSearch] = useState('');
+  const [editingVendor, setEditingVendor] = useState<VendorItem | null>(null);
 
   const filteredVendors = useMemo(() => {
     if (!search.trim()) return vendors;
@@ -72,17 +74,18 @@ export const VendorList: React.FC<VendorListProps> = ({
             const outstanding = Number(vendor.totalOutstanding) || 0;
 
             return (
-              <button
+              <div
                 key={vendor.id}
-                type="button"
-                onClick={() => onSelectVendor(vendor.id)}
-                className={`w-full text-left p-3.5 transition-colors flex items-start justify-between gap-2 ${
+                className={`w-full p-3.5 transition-colors flex items-start justify-between gap-2 group ${
                   isSelected
                     ? 'border-l-4 border-[#0F172A] bg-slate-50'
                     : 'hover:bg-slate-50/60 border-l-4 border-transparent'
                 }`}
               >
-                <div className="flex-1 min-w-0">
+                <div
+                  onClick={() => onSelectVendor(vendor.id)}
+                  className="flex-1 min-w-0 cursor-pointer"
+                >
                   <div className="flex items-center gap-1.5">
                     <p className={`text-xs truncate ${isSelected ? 'font-bold text-slate-900' : 'font-medium text-slate-800'}`}>
                       {vendor.vendorName}
@@ -101,22 +104,44 @@ export const VendorList: React.FC<VendorListProps> = ({
                   )}
                 </div>
 
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Payable
-                  </p>
-                  <p
-                    className={`font-mono text-xs font-bold ${
-                      outstanding > 0 ? 'text-red-600' : 'text-slate-500'
-                    }`}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div
+                    onClick={() => onSelectVendor(vendor.id)}
+                    className="text-right cursor-pointer"
                   >
-                    {formatPKR(outstanding)}
-                  </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Payable
+                    </p>
+                    <p
+                      className={`font-mono text-xs font-bold ${
+                        outstanding > 0 ? 'text-red-600' : 'text-slate-500'
+                      }`}
+                    >
+                      {formatPKR(outstanding)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    title="Edit Vendor"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingVendor(vendor);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              </button>
+              </div>
             );
           })}
       </div>
+
+      <EditVendorModal
+        vendor={editingVendor}
+        isOpen={!!editingVendor}
+        onClose={() => setEditingVendor(null)}
+      />
     </div>
   );
 };
