@@ -44,6 +44,9 @@ export interface JournalEntry {
   entryDate: string;
   description: string;
   lines: JournalLineDetail[];
+  isReversal?: boolean;
+  isReversed?: boolean;
+  reversedBy?: string;
 }
 
 export interface JournalEntriesResponse {

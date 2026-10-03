@@ -310,4 +310,32 @@ describe('JournalEntryForm / JournalsPage Component', () => {
       expect(screen.getByText(/was reversed successfully/i)).toBeInTheDocument();
     });
   });
+
+  it('10. displays Reversed badge instead of Revert button when entry is marked as reversed', () => {
+    mockJournalEntriesData = {
+      entries: [
+        {
+          id: 'j-reversed',
+          entryNumber: 'JV-2026-0019',
+          entryDate: '2026-09-01',
+          description: 'Payment for supplies',
+          isReversed: true,
+          reversedBy: 'JV-2026-0022',
+          lines: [
+            { id: 'l-1', accountId: 'acc-cash', debitAmount: '10000', creditAmount: '0', memo: null, customerId: null, vendorId: null, projectId: null, account: { id: 'acc-cash', accountCode: '1001', accountName: 'Cash', category: 'ASSET' }, customer: null, vendor: null, project: null },
+            { id: 'l-2', accountId: 'acc-eq', debitAmount: '0', creditAmount: '10000', memo: null, customerId: null, vendorId: null, projectId: null, account: { id: 'acc-eq', accountCode: '3001', accountName: 'Equity', category: 'EQUITY' }, customer: null, vendor: null, project: null },
+          ],
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 25,
+    };
+
+    render(<JournalsPage />);
+
+    expect(screen.getByText('Reversed')).toBeInTheDocument();
+    expect(screen.getByText('Reversed by JV-2026-0022')).toBeInTheDocument();
+    expect(screen.queryByTestId('revert-entry-btn-j-reversed')).not.toBeInTheDocument();
+  });
 });

@@ -582,7 +582,10 @@ export default function JournalsPage() {
                 journalList?.entries.map((entry) => {
                   const dr = entry.lines.reduce((s, l) => s + parseFloat(l.debitAmount || '0'), 0);
                   const cr = entry.lines.reduce((s, l) => s + parseFloat(l.creditAmount || '0'), 0);
-                  const isReversal = entry.description.startsWith('[REVERSAL]');
+                  const isReversal = entry.description.startsWith('[REVERSAL') || entry.isReversal;
+                  const isReversed = entry.isReversed;
+                  const reversedBy = entry.reversedBy;
+                  const isProtectedOpening = entry.entryNumber.includes('OPENING') || entry.description.toLowerCase().includes('opening balance');
                   return (
                     <tr key={entry.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-6 font-mono font-bold text-[#059669]">{entry.entryNumber}</td>
@@ -591,7 +594,16 @@ export default function JournalsPage() {
                           day: '2-digit', month: 'short', year: 'numeric'
                         })}
                       </td>
-                      <td className="py-3 px-6 text-slate-800">{entry.description}</td>
+                      <td className="py-3 px-6 text-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span>{entry.description}</span>
+                          {reversedBy && (
+                            <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
+                              Reversed by {reversedBy}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-6 text-right font-mono text-slate-700">{formatPKR(dr)}</td>
                       <td className="py-3 px-6 text-right font-mono text-slate-700">{formatPKR(cr)}</td>
                       <td className="py-3 px-4 text-center">
@@ -603,6 +615,18 @@ export default function JournalsPage() {
                         {isReversal ? (
                           <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
                             Reversal
+                          </span>
+                        ) : isReversed ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                            title={reversedBy ? `Reversed by voucher ${reversedBy}` : 'Reversed by another entry'}
+                          >
+                            <CheckCircle2 className="w-2.5 h-2.5 text-amber-600" />
+                            <span>Reversed</span>
+                          </span>
+                        ) : isProtectedOpening ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
+                            Opening
                           </span>
                         ) : (
                           <button
