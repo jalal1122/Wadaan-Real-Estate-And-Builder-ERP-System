@@ -1,6 +1,6 @@
 {
   "name": "wadaan-erp-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Wadaan Real Estate & Builders ERP - Desktop Suite",
   "main": "main.js",
   "scripts": {

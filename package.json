@@ -1,6 +1,6 @@
 {
   "name": "source-code",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,8 @@
     "start:desktop": "cd electron && npm start",
     "build:ui": "cd frontend && npm run build",
     "build:api": "cd backend && npx tsc",
-    "build:windows": "npm run build:ui && npm run build:api && cd electron && npm run dist"
+    "build:windows": "npm run build:ui && npm run build:api && cd electron && npm run dist",
+    "db:reset": "node backend/scripts/reset-test-db.js"
   },
   "keywords": [],
   "type": "commonjs",
