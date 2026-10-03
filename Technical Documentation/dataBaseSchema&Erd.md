@@ -412,4 +412,25 @@ model WadaanAsset {
    - `calculateDealMargins: grossProfit = revenue - cost - assetCost`
    - `calculateTrueNetIncome: grossDealProfit = SUM(revenue - cost - assetCost)`
 
+---
+
+### Core Entity Mutability & Referential Integrity Guardrails (v3.9.0)
+
+To accommodate operational updates while safeguarding double-entry general ledger history and audit compliance:
+
+1. **Projects (`Project`)**:
+   - **Mutable**: `projectName`, `masterBOQ` (approved construction envelope). Adjusting `masterBOQ` immediately updates budget variance and burn percentage indicators.
+   - **Immutable**: `projectPrefix` (permanent code). Once established, the short prefix code is locked to prevent breaking auto-generated invoice numbering (`{prefix}-001`) and audit voucher cross-references.
+   - **Referential Integrity**: All `ExpenseBill`, `Deal`, and `JournalLine` relations stay firmly anchored via immutable UUID `projectId`.
+2. **Vendors (`Vendor`)**:
+   - **Mutable**: `vendorName`, `phone`.
+   - **Referential Integrity**: All historical `ExpenseBill` items, bill line items, and FIFO `VendorPayment` vouchers remain linked via `vendorId`.
+3. **Customers (`Customer`)**:
+   - **Mutable**: `fullName`, `phone`.
+   - **Referential Integrity**: All `Deal` contracts, `DealClient` partnership allocations, `Receipt` vouchers, and `walletBalance` advance liabilities remain linked via `customerId`.
+4. **Wadaan Assets (`WadaanAsset`)**:
+   - **Mutable**: `assetTitle`, `assetCategory`, `acquisitionCost`, `acquisitionDate`, `description` via `PUT /api/v1/assets/:id`.
+   - **Status Guardrail**: Modification is strictly restricted to assets with `status === 'AVAILABLE'`. Once an asset is `RESERVED` on an active contract or marked `SOLD`, details and acquisition costs are locked to preserve contract terms and audited historical gross margins.
+
+
 

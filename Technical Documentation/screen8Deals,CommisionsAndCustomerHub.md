@@ -185,3 +185,30 @@ When a client deposited funds into their customer account without selecting a sp
      - `['deals']`: Refreshes deal installment payment status and milestones.
      - `['projects']`: Refreshes Project Cards and Project Report Modal ("Client Paid").
      - `['reports']`: Refreshes True Net Income and Deal Margins.
+
+---
+
+### 9. Core Entity Editing: Customer Profiles & Asset Inventory (v3.9.0)
+
+#### A. Customer Profile Editing (`EditCustomerModal`)
+- **Trigger**: In `CustomerKhaataDrawer.tsx`, the client header strip features an **Edit Profile** button.
+- **Editable Attributes**:
+  - **Full Name (`fullName`)**: Updates client identity across deal grids, invoices, receipts, and Khaata drawers.
+  - **Phone Number (`phone`)**: Updates customer contact details for recovery notices and payment confirmations.
+- **Referential Integrity & Ledger Protection**:
+  - Modifying customer profile info updates only the `Customer` record.
+  - All existing contract agreements (`Deal`), co-buyer registrations (`DealClient`), installment invoices (`DealInvoice`), payment vouchers (`Receipt`), advance wallet balances (`walletBalance`), and General Ledger journal entries remain untouched.
+- **Cache Invalidation**:
+  - Automatically executes `bustCache('customers')` and `bustCache('reports')` on the backend, instantly refreshing customer drawers, deal tables, and executive aging reports.
+
+#### B. Asset Inventory Editing Guardrails (`EditAssetModal`)
+- **Trigger**: On the Property Inventory Hub (`/assets`), each inventory row exposes an **Edit** action button.
+- **Editable Attributes for AVAILABLE Assets**:
+  - Property Title / Plot Number (`assetTitle`).
+  - Category (`assetCategory`: PLOT, HOUSE, COMMERCIAL, APARTMENT).
+  - Acquisition Cost (`acquisitionCost`) and Acquisition Date (`acquisitionDate`).
+  - Description / Registry Notes (`description`).
+- **Integrity Guardrail (Tamper-Proof Margins)**:
+  - Editing property attributes is strictly permitted only while the asset has status `AVAILABLE`.
+  - Once an asset is linked to a contract (`RESERVED` or `SOLD`), title and cost modifications are locked to guarantee that historical deal margins and profit calculations cannot be tampered with or retroactively distorted.
+

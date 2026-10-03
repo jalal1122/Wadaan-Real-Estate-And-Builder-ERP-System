@@ -1029,6 +1029,37 @@ Response (200): {
   }
 }
 
+PATCH /api/v1/projects/:id
+
+Purpose: Updates mutable project details (projectName and approved masterBOQ).
+Access: Protected (`authGuard`).
+Payload: { projectName?: "Wadaan Heights Tower A", masterBOQ?: 65000000 }
+Validation:
+- `projectName`: Optional string, min 1 char, trimmed.
+- `masterBOQ`: Optional number, min 0.
+Behavior:
+- Updates the Project record in the database.
+- Recalculates live project metrics (spentToDate, budgetVariance, isOverBudget, budgetBurnPercentage).
+- Automatically busts `projects` and `reports` caches to guarantee real-time updates across Screen 4 and Executive Reports.
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "project": {
+      "id": "uuid",
+      "projectName": "Wadaan Heights Tower A",
+      "projectPrefix": "WH",
+      "masterBOQ": 65000000,
+      "status": "ACTIVE",
+      "spentToDate": 20000000,
+      "budgetVariance": 45000000,
+      "isOverBudget": false,
+      "budgetBurnPercentage": 30.77
+    }
+  },
+  "message": "Project updated successfully"
+}
+
 PATCH /api/v1/projects/:id/status
 
 
@@ -1049,6 +1080,33 @@ Purpose: Lists all suppliers with live calculated Total Outstanding balances and
 GET /api/v1/vendors/:id/unpaid-bills
 
 Purpose: Fetches the exact queue of unpaid invoices for Screen 7, ordered strictly by oldest date first (FIFO).
+
+PATCH /api/v1/vendors/:id
+
+Purpose: Updates vendor profile information (vendorName and phone).
+Access: Protected (`authGuard`).
+Payload: { vendorName?: "Ali Steel & Cement", phone?: "03009988776" }
+Validation:
+- `vendorName`: Optional string, min 1 char, trimmed.
+- `phone`: Optional string, trimmed.
+Behavior:
+- Updates Vendor record in PostgreSQL.
+- Preserves all historical ExpenseBills, LineItems, and FIFO payment allocations untouched.
+- Automatically busts `vendors` and `reports` caches to guarantee real-time updates across Screens 5, 7, and Executive Reports.
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "vendorName": "Ali Steel & Cement",
+    "phone": "03009988776",
+    "totalOutstanding": 1500000,
+    "totalPaid": 3500000,
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-10-03T00:00:00.000Z"
+  },
+  "message": "Vendor updated successfully"
+}
 
 Expense Bills & Payments (Screens 5 & 7)
 
@@ -1263,6 +1321,31 @@ Response (200): { success: true, data: [{ id, fullName, phone, walletBalance, _c
 GET /api/v1/customers/:id
 Purpose: Fetches complete customer profile with all deals, invoices, and payment receipts.
 Response (200): { success: true, data: { id, fullName, phone, walletBalance, deals: [...], receipts: [...] } }
+
+PATCH /api/v1/customers/:id
+Purpose: Updates customer profile details (fullName and phone).
+Access: Protected (`authGuard`).
+Payload: { fullName?: "Zain Ahmed Khan", phone?: "03007654321" }
+Validation:
+- `fullName`: Optional string, min 1 char, trimmed.
+- `phone`: Optional string, trimmed.
+Behavior:
+- Updates Customer record in PostgreSQL.
+- Preserves all linked contracts (Deals, Co-Client associations, Invoices, Receipts, and customer wallet balance).
+- Automatically busts `customers` and `reports` caches to guarantee real-time updates across Screen 8, Customer Khaata Drawer, and Reports.
+Response (200):
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "fullName": "Zain Ahmed Khan",
+    "phone": "03007654321",
+    "walletBalance": "0.00",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-10-03T00:00:00.000Z"
+  },
+  "message": "Customer updated successfully"
+}
 
 POST /api/v1/customers/:customerId/apply-wallet
 Purpose: Consumes client mobilization advance held in walletBalance toward an unpaid DealInvoice without moving cash.

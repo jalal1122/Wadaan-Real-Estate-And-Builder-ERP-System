@@ -43,5 +43,7 @@ When you click "Execute Payment & Print Receipt", the system automatically:
 3. Posts zero-sum double-entry journal entry to General Ledger.
 4. Generates the legal dual-copy perforated A4 receipt for both dev and production.
 5. Blocks overpayments exceeding outstanding vendor debt or exceeding individual bill pending balances.
+6. Vendor Profile Edits (Name and Phone) update display details across payment receipts and aging lists without altering historical payment allocations or FIFO cascade order.
 
 This concludes Module 2: Outflow Engine (Enhanced v3.1.0).
+

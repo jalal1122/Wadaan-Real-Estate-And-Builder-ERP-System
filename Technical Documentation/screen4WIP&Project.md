@@ -97,6 +97,18 @@ Every project card and the GL Transaction Drawer expose a **"Print Report"** act
 **Backend API Contract**:
 - `GET /api/v1/projects/:id/report`: Returns unified receipts combining `Receipt` payments and `DealInvoice` settled with `walletPayerId`, exposing `paymentMethod: 'WALLET'` and `paidByCustomerName`.
 
+---
 
+### 8. Project Editing & Master BOQ Budget Adjustments (`EditProjectModal`)
 
-
+- **Trigger**: Every project card includes an action menu with an **"Edit Project"** option.
+- **Editable Attributes**:
+  - **Project Name (`projectName`)**: Updates the display name across all screens, project cards, and printed dossiers.
+  - **Master Budget (`masterBOQ`)**: Updates the approved construction envelope. Immediately recalculates:
+    - Budget Variance (`masterBOQ - spentToDate`).
+    - Budget Burn Percentage (`(spentToDate / masterBOQ) * 100`).
+    - Over-budget warning indicators and Health Bar thresholds.
+- **Immutable Guardrail (Project Code Prefix)**:
+  - **Project Code Prefix (`projectPrefix`)** is permanently locked and non-editable. Because invoice numbers (e.g., `WH-001`), voucher tags, and journal ledger foreign references depend on prefix sequence stability, changing the prefix is strictly disallowed.
+- **Real-Time Cache Busting**:
+  - Every project update immediately executes `bustCache('projects')` and `bustCache('reports')` on the backend, ensuring project cards, transaction drawers, and Screen 10 executive analytics stay synchronized in real time.
