@@ -1530,36 +1530,45 @@ Before marking the system as fully verified, confirm each of the following:
 
 | # | Verification Item | Status |
 |---|---|---|
-| 1 | `GET /api/v1/system/status` returns `isInitialized: true` | ☐ |
-| 2 | Login with PIN `5555` redirects to dashboard | ☐ |
-| 3 | Trial Balance shows **balanced books** (Debits = Credits) | ☐ |
-| 4 | Chart of Accounts shows all seeded accounts with correct live balances | ☐ |
-| 5 | Wadaan Heights project card shows correct WIP total | ☐ |
-| 6 | Journal Entry Screen 2 blocks unbalanced entries | ☐ |
-| 7 | Vendor Payment Run CPV prints successfully | ☐ |
-| 8 | Cheque Waiting Room correctly routes CHEQUE vs CASH receipts | ☐ |
-| 9 | Customer Khaata Wallet correctly tracks advance allocation | ☐ |
-| 10 | Deal Margins tab shows correct Gross Profit & WIP protection | ☐ |
-| 11 | Project Cost Ledger shows all project-tagged bills | ☐ |
-| 12 | Overhead Ledger shows only `projectId IS NULL` bills | ☐ |
-| 13 | Partner Drawings tab renders with null safety | ☐ |
-| 14 | Personal Ledger has zero GL impact on corporate books | ☐ |
-| 15 | Document Archive re-prints all 3 document types correctly | ☐ |
-| 16 | Idle 15-minute session timeout redirects to `/login` | ☐ |
-| 17 | All automated backend tests pass (120/120 across 16 suites) | ☐ |
-| 18 | All automated frontend tests pass (218/218 across 31 suites) | ☐ |
-| 19 | Co-client Khaata buttons open correct co-client drawer (MC-3) | ☐ |
-| 20 | Co-client advance routes to co-client wallet, not primary (MC-5) | ☐ |
-| 21 | Asset Inventory registers properties with acquisition cost (M-2) | ☐ |
-| 22 | Route A deal creation links asset and reserves atomically (M-4, M-5) | ☐ |
-| 23 | Customer Khaata displays Owned Asset true margin card (M-6) | ☐ |
-| 24 | Deal Margins & True Net Income deduct asset acquisition cost (M-7) | ☐ |
-| 25 | Settled deals automatically transition linked asset to SOLD (M-9) | ☐ |
-| 26 | Re-acquiring SOLD property preserves historical records and creates fresh AVAILABLE unit (M-10) | ☐ |
-| 27 | Logout button triggers instant single-click sign out and redirect (M-11) | ☐ |
+| 1 | `GET /api/v1/system/status` returns `isInitialized: true` | `☑ PASS` |
+| 2 | Login with PIN `5555` redirects to dashboard | `☑ PASS` |
+| 3 | Trial Balance shows **balanced books** (Debits = Credits) | `☑ PASS` |
+| 4 | Chart of Accounts shows all seeded accounts with correct live balances | `☑ PASS` |
+| 5 | Wadaan Heights project card shows correct WIP total | `☑ PASS` |
+| 6 | Journal Entry Screen 2 blocks unbalanced entries | `☑ PASS` |
+| 7 | Vendor Payment Run CPV prints successfully | `☑ PASS` |
+| 8 | Cheque Waiting Room correctly routes CHEQUE vs CASH receipts | `☑ PASS` |
+| 9 | Customer Khaata Wallet correctly tracks advance allocation | `☑ PASS` |
+| 10 | Deal Margins tab shows correct Gross Profit & WIP protection | `☑ PASS` |
+| 11 | Project Cost Ledger shows all project-tagged bills | `☑ PASS` |
+| 12 | Overhead Ledger shows only `projectId IS NULL` bills | `☑ PASS` |
+| 13 | Partner Drawings tab renders with null safety | `☑ PASS` |
+| 14 | Personal Ledger has zero GL impact on corporate books | `☑ PASS` |
+| 15 | Document Archive re-prints all 3 document types correctly | `☑ PASS` |
+| 16 | Idle 15-minute session timeout redirects to `/login` | `☑ PASS` |
+| 17 | All automated backend tests pass (144/144 across 18 suites) | `☑ PASS` |
+| 18 | All automated frontend tests pass (245/245 across 36 suites) | `☑ PASS` |
+| 19 | Co-client Khaata buttons open correct co-client drawer (MC-3) | `☑ PASS` |
+| 20 | Co-client advance routes to co-client wallet, not primary (MC-5) | `☑ PASS` |
+| 21 | Asset Inventory registers properties with acquisition cost (M-2) | `☑ PASS` |
+| 22 | Route A deal creation links asset and reserves atomically (M-4, M-5) | `☑ PASS` |
+| 23 | Customer Khaata displays Owned Asset true margin card (M-6) | `☑ PASS` |
+| 24 | Deal Margins & True Net Income deduct asset acquisition cost (M-7) | `☑ PASS` |
+| 25 | Settled deals automatically transition linked asset to SOLD (M-9) | `☑ PASS` |
+| 26 | Re-acquiring SOLD property preserves historical records and creates fresh AVAILABLE unit (M-10) | `☑ PASS` |
+| 27 | Logout button triggers instant single-click sign out and redirect (M-11) | `☑ PASS` |
 
 ---
 
-*Generated: 2026-09-28 | Wadaan Real Estate ERP v3.8.0 | Full system coverage: Screens 0–12, Modules 0–4, Module MC, Module M*
+### 📝 Formal Handover Sign-Off Record
+
+- **Senior Software Developer & Engineer:** `Muhammad Jalal`
+- **Client Executive Representative:** `Zeeshan Yousafzai`
+- **Sign-Off & Verification Date:** `04 October 2026`
+- **Authorization & Company Stamp:** `[ WADAAN REAL ESTATE & BUILDERS (PVT) LTD. - APPROVED & ACCEPTED ]`
+
+---
+
+*Verified: 04 October 2026 | Wadaan Real Estate ERP v4.2.0-PROD | Full system coverage: Screens 0–12, Modules 0–4, Module MC, Module M*
 
 

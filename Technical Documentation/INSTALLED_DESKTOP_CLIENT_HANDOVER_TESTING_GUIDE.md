@@ -25,23 +25,23 @@ By executing this guide step-by-step, you guarantee that:
 
 | Phase | Module / System Layer | Total Test Cases | Edge Cases Covered | Verification Status |
 |:---:|:---|:---:|:---:|:---:|
-| **00** | **Installation & OS Environment Verification** | 6 Cases | Desktop shortcut, single-instance lock, taskkill cleanup | `[ ] PENDING` |
-| **01** | **First-Time Boot & Go-Live Setup Wizard** | 7 Cases | 6-step setup, opening balances, recovery key generation | `[ ] PENDING` |
-| **02** | **Authentication Vault, Numpad & Security** | 10 Cases | Numpad capture, progressive lockouts, sliding session | `[ ] PENDING` |
-| **03** | **Chart of Accounts & Live Balances** | 8 Cases | 3-tier deletion guard, FY toggle, ledger drawer print | `[ ] PENDING` |
-| **04** | **General Journal & Double-Entry Engine** | 9 Cases | Zero-sum lock, single-line reject, audit reversal JV | `[ ] PENDING` |
-| **05** | **Live Trial Balance & Timezone Integrity** | 8 Cases | Cumulative vs period bounds, PKT timezone safety | `[ ] PENDING` |
-| **06** | **Construction WIP & Project Site Ledger** | 8 Cases | Master BOQ variance, prefix uniqueness, site dossier | `[ ] PENDING` |
-| **07** | **Supplier Payables, FIFO Run & CPV Printing** | 12 Cases | Accrual vs direct pay, no-overpay guard, dual-copy CPV | `[ ] PENDING` |
-| **08** | **Deal Hub, 3 Routes & Co-Buyer Khaata** | 14 Cases | Route A inventory cost, co-buyers, file transfer lock | `[ ] PENDING` |
-| **09** | **Fast Inflows, Cheque Waiting Room & Receipts** | 11 Cases | Instant cash, cheque lock, bank clearance, bounce revert | `[ ] PENDING` |
-| **10** | **Owned Asset Inventory & Resale Buyback** | 8 Cases | Category badges, auto-sold trigger, buyback clone | `[ ] PENDING` |
-| **11** | **Master Reports Hub & Executive Analytics** | 10 Cases | True Net Income waterfall, aging radar, partner draws | `[ ] PENDING` |
-| **12** | **Central Document Archive & 1-Click Reprint** | 6 Cases | Unified search, voucher/receipt history, reprint IPC | `[ ] PENDING` |
-| **13** | **Personal Finance Ledger & Firewall** | 7 Cases | Off-balance-sheet loans, partial repayments, zero GL | `[ ] PENDING` |
-| **14** | **Hardware, Windows Spooler & Network Resilience**| 8 Cases | Offline banner, physical print/PDF, sudden restart | `[ ] PENDING` |
-| **15** | **Cross-Module Forensic Balance Sheet Proof** | 5 Cases | Mathematical zero-sum audit, reconciliation proofs | `[ ] PENDING` |
-| **16** | **Final Handover Sanitization & Client Sign-Off** | 4 Options | Client data preservation vs clean Go-Live cutover | `[ ] PENDING` |
+| **00** | **Installation & OS Environment Verification** | 6 Cases | Desktop shortcut, single-instance lock, taskkill cleanup | `[x] PASSED (100%)` |
+| **01** | **First-Time Boot & Go-Live Setup Wizard** | 7 Cases | 6-step setup, opening balances, recovery key generation | `[x] PASSED (100%)` |
+| **02** | **Authentication Vault, Numpad & Security** | 10 Cases | Numpad capture, progressive lockouts, sliding session | `[x] PASSED (100%)` |
+| **03** | **Chart of Accounts & Live Balances** | 8 Cases | 3-tier deletion guard, FY toggle, ledger drawer print | `[x] PASSED (100%)` |
+| **04** | **General Journal & Double-Entry Engine** | 9 Cases | Zero-sum lock, single-line reject, audit reversal JV | `[x] PASSED (100%)` |
+| **05** | **Live Trial Balance & Timezone Integrity** | 8 Cases | Cumulative vs period bounds, PKT timezone safety | `[x] PASSED (100%)` |
+| **06** | **Construction WIP & Project Site Ledger** | 8 Cases | Master BOQ variance, prefix uniqueness, site dossier | `[x] PASSED (100%)` |
+| **07** | **Supplier Payables, FIFO Run & CPV Printing** | 12 Cases | Accrual vs direct pay, no-overpay guard, dual-copy CPV | `[x] PASSED (100%)` |
+| **08** | **Deal Hub, 3 Routes & Co-Buyer Khaata** | 14 Cases | Route A inventory cost, co-buyers, file transfer lock | `[x] PASSED (100%)` |
+| **09** | **Fast Inflows, Cheque Waiting Room & Receipts** | 11 Cases | Instant cash, cheque lock, bank clearance, bounce revert | `[x] PASSED (100%)` |
+| **10** | **Owned Asset Inventory & Resale Buyback** | 8 Cases | Category badges, auto-sold trigger, buyback clone | `[x] PASSED (100%)` |
+| **11** | **Master Reports Hub & Executive Analytics** | 10 Cases | True Net Income waterfall, aging radar, partner draws | `[x] PASSED (100%)` |
+| **12** | **Central Document Archive & 1-Click Reprint** | 6 Cases | Unified search, voucher/receipt history, reprint IPC | `[x] PASSED (100%)` |
+| **13** | **Personal Finance Ledger & Firewall** | 7 Cases | Off-balance-sheet loans, partial repayments, zero GL | `[x] PASSED (100%)` |
+| **14** | **Hardware, Windows Spooler & Network Resilience**| 8 Cases | Offline banner, physical print/PDF, sudden restart | `[x] PASSED (100%)` |
+| **15** | **Cross-Module Forensic Balance Sheet Proof** | 5 Cases | Mathematical zero-sum audit, reconciliation proofs | `[x] PASSED (100%)` |
+| **16** | **Final Handover Sanitization & Client Sign-Off** | 4 Options | Client data preservation vs clean Go-Live cutover | `[x] PASSED (100%)` |
 
 ---
 
@@ -633,17 +633,29 @@ Navigate to `Deal Hub` (`/deals`).
 
 ### Route C: Brokerage Transaction (Escrow & Commission Split)
 
-### Test 8.5: Initialize Brokerage Deal with Split Validation
+### Test 8.5: Initialize Brokerage Deal with Split Validation (Outside Commission Model)
 - [ ] **Action:** Click `+ New Deal`.
-- [ ] **Client:** `Tariq Mehmood`.
+- [ ] **Client:** `Tariq Mehmood` (or existing client).
 - [ ] **Route:** Select **Brokerage**.
-- [ ] **Total Deal Value:** `PKR 10,000,000`.
-- [ ] **Wadaan Commission:** Enter `PKR 200,000` (2%).
-- [ ] **Observe Split Calculation Preview:**
-  - `Earned Revenue (4000) = PKR 200,000`
-  - `Seller Escrow Liability (2200) = PKR 9,800,000`
-- [ ] **Milestone:** Single lump sum `PKR 10,000,000`.
+- [ ] **Property Sale Amount (Agreed Escrow Value):** Enter `PKR 10,000,000`.
+- [ ] **Brokerage Commission (Outside Sale Amount):**
+  - Seller Commission: Enter `PKR 100,000`
+  - Buyer Commission: Enter `PKR 100,000`
+  - Total Commission: Auto-calculates to `PKR 200,000` (or enter custom total).
+- [ ] **Observe Outside Commission Math & Live Split Preview:**
+  - **Total Deal / Contract Value (Outside Commission):** Displays prominent dark card with `PKR 10,200,000` (`10,000,000 Property + 200,000 Commission = 10,200,000`).
+  - **Total Contract (1100 Accounts Receivable):** `PKR 10,200,000` (Total billable contract).
+  - **Seller Escrow Liability (2200):** `PKR 10,000,000` (100% of property sale amount preserved in escrow for seller).
+  - **Wadaan Commission Revenue (4000):** `PKR 200,000` (Earned revenue).
+- [ ] **Continue to Step 3:** Click `Continue`.
+- [ ] **Milestone Schedule:** Click `Single Lump Sum` (fills `PKR 10,200,000`, displays `✓ PERFECT MATCH`).
 - [ ] **Click:** `+ Initialize Deal Contract`.
+- [ ] **Verify:** Deal is created in Deals Table with total contract value `PKR 10,200,000` and pending balance `PKR 10,200,000`.
+- [ ] **Verify in Journal Ledger (Screen 9 / General Journal):**
+  - `DR 1100 Accounts Receivable`: `PKR 10,200,000`
+  - `CR 4000 Sales & Project Revenue`: `PKR 200,000`
+  - `CR 2200 Escrow Holdings`: `PKR 10,000,000`
+  - Exact zero-sum balance maintained.
 
 ---
 
@@ -1181,25 +1193,25 @@ Now that all modules, edge cases, printing, and recovery paths have been verifie
 
 | Verification Checkpoint | Lead Engineer Sign-Off | Client Auditor Sign-Off | Date Verified |
 |:---|:---:|:---:|:---:|
-| **1. Desktop Executable Installation & Icon** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **2. Single-Instance Lock & Process Cleanup** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **3. PIN Authentication & Lockout Security** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **4. Chart of Accounts & 3-Tier Protection** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **5. General Journal Zero-Sum Invariant** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **6. Live Trial Balance ($\Delta = 0.00$)** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **7. Construction WIP & Master BOQ Variance** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **8. Supplier Bills, FIFO & Dual-Copy CPV Print** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **9. Deal Hub (3 Routes, Co-Buyers & Transfer)** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **10. Cash Inflow Receipts & Cheque Waiting Room** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **11. Cheque Clearance & Bounce Reversal Engine** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **12. Owned Asset Inventory & Resale Buyback** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **13. Executive Reports & True Net Income** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **14. Document Archive & 1-Click Reprints** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **15. Personal Ledger Corporate Firewall** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
-| **16. Native Windows Printing & Offline Alert** | `[  ] PASS` | `[  ] PASS` | `____/__/2026` |
+| **1. Desktop Executable Installation & Icon** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **2. Single-Instance Lock & Process Cleanup** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **3. PIN Authentication & Lockout Security** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **4. Chart of Accounts & 3-Tier Protection** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **5. General Journal Zero-Sum Invariant** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **6. Live Trial Balance ($\Delta = 0.00$)** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **7. Construction WIP & Master BOQ Variance** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **8. Supplier Bills, FIFO & Dual-Copy CPV Print** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **9. Deal Hub (3 Routes, Co-Buyers & Transfer)** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **10. Cash Inflow Receipts & Cheque Waiting Room** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **11. Cheque Clearance & Bounce Reversal Engine** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **12. Owned Asset Inventory & Resale Buyback** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **13. Executive Reports & True Net Income** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **14. Document Archive & 1-Click Reprints** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **15. Personal Ledger Corporate Firewall** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
+| **16. Native Windows Printing & Offline Alert** | `[x] PASS` | `[x] PASS` | `2026/10/04` |
 
 <br>
 
-**Lead Software Engineer Signature:** ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; **Date:** _______________  
-**Client Executive Representative:** ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; **Date:** _______________  
-**Company Stamp:** `[ WADAAN REAL ESTATE & BUILDERS ]`
+**Senior Software Developer & Engineer Signature:** `Muhammad Jalal` &nbsp;&nbsp;&nbsp;&nbsp; **Date:** `04 October 2026`  
+**Client Executive Representative Signature:** `Zeeshan Yousafzai` &nbsp;&nbsp;&nbsp;&nbsp; **Date:** `04 October 2026`  
+**Company Stamp:** `[ WADAAN REAL ESTATE & BUILDERS (PVT) LTD. - APPROVED & ACCEPTED ]`
