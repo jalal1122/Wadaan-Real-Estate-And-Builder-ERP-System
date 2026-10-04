@@ -295,15 +295,27 @@ export class SystemService {
             }
           });
 
-          // Log past cleared receipt for customer account history
+          // Log past cleared receipt for customer account history and create paid deal milestone
           if (receivedPast.gt(0)) {
-            await tx.receipt.create({
+            const pastReceipt = await tx.receipt.create({
               data: {
                 customerId: customer.id,
                 amount: receivedPast,
                 paymentMethod: 'CASH',
                 clearanceStatus: ClearanceStatus.CLEARED,
                 receiptDate: new Date()
+              }
+            });
+
+            await tx.dealInvoice.create({
+              data: {
+                dealId: createdDeal.id,
+                description: 'Opening Balance Deposit Received',
+                amount: receivedPast,
+                paidAmount: receivedPast,
+                dueDate: new Date(),
+                paymentStatus: PaymentStatus.PAID,
+                receiptId: pastReceipt.id
               }
             });
           }

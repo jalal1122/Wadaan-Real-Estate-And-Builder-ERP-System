@@ -16,6 +16,7 @@ let mockIsPending = false;
 const mockAccounts = [
   { id: 'acc-cash', accountCode: '1001', accountName: 'Cash in Bank', category: 'ASSET', isSystemLocked: false, isArchived: false },
   { id: 'acc-eq', accountCode: '3001', accountName: 'Owner Equity', category: 'EQUITY', isSystemLocked: false, isArchived: false },
+  { id: 'acc-wip', accountCode: '1200', accountName: 'Construction Work-in-Progress (WIP)', category: 'ASSET', isSystemLocked: true, isArchived: false },
   { id: 'acc-locked', accountCode: '2100', accountName: 'Accounts Payable', category: 'LIABILITY', isSystemLocked: true, isArchived: false },
   { id: 'acc-archived', accountCode: '5999', accountName: 'Old Expense', category: 'EXPENSE', isSystemLocked: false, isArchived: true },
 ];
@@ -157,7 +158,7 @@ describe('JournalEntryForm / JournalsPage Component', () => {
     expect(debitInputs[0]).toBeDisabled();
   });
 
-  it('5. System-locked and archived accounts do not appear in the Account dropdown', () => {
+  it('5. System subledger control accounts and archived accounts do not appear in Account dropdown, but 1200 WIP is available', () => {
     render(<JournalsPage />);
 
     const accountSelects = screen.getAllByRole('combobox').filter((select) =>
@@ -165,11 +166,12 @@ describe('JournalEntryForm / JournalsPage Component', () => {
     );
     const optionsText = accountSelects[0].textContent || '';
 
-    // Should include unlocked active accounts
+    // Should include unlocked active accounts and capitalized WIP (1200)
     expect(optionsText).toContain('1001 — Cash in Bank');
     expect(optionsText).toContain('3001 — Owner Equity');
+    expect(optionsText).toContain('1200 — Construction Work-in-Progress (WIP)');
 
-    // Should NOT include system-locked or archived accounts
+    // Should NOT include system-locked subledger control accounts or archived accounts
     expect(optionsText).not.toContain('2100 — Accounts Payable');
     expect(optionsText).not.toContain('5999 — Old Expense');
   });

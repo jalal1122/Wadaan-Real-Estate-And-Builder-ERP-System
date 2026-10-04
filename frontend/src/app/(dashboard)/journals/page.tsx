@@ -122,9 +122,12 @@ export default function JournalsPage() {
     }
   };
 
-  // Filter out system-locked accounts from the dropdown per screen2JournalEntry.md rules
+  // Filter out sub-ledger control accounts (1100 AR, 2000 AP, 2100 Advance Wallet, 2200 Escrow, 1000 Parent Liquid)
+  // per Test 4.4 to prevent distortion of sub-ledgers.
+  // Construction WIP (1200) and operational accounts remain available for direct project cost capitalization (Test 4.6).
+  const SUBLEDGER_CONTROL_CODES = ['1000', '1100', '2000', '2100', '2200'];
   const availableAccounts = (accountsData?.accounts ?? []).filter(
-    (a) => !a.isSystemLocked && !a.isArchived
+    (a) => !a.isArchived && !(a.isSystemLocked && SUBLEDGER_CONTROL_CODES.includes(a.accountCode))
   );
 
   // ── Balance calculation ──────────────────────────────────────────────────
@@ -522,11 +525,10 @@ export default function JournalsPage() {
 
         {reversalAlert && (
           <div
-            className={`mx-6 mt-4 p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
-              reversalAlert.type === 'success'
+            className={`mx-6 mt-4 p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${reversalAlert.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                 : 'bg-rose-50 text-rose-800 border-rose-200'
-            }`}
+              }`}
           >
             <div className="flex items-center gap-2">
               {reversalAlert.type === 'success' ? (

@@ -46,10 +46,14 @@ export class JournalService {
       }
 
       if (!options?.skipLockCheck) {
+        // Control accounts with automated subledgers (1100 AR, 2000 AP, 2100 Customer Advances, 2200 Escrow, 1000 Parent Liquid)
+        // are strictly prohibited from manual adjustments per Screen 2 rules and Test 4.4 to prevent ledger/subledger divergence.
+        // Construction WIP (1200), Equity (3000), Revenue (4000), and COGS (5000) are permitted for project cost capitalization and manual adjustments (Test 4.6).
+        const SUBLEDGER_CONTROL_CODES = ['1000', '1100', '2000', '2100', '2200'];
         for (const account of accounts) {
-          if (account.isSystemLocked) {
+          if (account.isSystemLocked && SUBLEDGER_CONTROL_CODES.includes(account.accountCode)) {
             throw new AppError(
-              `Account '${account.accountName}' (${account.accountCode}) is system-locked. Manual adjustments to this account are prohibited.`,
+              `Account '${account.accountName}' (${account.accountCode}) is a subledger control account. Manual adjustments to this account are prohibited.`,
               403,
               'ERR_SYSTEM_ACCOUNT_LOCKED'
             );
