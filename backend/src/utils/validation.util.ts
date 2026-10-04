@@ -116,6 +116,18 @@ export const GoLivePayloadSchema = z
       message: 'Cash and bank account codes must be unique',
       path: ['cashAndBanks']
     }
+  )
+  .refine(
+    (data) => {
+      const projectNames = data.activeDeals
+        .map((d) => d.projectName?.trim())
+        .filter((name): name is string => !!name);
+      return new Set(projectNames).size === projectNames.length;
+    },
+    {
+      message: 'Each active project can only be linked to one customer contract',
+      path: ['activeDeals']
+    }
   );
 
 export type GoLivePayload = z.infer<typeof GoLivePayloadSchema>;

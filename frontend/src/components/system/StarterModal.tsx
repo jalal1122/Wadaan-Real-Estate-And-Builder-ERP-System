@@ -12,6 +12,8 @@ import {
   ArrowRight,
   Rocket,
   X,
+  Trash2,
+  Building2,
 } from 'lucide-react';
 import { useSystemInit } from '../../hooks/useSystemInit';
 import { RecoveryKeyModal } from './RecoveryKeyModal';
@@ -82,7 +84,7 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
       customerName: 'Tariq Mehmood',
       phone: '0312-9876543',
       projectName: 'Wadaan Heights',
-      dealType: 'WADAAN_SALE',
+      dealType: 'CONSTRUCTION',
       totalDealValue: 12000000,
       amountReceivedPast: 4000000,
     },
@@ -125,21 +127,38 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
           cashAndBanks.every((b) => b.name.trim() && b.code.trim() && b.balance >= 0)
         );
       case 3:
-        return activeProjects.every(
-          (p) => p.name.trim() && p.prefix.trim() && (p.spentToDate ?? 0) >= 0
+        // Projects are optional. If empty, proceed. If items exist, non-empty ones must be valid.
+        return (
+          activeProjects.length === 0 ||
+          activeProjects.every(
+            (p) =>
+              (!p.name.trim() && !p.prefix.trim()) ||
+              (p.name.trim().length > 0 && p.prefix.trim().length > 0 && (p.spentToDate ?? 0) >= 0)
+          )
         );
       case 4:
-        return unpaidPayables.every(
-          (v) => v.vendorName.trim() && v.amountDue >= 0
+        // Payables are optional. If empty, proceed.
+        return (
+          unpaidPayables.length === 0 ||
+          unpaidPayables.every((v) => !v.vendorName.trim() || v.amountDue >= 0)
         );
-      case 5:
+      case 5: {
+        // Deals are optional. If empty, proceed.
+        if (activeDeals.length === 0) return true;
+        const linkedProjects = activeDeals
+          .map((d) => d.projectName?.trim())
+          .filter((name): name is string => !!name);
+        if (new Set(linkedProjects).size !== linkedProjects.length) {
+          return false;
+        }
         return activeDeals.every(
           (d) =>
-            d.customerName.trim() &&
-            d.phone.trim() &&
-            d.totalDealValue >= 0 &&
-            d.amountReceivedPast <= d.totalDealValue
+            !d.customerName.trim() ||
+            (d.phone.trim().length > 0 &&
+              d.totalDealValue >= 0 &&
+              d.amountReceivedPast <= d.totalDealValue)
         );
+      }
       default:
         return true;
     }
@@ -170,6 +189,36 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
       return;
     }
 
+    const filteredProjects = activeProjects
+      .filter((p) => p.name.trim().length > 0 && p.prefix.trim().length > 0)
+      .map((p) => ({
+        name: p.name.trim(),
+        prefix: p.prefix.trim().toUpperCase(),
+        masterBOQ: p.masterBOQ ? Number(p.masterBOQ) : undefined,
+        boq: p.masterBOQ ? Number(p.masterBOQ) : undefined,
+        spentToDate: Number(p.spentToDate) || 0,
+      }));
+
+    const filteredPayables = unpaidPayables
+      .filter((u) => u.vendorName.trim().length > 0)
+      .map((u) => ({
+        vendorName: u.vendorName.trim(),
+        phone: u.phone?.trim() || undefined,
+        amountDue: Number(u.amountDue) || 0,
+        projectId: u.projectId ? u.projectId : undefined,
+      }));
+
+    const filteredDeals = activeDeals
+      .filter((d) => d.customerName.trim().length > 0 && d.phone.trim().length > 0)
+      .map((d) => ({
+        customerName: d.customerName.trim(),
+        phone: d.phone.trim(),
+        projectName: d.projectName?.trim() || undefined,
+        dealType: d.projectName?.trim() ? 'CONSTRUCTION' : (d.dealType || 'WADAAN_SALE'),
+        totalDealValue: Number(d.totalDealValue) || 0,
+        amountReceivedPast: Number(d.amountReceivedPast) || 0,
+      }));
+
     const payload: GoLivePayload = {
       admin: status?.hasAdmin ? undefined : (admin.pin.length === 4 ? admin : undefined),
       cashAndBanks: cashAndBanks.map((b) => ({
@@ -177,27 +226,9 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
         code: b.code.trim(),
         balance: Number(b.balance) || 0,
       })),
-      activeProjects: activeProjects.map((p) => ({
-        name: p.name.trim(),
-        prefix: p.prefix.trim().toUpperCase(),
-        masterBOQ: p.masterBOQ ? Number(p.masterBOQ) : undefined,
-        boq: p.masterBOQ ? Number(p.masterBOQ) : undefined,
-        spentToDate: Number(p.spentToDate) || 0,
-      })),
-      unpaidPayables: unpaidPayables.map((u) => ({
-        vendorName: u.vendorName.trim(),
-        phone: u.phone?.trim() || undefined,
-        amountDue: Number(u.amountDue) || 0,
-        projectId: u.projectId ? u.projectId : undefined,
-      })),
-      activeDeals: activeDeals.map((d) => ({
-        customerName: d.customerName.trim(),
-        phone: d.phone.trim(),
-        projectName: d.projectName?.trim() || undefined,
-        dealType: d.dealType || 'WADAAN_SALE',
-        totalDealValue: Number(d.totalDealValue) || 0,
-        amountReceivedPast: Number(d.amountReceivedPast) || 0,
-      })),
+      activeProjects: filteredProjects,
+      unpaidPayables: filteredPayables,
+      activeDeals: filteredDeals,
     };
 
     try {
@@ -533,8 +564,9 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
                       <thead>
                         <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                           <th className="py-3 px-4 w-5/12">Account / Institutional Name</th>
-                          <th className="py-3 px-4 w-3/12">GL Code</th>
+                          <th className="py-3 px-4 w-2/12">GL Code</th>
                           <th className="py-3 px-4 w-4/12 text-right">Opening Balance (PKR)</th>
+                          <th className="py-3 px-2 w-1/12 text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs">
@@ -589,6 +621,25 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
                                   className="w-full text-right font-mono font-bold text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 pl-10 pr-3 text-[#059669] focus:outline-none focus:ring-2 focus:ring-[#059669]/20 focus:border-[#059669]"
                                 />
                               </div>
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <button
+                                type="button"
+                                disabled={cashAndBanks.length <= 1}
+                                onClick={() => {
+                                  if (cashAndBanks.length > 1) {
+                                    setCashAndBanks(cashAndBanks.filter((_, i) => i !== idx));
+                                  }
+                                }}
+                                title={cashAndBanks.length <= 1 ? 'At least one account is required' : 'Remove account'}
+                                className={`p-1.5 rounded-md transition ${
+                                  cashAndBanks.length <= 1
+                                    ? 'text-slate-300 cursor-not-allowed'
+                                    : 'text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer'
+                                }`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -648,94 +699,128 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
                     initializes WIP accounts (1200) and cost-tracking progress bars.
                   </p>
 
-                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-4 bg-white">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-4 w-4/12">Project Name</th>
-                          <th className="py-3 px-4 w-2/12">Prefix</th>
-                          <th className="py-3 px-4 w-3/12 text-right">Planned BOQ (PKR)</th>
-                          <th className="py-3 px-4 w-3/12 text-right">Spent to Date (PKR)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {activeProjects.map((p, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                value={p.name}
-                                onChange={(e) => {
-                                  const updated = [...activeProjects];
-                                  updated[idx].name = e.target.value;
-                                  setActiveProjects(updated);
-                                }}
-                                className="w-full px-3 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                maxLength={6}
-                                value={p.prefix}
-                                onChange={(e) => {
-                                  const updated = [...activeProjects];
-                                  updated[idx].prefix = e.target.value.toUpperCase();
-                                  setActiveProjects(updated);
-                                }}
-                                className="w-20 font-mono text-xs font-bold uppercase text-slate-700 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-lg focus:outline-none"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                value={p.masterBOQ ?? 0}
-                                onChange={(e) => {
-                                  const updated = [...activeProjects];
-                                  updated[idx].masterBOQ = parseFloat(e.target.value) || 0;
-                                  setActiveProjects(updated);
-                                }}
-                                className="w-full text-right font-mono font-medium text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                value={p.spentToDate}
-                                onChange={(e) => {
-                                  const updated = [...activeProjects];
-                                  updated[idx].spentToDate = parseFloat(e.target.value) || 0;
-                                  setActiveProjects(updated);
-                                }}
-                                className="w-full text-right font-mono font-bold text-xs text-[#059669] bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
+                  {activeProjects.length === 0 ? (
+                    <div className="p-8 mb-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-center">
+                      <Building2 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-slate-700">No active construction sites added</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Construction sites are optional during go-live. You can add them later or click below to add one now.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-4 bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th className="py-3 px-4 w-4/12">Project Name</th>
+                            <th className="py-3 px-3 w-2/12">Prefix</th>
+                            <th className="py-3 px-3 w-3/12 text-right">Planned BOQ (PKR)</th>
+                            <th className="py-3 px-3 w-3/12 text-right">Spent to Date (PKR)</th>
+                            <th className="py-3 px-2 w-1/12 text-center">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {activeProjects.map((p, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2.5 px-4">
+                                <input
+                                  type="text"
+                                  value={p.name}
+                                  onChange={(e) => {
+                                    const updated = [...activeProjects];
+                                    updated[idx].name = e.target.value;
+                                    setActiveProjects(updated);
+                                  }}
+                                  className="w-full px-3 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <input
+                                  type="text"
+                                  maxLength={6}
+                                  value={p.prefix}
+                                  onChange={(e) => {
+                                    const updated = [...activeProjects];
+                                    updated[idx].prefix = e.target.value.toUpperCase();
+                                    setActiveProjects(updated);
+                                  }}
+                                  className="w-20 font-mono text-xs font-bold uppercase text-slate-700 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-lg focus:outline-none"
+                                />
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={p.masterBOQ ?? 0}
+                                  onChange={(e) => {
+                                    const updated = [...activeProjects];
+                                    updated[idx].masterBOQ = parseFloat(e.target.value) || 0;
+                                    setActiveProjects(updated);
+                                  }}
+                                  className="w-full text-right font-mono font-medium text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={p.spentToDate}
+                                  onChange={(e) => {
+                                    const updated = [...activeProjects];
+                                    updated[idx].spentToDate = parseFloat(e.target.value) || 0;
+                                    setActiveProjects(updated);
+                                  }}
+                                  className="w-full text-right font-mono font-bold text-xs text-[#059669] bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveProjects(activeProjects.filter((_, i) => i !== idx))}
+                                  title="Remove project"
+                                  className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveProjects([
-                        ...activeProjects,
-                        {
-                          name: `Site ${activeProjects.length + 1}`,
-                          prefix: `S${activeProjects.length + 1}`,
-                          masterBOQ: 10000000,
-                          spentToDate: 0,
-                        },
-                      ])
-                    }
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg border border-emerald-200 cursor-pointer"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Add Another Construction Site</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveProjects([
+                          ...activeProjects,
+                          {
+                            name: `Site ${activeProjects.length + 1}`,
+                            prefix: `S${activeProjects.length + 1}`,
+                            masterBOQ: 10000000,
+                            spentToDate: 0,
+                          },
+                        ])
+                      }
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg border border-emerald-200 cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Add Another Construction Site</span>
+                    </button>
+
+                    {activeProjects.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveProjects([])}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-red-700 bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-lg border border-slate-200 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Clear All (Skip Sites)</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -755,78 +840,112 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
                     populated into the Thursday Payment Run queue.
                   </p>
 
-                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-4 bg-white">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-4 w-5/12">Vendor / Contractor</th>
-                          <th className="py-3 px-4 w-3/12">Contact Phone</th>
-                          <th className="py-3 px-4 w-4/12 text-right">Outstanding Amount (PKR)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {unpaidPayables.map((v, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                value={v.vendorName}
-                                onChange={(e) => {
-                                  const updated = [...unpaidPayables];
-                                  updated[idx].vendorName = e.target.value;
-                                  setUnpaidPayables(updated);
-                                }}
-                                className="w-full px-3 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                value={v.phone || ''}
-                                placeholder="03XX-XXXXXXX"
-                                onChange={(e) => {
-                                  const updated = [...unpaidPayables];
-                                  updated[idx].phone = e.target.value;
-                                  setUnpaidPayables(updated);
-                                }}
-                                className="w-full px-3 py-1.5 font-mono text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg focus:outline-none"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                value={v.amountDue}
-                                onChange={(e) => {
-                                  const updated = [...unpaidPayables];
-                                  updated[idx].amountDue = parseFloat(e.target.value) || 0;
-                                  setUnpaidPayables(updated);
-                                }}
-                                className="w-full text-right font-mono font-bold text-xs text-amber-700 bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
+                  {unpaidPayables.length === 0 ? (
+                    <div className="p-8 mb-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-center">
+                      <Landmark className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-slate-700">No pending vendor payables added</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Vendor payables are optional during go-live. You can add them later or click below to add one now.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-4 bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th className="py-3 px-4 w-5/12">Vendor / Contractor</th>
+                            <th className="py-3 px-3 w-3/12">Contact Phone</th>
+                            <th className="py-3 px-3 w-3/12 text-right">Outstanding Amount (PKR)</th>
+                            <th className="py-3 px-2 w-1/12 text-center">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {unpaidPayables.map((v, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2.5 px-4">
+                                <input
+                                  type="text"
+                                  value={v.vendorName}
+                                  onChange={(e) => {
+                                    const updated = [...unpaidPayables];
+                                    updated[idx].vendorName = e.target.value;
+                                    setUnpaidPayables(updated);
+                                  }}
+                                  className="w-full px-3 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <input
+                                  type="text"
+                                  value={v.phone || ''}
+                                  placeholder="03XX-XXXXXXX"
+                                  onChange={(e) => {
+                                    const updated = [...unpaidPayables];
+                                    updated[idx].phone = e.target.value;
+                                    setUnpaidPayables(updated);
+                                  }}
+                                  className="w-full px-3 py-1.5 font-mono text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg focus:outline-none"
+                                />
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={v.amountDue}
+                                  onChange={(e) => {
+                                    const updated = [...unpaidPayables];
+                                    updated[idx].amountDue = parseFloat(e.target.value) || 0;
+                                    setUnpaidPayables(updated);
+                                  }}
+                                  className="w-full text-right font-mono font-bold text-xs text-amber-700 bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setUnpaidPayables(unpaidPayables.filter((_, i) => i !== idx))}
+                                  title="Remove payable"
+                                  className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setUnpaidPayables([
-                        ...unpaidPayables,
-                        {
-                          vendorName: `Vendor ${unpaidPayables.length + 1}`,
-                          amountDue: 0,
-                        },
-                      ])
-                    }
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg border border-emerald-200 cursor-pointer"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Add Another Vendor Bill</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setUnpaidPayables([
+                          ...unpaidPayables,
+                          {
+                            vendorName: `Vendor ${unpaidPayables.length + 1}`,
+                            amountDue: 0,
+                          },
+                        ])
+                      }
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg border border-emerald-200 cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Add Another Vendor Bill</span>
+                    </button>
+
+                    {unpaidPayables.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setUnpaidPayables([])}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-red-700 bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-lg border border-slate-200 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Clear All (Skip Payables)</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -846,94 +965,182 @@ export function StarterModal({ isOpen, onClose }: StarterModalProps) {
                     and remaining balances are slated for milestone recoveries.
                   </p>
 
-                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-4 bg-white">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-4 w-4/12">Client Name</th>
-                          <th className="py-3 px-4 w-2/12">Phone</th>
-                          <th className="py-3 px-4 w-3/12 text-right">Deal Value (PKR)</th>
-                          <th className="py-3 px-4 w-3/12 text-right">Past Received (PKR)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {activeDeals.map((d, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                value={d.customerName}
-                                onChange={(e) => {
-                                  const updated = [...activeDeals];
-                                  updated[idx].customerName = e.target.value;
-                                  setActiveDeals(updated);
-                                }}
-                                className="w-full px-3 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                value={d.phone}
-                                onChange={(e) => {
-                                  const updated = [...activeDeals];
-                                  updated[idx].phone = e.target.value;
-                                  setActiveDeals(updated);
-                                }}
-                                className="w-full px-3 py-1.5 font-mono text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg focus:outline-none"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                value={d.totalDealValue}
-                                onChange={(e) => {
-                                  const updated = [...activeDeals];
-                                  updated[idx].totalDealValue = parseFloat(e.target.value) || 0;
-                                  setActiveDeals(updated);
-                                }}
-                                className="w-full text-right font-mono font-medium text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                max={d.totalDealValue}
-                                value={d.amountReceivedPast}
-                                onChange={(e) => {
-                                  const updated = [...activeDeals];
-                                  updated[idx].amountReceivedPast = parseFloat(e.target.value) || 0;
-                                  setActiveDeals(updated);
-                                }}
-                                className="w-full text-right font-mono font-bold text-xs text-[#059669] bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#059669]"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {(() => {
+                    const chosen = activeDeals
+                      .map((d) => d.projectName?.trim())
+                      .filter((n): n is string => !!n);
+                    const hasDup = new Set(chosen).size !== chosen.length;
+                    if (!hasDup) return null;
+                    return (
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>
+                          Each construction site can only be linked to one customer contract. Please select distinct sites or clear duplicates.
+                        </span>
+                      </div>
+                    );
+                  })()}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveDeals([
-                        ...activeDeals,
-                        {
-                          customerName: `Customer ${activeDeals.length + 1}`,
-                          phone: '0300-0000000',
-                          totalDealValue: 5000000,
-                          amountReceivedPast: 0,
-                        },
-                      ])
-                    }
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg border border-emerald-200 cursor-pointer"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Add Another Customer Deal</span>
-                  </button>
+                  {activeDeals.length === 0 ? (
+                    <div className="p-8 mb-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-center">
+                      <Landmark className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-slate-700">No active customer deals or contracts added</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Customer deals and receivables are optional during go-live. You can add them later or click below to add one now.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-4 bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#F9FAFB] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th className="py-3 px-3 w-3/12">Client Name</th>
+                            <th className="py-3 px-2 w-2/12">Phone</th>
+                            <th className="py-3 px-2 w-3/12">Linked Site (Construction)</th>
+                            <th className="py-3 px-2 w-2/12 text-right">Deal Value (PKR)</th>
+                            <th className="py-3 px-2 w-2/12 text-right">Past Paid (PKR)</th>
+                            <th className="py-3 px-1 w-1/12 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {activeDeals.map((d, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2.5 px-3">
+                                <input
+                                  type="text"
+                                  value={d.customerName}
+                                  onChange={(e) => {
+                                    const updated = [...activeDeals];
+                                    updated[idx].customerName = e.target.value;
+                                    setActiveDeals(updated);
+                                  }}
+                                  className="w-full px-2.5 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-2">
+                                <input
+                                  type="text"
+                                  value={d.phone}
+                                  onChange={(e) => {
+                                    const updated = [...activeDeals];
+                                    updated[idx].phone = e.target.value;
+                                    setActiveDeals(updated);
+                                  }}
+                                  className="w-full px-2 py-1.5 font-mono text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg focus:outline-none"
+                                />
+                              </td>
+                              <td className="py-2.5 px-2">
+                                <select
+                                  value={d.projectName || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const updated = [...activeDeals];
+                                    updated[idx].projectName = val;
+                                    updated[idx].dealType = val ? 'CONSTRUCTION' : 'WADAAN_SALE';
+                                    setActiveDeals(updated);
+                                  }}
+                                  className="w-full px-2 py-1.5 text-xs font-medium bg-[#F9FAFB] border border-slate-200 rounded-lg text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                >
+                                  <option value="">-- No Site (Sale) --</option>
+                                  {activeProjects
+                                    .filter((p) => p.name.trim().length > 0)
+                                    .map((p) => {
+                                      const isAssignedElsewhere = activeDeals.some(
+                                        (other, oIdx) =>
+                                          oIdx !== idx &&
+                                          other.projectName?.trim().toLowerCase() === p.name.trim().toLowerCase()
+                                      );
+                                      return (
+                                        <option key={p.name} value={p.name} disabled={isAssignedElsewhere}>
+                                          {p.name} ({p.prefix}){isAssignedElsewhere ? ' (Linked)' : ''}
+                                        </option>
+                                      );
+                                    })}
+                                </select>
+                              </td>
+                              <td className="py-2.5 px-2 text-right">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={d.totalDealValue}
+                                  onChange={(e) => {
+                                    const updated = [...activeDeals];
+                                    updated[idx].totalDealValue = parseFloat(e.target.value) || 0;
+                                    setActiveDeals(updated);
+                                  }}
+                                  className="w-full text-right font-mono font-medium text-xs bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-2 text-right">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={d.totalDealValue}
+                                  value={d.amountReceivedPast}
+                                  onChange={(e) => {
+                                    const updated = [...activeDeals];
+                                    updated[idx].amountReceivedPast = parseFloat(e.target.value) || 0;
+                                    setActiveDeals(updated);
+                                  }}
+                                  className="w-full text-right font-mono font-bold text-xs text-[#059669] bg-[#F9FAFB] border border-slate-200 rounded-lg py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                                />
+                              </td>
+                              <td className="py-2.5 px-1 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveDeals(activeDeals.filter((_, i) => i !== idx))}
+                                  title="Remove deal"
+                                  className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const usedProjects = new Set(
+                          activeDeals.map((d) => d.projectName?.trim().toLowerCase()).filter(Boolean)
+                        );
+                        const availableProj = activeProjects.find(
+                          (p) => p.name.trim() && !usedProjects.has(p.name.trim().toLowerCase())
+                        );
+                        setActiveDeals([
+                          ...activeDeals,
+                          {
+                            customerName: `Customer ${activeDeals.length + 1}`,
+                            phone: '0300-0000000',
+                            projectName: availableProj ? availableProj.name : '',
+                            dealType: availableProj ? 'CONSTRUCTION' : 'WADAAN_SALE',
+                            totalDealValue: 5000000,
+                            amountReceivedPast: 0,
+                          },
+                        ]);
+                      }}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] hover:text-emerald-700 bg-emerald-50 px-3.5 py-2 rounded-lg border border-emerald-200 cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Add Another Customer Deal</span>
+                    </button>
+
+                    {activeDeals.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveDeals([])}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-red-700 bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-lg border border-slate-200 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Clear All (Skip Deals)</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

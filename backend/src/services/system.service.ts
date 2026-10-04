@@ -262,6 +262,7 @@ export class SystemService {
 
         // 7. Customers, Active Deals & Deal Invoices Hydration
         let totalAR = new Decimal(0);
+        const assignedProjectIds = new Set<string>();
 
         for (let i = 0; i < payload.activeDeals.length; i++) {
           const deal = payload.activeDeals[i];
@@ -279,12 +280,17 @@ export class SystemService {
 
           let linkedProjectId: string | null = null;
           if (deal.projectName && projectMap.has(deal.projectName)) {
-            linkedProjectId = projectMap.get(deal.projectName)!;
+            const candidateProjectId = projectMap.get(deal.projectName)!;
+            if (!assignedProjectIds.has(candidateProjectId)) {
+              linkedProjectId = candidateProjectId;
+              assignedProjectIds.add(candidateProjectId);
+            }
           }
 
-          const dealTypeEnum: DealType = deal.dealType
-            ? (deal.dealType as DealType)
-            : DealType.CONSTRUCTION;
+          // If linked to an active project, it is ALWAYS a CONSTRUCTION contract
+          const dealTypeEnum: DealType = linkedProjectId
+            ? DealType.CONSTRUCTION
+            : (deal.dealType ? (deal.dealType as DealType) : DealType.WADAAN_SALE);
 
           const createdDeal = await tx.deal.create({
             data: {
