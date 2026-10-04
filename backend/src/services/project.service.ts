@@ -199,17 +199,12 @@ export class ProjectService {
 
       let clientInfo = null;
       if (project.deals && project.deals.length > 0) {
-        const primaryDeal = project.deals[0];
-        const contractValue = project.deals.reduce(
-          (sum, d) => sum.plus(new Decimal(d.totalValue)),
-          new Decimal(0)
-        );
-        const totalCollected = project.deals.reduce((dealSum, d) => {
-          const invCollected = d.invoices.reduce((sum, inv) => {
-            const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
-            return sum.plus(paid);
-          }, new Decimal(0));
-          return dealSum.plus(invCollected);
+        // Prioritize CONSTRUCTION deal contract
+        const primaryDeal = project.deals.find((d) => d.dealType === 'CONSTRUCTION') || project.deals[0];
+        const contractValue = new Decimal(primaryDeal.totalValue);
+        const totalCollected = (primaryDeal.invoices || []).reduce((sum, inv) => {
+          const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+          return sum.plus(paid);
         }, new Decimal(0));
 
         const pendingReceivable = contractValue.minus(totalCollected);
@@ -310,17 +305,12 @@ export class ProjectService {
 
     let clientInfo = null;
     if (project.deals && project.deals.length > 0) {
-      const primaryDeal = project.deals[0];
-      const contractValue = project.deals.reduce(
-        (sum, d) => sum.plus(new Decimal(d.totalValue)),
-        new Decimal(0)
-      );
-      const totalCollected = project.deals.reduce((dealSum, d) => {
-        const invCollected = d.invoices.reduce((sum, inv) => {
-          const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
-          return sum.plus(paid);
-        }, new Decimal(0));
-        return dealSum.plus(invCollected);
+      // Prioritize CONSTRUCTION deal contract
+      const primaryDeal = project.deals.find((d) => d.dealType === 'CONSTRUCTION') || project.deals[0];
+      const contractValue = new Decimal(primaryDeal.totalValue);
+      const totalCollected = (primaryDeal.invoices || []).reduce((sum, inv) => {
+        const paid = new Decimal(inv.paidAmount || (inv.paymentStatus === 'PAID' ? inv.amount : 0));
+        return sum.plus(paid);
       }, new Decimal(0));
 
       const pendingReceivable = contractValue.minus(totalCollected);
@@ -650,11 +640,13 @@ export class ProjectService {
       ? spentToDate.dividedBy(masterBOQ).times(100).toDecimalPlaces(2).toNumber()
       : 0;
 
-    // 2. Client Receipts Breakdown
+    // 2. Client Receipts Breakdown (Filter to construction contracts or primary contract)
     let totalReceivedFromClients = new Decimal(0);
     let totalInvoiceCount = 0;
 
-    const clientReceipts = (project.deals || []).map((deal) => {
+    const targetDeals = project.deals || [];
+
+    const clientReceipts = targetDeals.map((deal) => {
       let clientTotalPaid = new Decimal(0);
       let clientTotalPending = new Decimal(0);
 

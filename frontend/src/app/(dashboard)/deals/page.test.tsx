@@ -655,6 +655,73 @@ describe('Screen 8: Deal Hub & Customer Portfolio (DealHubPage)', () => {
     expect(screen.getByTestId('edit-customer-modal')).toBeInTheDocument();
     expect(screen.getByText('Edit Client Profile')).toBeInTheDocument();
   });
+
+  it('20. CreateDealModal calculates outside-commission for Brokerage: Property + Seller & Buyer Commission = Total Value (10.2M)', async () => {
+    mockCreateDealMutate.mockResolvedValueOnce({ id: 'deal-brokerage-new' });
+    render(<DealHubPage />);
+
+    fireEvent.click(screen.getByTestId('btn-new-deal'));
+
+    // Step 1: select customer
+    const clientSelect = screen.getByRole('combobox');
+    fireEvent.change(clientSelect, { target: { value: 'cust-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    // Step 2: select Brokerage
+    const brokerageBtn = screen.getByTestId('route-brokerage');
+    fireEvent.click(brokerageBtn);
+
+    // Enter Property Sale Amount: 10,000,000
+    const propSaleInput = screen.getByTestId('brokerage-property-sale-input');
+    fireEvent.change(propSaleInput, { target: { value: '10000000' } });
+
+    // Enter Seller Commission: 100,000
+    const sellerCommInput = screen.getByTestId('brokerage-seller-commission-input');
+    fireEvent.change(sellerCommInput, { target: { value: '100000' } });
+
+    // Enter Buyer Commission: 100,000
+    const buyerCommInput = screen.getByTestId('brokerage-buyer-commission-input');
+    fireEvent.change(buyerCommInput, { target: { value: '100000' } });
+
+    // Verify Total Commission auto-summed to 200,000
+    const totalCommInput = screen.getByTestId('brokerage-total-commission-input') as HTMLInputElement;
+    expect(totalCommInput.value).toBe('200000');
+
+    // Verify prominent total contract value displays Rs 10,200,000
+    expect(screen.getAllByText('Rs 10,200,000').length).toBeGreaterThanOrEqual(1);
+
+    // Verify Double-Entry Escrow & Revenue Distribution display
+    expect(screen.getByText(/Double-Entry Escrow & Revenue Distribution/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Rs 10,000,000').length).toBeGreaterThanOrEqual(1); // Seller Escrow
+
+    // Continue to Step 3
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    // Set lump sum milestone
+    const lumpSumBtn = screen.getByRole('button', { name: 'Single Lump Sum' });
+    fireEvent.click(lumpSumBtn);
+
+    expect(screen.getByText(/✓ PERFECT MATCH/i)).toBeInTheDocument();
+
+    // Submit deal contract
+    const submitBtn = screen.getByRole('button', { name: /Initialize Deal Contract/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockCreateDealMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dealType: 'BROKERAGE',
+          totalValue: 10200000,
+          commissionAmount: 200000,
+          invoices: [
+            expect.objectContaining({
+              amount: 10200000,
+            }),
+          ],
+        })
+      );
+    });
+  });
 });
 
 

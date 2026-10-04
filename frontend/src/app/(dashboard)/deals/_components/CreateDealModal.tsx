@@ -53,6 +53,11 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   const [totalValue, setTotalValue] = useState<string>('');
   const [commissionAmount, setCommissionAmount] = useState<string>('');
 
+  // Brokerage Specific Fields (Outside Commission Model)
+  const [propertySaleAmount, setPropertySaleAmount] = useState<string>('');
+  const [sellerCommission, setSellerCommission] = useState<string>('');
+  const [buyerCommission, setBuyerCommission] = useState<string>('');
+
   // Quick Customer Registration Modal State inside Step 1
   const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -77,6 +82,9 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
     setSelectedAssetId('');
     setTotalValue('');
     setCommissionAmount('');
+    setPropertySaleAmount('');
+    setSellerCommission('');
+    setBuyerCommission('');
     setIsAddingNewCustomer(false);
     setNewCustomerName('');
     setNewCustomerPhone('');
@@ -106,9 +114,52 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
     return projects.filter((p) => p.status === 'ACTIVE');
   }, [projects]);
 
-  // Calculations for Step 3 Math Check
-  const totalValueNum = parseFloat(totalValue) || 0;
+  // Route switching handler to keep values synchronized
+  const handleDealTypeChange = (newType: DealType) => {
+    setDealType(newType);
+    if (newType === 'BROKERAGE') {
+      if (!propertySaleAmount && totalValue) {
+        setPropertySaleAmount(totalValue);
+      }
+    } else {
+      if (!totalValue && propertySaleAmount) {
+        setTotalValue(propertySaleAmount);
+      }
+    }
+  };
+
+  // Commission handlers for Brokerage
+  const handleSellerCommissionChange = (val: string) => {
+    setSellerCommission(val);
+    const seller = parseFloat(val) || 0;
+    const buyer = parseFloat(buyerCommission) || 0;
+    const totalComm = seller + buyer;
+    setCommissionAmount(totalComm > 0 ? String(totalComm) : '');
+  };
+
+  const handleBuyerCommissionChange = (val: string) => {
+    setBuyerCommission(val);
+    const seller = parseFloat(sellerCommission) || 0;
+    const buyer = parseFloat(val) || 0;
+    const totalComm = seller + buyer;
+    setCommissionAmount(totalComm > 0 ? String(totalComm) : '');
+  };
+
+  const handleTotalCommissionChange = (val: string) => {
+    setCommissionAmount(val);
+  };
+
+  // Calculations for Step 2 and Step 3 Math Check
+  const propertySaleAmountNum = parseFloat(propertySaleAmount) || 0;
   const commissionNum = parseFloat(commissionAmount) || 0;
+
+  // In Brokerage, commission is OUTSIDE the property sale amount: Total Contract = Property + Commission
+  const totalValueNum = useMemo(() => {
+    if (dealType === 'BROKERAGE') {
+      return propertySaleAmountNum + commissionNum;
+    }
+    return parseFloat(totalValue) || 0;
+  }, [dealType, propertySaleAmountNum, commissionNum, totalValue]);
 
   const invoicesSum = useMemo(() => {
     return invoices.reduce((sum, inv) => {
@@ -119,6 +170,13 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
 
   const invoiceDifference = Math.round((totalValueNum - invoicesSum) * 100) / 100;
   const isScheduleBalanced = totalValueNum > 0 && Math.abs(invoiceDifference) < 0.01;
+
+  // Check if selected construction project already has an assigned contract
+  const selectedProjectIsAlreadyAssigned = useMemo(() => {
+    if (dealType !== 'CONSTRUCTION' || !selectedProjectId) return false;
+    const proj = projects.find((p) => p.id === selectedProjectId);
+    return !!proj?.clientInfo;
+  }, [dealType, selectedProjectId, projects]);
 
   if (!isOpen) return null;
 
@@ -211,8 +269,8 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   const canProceedFromStep1 = !!selectedCustomerId;
   const canProceedFromStep2 =
     totalValueNum > 0 &&
-    (dealType !== 'CONSTRUCTION' || !!selectedProjectId) &&
-    (dealType !== 'BROKERAGE' || (commissionNum > 0 && commissionNum <= totalValueNum));
+    (dealType !== 'CONSTRUCTION' || (!!selectedProjectId && !selectedProjectIsAlreadyAssigned)) &&
+    (dealType !== 'BROKERAGE' || (propertySaleAmountNum > 0 && commissionNum > 0));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -450,7 +508,8 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => setDealType('WADAAN_SALE')}
+                  onClick={() => handleDealTypeChange('WADAAN_SALE')}
+                  data-testid="route-wadaan-sale"
                   className={`p-3 text-left rounded-xl border transition-all ${
                     dealType === 'WADAAN_SALE'
                       ? 'border-[#0F172A] bg-slate-900 text-white shadow-xs'
@@ -465,7 +524,8 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setDealType('CONSTRUCTION')}
+                  onClick={() => handleDealTypeChange('CONSTRUCTION')}
+                  data-testid="route-construction"
                   className={`p-3 text-left rounded-xl border transition-all ${
                     dealType === 'CONSTRUCTION'
                       ? 'border-blue-600 bg-blue-900 text-white shadow-xs'
@@ -480,7 +540,8 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setDealType('BROKERAGE')}
+                  onClick={() => handleDealTypeChange('BROKERAGE')}
+                  data-testid="route-brokerage"
                   className={`p-3 text-left rounded-xl border transition-all ${
                     dealType === 'BROKERAGE'
                       ? 'border-emerald-600 bg-emerald-900 text-white shadow-xs'
@@ -561,23 +622,186 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                     value={selectedProjectId}
                     onChange={(e) => setSelectedProjectId(e.target.value)}
                     className="w-full text-xs p-2.5 border border-blue-300 rounded-lg bg-white text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                    data-testid="construction-project-select"
                     required
                   >
-                    <option value="">-- Choose Active Project --</option>
-                    {activeProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.projectName} ({p.projectPrefix}) • BOQ: {formatPKR(p.masterBOQ)}
-                      </option>
-                    ))}
+                    <option value="">-- Choose Available Active Project --</option>
+                    {activeProjects.map((p) => {
+                      const isAssigned = !!p.clientInfo;
+                      return (
+                        <option key={p.id} value={p.id} disabled={isAssigned}>
+                          {p.projectName} ({p.projectPrefix}) • BOQ: {formatPKR(p.masterBOQ)}
+                          {isAssigned ? ` (Assigned: ${p.clientInfo?.customerName})` : ' (Available)'}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {selectedProjectIsAlreadyAssigned && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        This project already has an assigned deal contract ({projects.find((p) => p.id === selectedProjectId)?.clientInfo?.customerName}). A construction project can only be linked to one deal contract.
+                      </span>
+                    </div>
+                  )}
                   <p className="text-[11px] text-blue-700">
-                    Links this contract's revenue to the project WIP ledger for live Gross Margin tracking.
+                    Links this contract's revenue to the project WIP ledger for live Gross Margin tracking. Each project links to 1 client contract.
                   </p>
                 </div>
               )}
 
-              {/* Total Contract Value Input */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Brokerage Dedicated Fields (Commission Outside Sale Amount) */}
+              {dealType === 'BROKERAGE' ? (
+                <div className="space-y-4">
+                  {/* Property Sale Amount */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Property Sale Amount (Agreed Escrow Value) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">
+                        PKR
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="any"
+                        placeholder="e.g. 10000000"
+                        value={propertySaleAmount}
+                        onChange={(e) => setPropertySaleAmount(e.target.value)}
+                        className="w-full pl-12 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                        data-testid="brokerage-property-sale-input"
+                        required
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Agreed base price for the seller. 100% of this amount will be routed to Escrow Liability (2200).
+                    </p>
+                  </div>
+
+                  {/* Commission Inputs: Seller Commission & Buyer Commission */}
+                  <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                        <DollarSign className="w-4 h-4 text-emerald-600" />
+                        Brokerage Commission (Outside Sale Amount)
+                      </label>
+                      <span className="text-[10px] uppercase font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                        Agency Earnings
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
+                          Seller Commission (PKR)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-mono">PKR</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="e.g. 100000"
+                            value={sellerCommission}
+                            onChange={(e) => handleSellerCommissionChange(e.target.value)}
+                            className="w-full pl-11 pr-2.5 py-1.5 text-xs border border-emerald-300 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                            data-testid="brokerage-seller-commission-input"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
+                          Buyer Commission (PKR)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-mono">PKR</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="e.g. 100000"
+                            value={buyerCommission}
+                            onChange={(e) => handleBuyerCommissionChange(e.target.value)}
+                            className="w-full pl-11 pr-2.5 py-1.5 text-xs border border-emerald-300 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                            data-testid="brokerage-buyer-commission-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
+                        Total Commission (Wadaan Revenue 4000) *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-mono">PKR</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="any"
+                          placeholder="e.g. 200000"
+                          value={commissionAmount}
+                          onChange={(e) => handleTotalCommissionChange(e.target.value)}
+                          className="w-full pl-11 pr-2.5 py-1.5 text-xs border border-emerald-300 rounded-lg font-mono text-slate-900 bg-white font-semibold focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                          data-testid="brokerage-total-commission-input"
+                          required
+                        />
+                      </div>
+                      <p className="text-[10px] text-emerald-700 mt-1">
+                        Auto-summed from Seller + Buyer commission, or enter custom total directly.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Computed Total Contract Value Card */}
+                  <div className="p-4 bg-slate-900 text-white rounded-xl space-y-2 border border-slate-800 shadow-md">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                        Total Deal / Contract Value (Outside Commission)
+                      </span>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono font-bold">
+                        Billable (1100 AR)
+                      </span>
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-white">
+                      {formatPKR(totalValueNum)}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
+                      <span>{formatPKR(propertySaleAmountNum)} (Property)</span>
+                      <span>+</span>
+                      <span className="text-emerald-400">{formatPKR(commissionNum)} (Commission)</span>
+                      <span>=</span>
+                      <span className="font-bold text-white">{formatPKR(totalValueNum)}</span>
+                    </div>
+                  </div>
+
+                  {/* Double-Entry Split Breakdown */}
+                  {totalValueNum > 0 && commissionNum > 0 && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-2 text-emerald-950">
+                      <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        Double-Entry Escrow & Revenue Distribution
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 font-mono text-[11px]">
+                        <div className="p-2 bg-white rounded-lg border border-emerald-100">
+                          <span className="text-slate-500 block text-[10px]">Total Contract (1100 AR):</span>
+                          <div className="font-bold text-slate-900">{formatPKR(totalValueNum)}</div>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-emerald-100">
+                          <span className="text-slate-500 block text-[10px]">Seller Escrow (2200):</span>
+                          <div className="font-bold text-slate-800">{formatPKR(propertySaleAmountNum)}</div>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-emerald-100">
+                          <span className="text-slate-500 block text-[10px]">Wadaan Revenue (4000):</span>
+                          <div className="font-bold text-emerald-700">{formatPKR(commissionNum)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Total Contract Value (PKR) *
@@ -596,53 +820,6 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                       className="w-full pl-12 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
                       required
                     />
-                  </div>
-                </div>
-
-                {/* Brokerage Route: Commission Input & Live Split */}
-                {dealType === 'BROKERAGE' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Wadaan Commission (PKR) *
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">
-                        PKR
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        max={totalValueNum || undefined}
-                        step="any"
-                        placeholder="e.g. 150000"
-                        value={commissionAmount}
-                        onChange={(e) => setCommissionAmount(e.target.value)}
-                        className="w-full pl-12 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-mono text-slate-900 bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Brokerage Live Split Indicator */}
-              {dealType === 'BROKERAGE' && totalValueNum > 0 && commissionNum > 0 && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1.5 text-emerald-900">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    Double-Entry Escrow Split (Screen 9 Integration)
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-                    <div>
-                      <span className="text-slate-500">Earned Revenue (4000):</span>
-                      <div className="font-bold text-emerald-700">{formatPKR(commissionNum)}</div>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Seller Escrow Liability (2200):</span>
-                      <div className="font-bold text-slate-800">
-                        {formatPKR(Math.max(0, totalValueNum - commissionNum))}
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}

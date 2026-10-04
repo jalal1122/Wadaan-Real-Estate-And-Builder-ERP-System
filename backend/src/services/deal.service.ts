@@ -25,10 +25,22 @@ export class DealService {
           throw new AppError(`Customer with ID '${data.customerId}' not found`, 404, 'CUSTOMER_NOT_FOUND');
         }
 
-        // 2. Validate project exists and is ACTIVE if provided
+        // 2. Validate project exists, is ACTIVE, and is NOT already assigned to another deal contract
+        if (data.dealType === 'CONSTRUCTION' && !data.projectId) {
+          throw new AppError('projectId is required for CONSTRUCTION contracts', 400, 'PROJECT_REQUIRED');
+        }
+
         if (data.projectId) {
           const project = await tx.project.findUnique({
-            where: { id: data.projectId }
+            where: { id: data.projectId },
+            include: {
+              deals: {
+                select: {
+                  id: true,
+                  customer: { select: { fullName: true } }
+                }
+              }
+            }
           });
           if (!project) {
             throw new AppError(`Project with ID '${data.projectId}' not found`, 404, 'PROJECT_NOT_FOUND');
@@ -38,6 +50,14 @@ export class DealService {
               `Cannot attach a deal to a project with status '${project.status}'. Project must be ACTIVE.`,
               400,
               'PROJECT_NOT_ACTIVE'
+            );
+          }
+          if (project.deals && project.deals.length > 0) {
+            const clientName = project.deals[0].customer?.fullName || 'another client';
+            throw new AppError(
+              `Project "${project.projectName}" is already assigned to a deal contract (${clientName}). A construction project can only be linked to one deal contract. To add partners or investors, add Co-Clients to the existing contract.`,
+              409,
+              'PROJECT_ALREADY_ASSIGNED'
             );
           }
         }

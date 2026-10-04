@@ -490,5 +490,62 @@ describe('DealService — Core Contracts & File Transfer', () => {
       // netMargin = 6,000,000 (collected) - 0 (spentOnSite) - 4,500,000 (assetCost) = 1,500,000
       expect(deals[0].netMargin.toString()).toBe('1500000');
     });
+
+    test('DS-14: initializeContract — BROKERAGE outside-commission model splits total contract (10.2M) into 200k revenue and 10M seller escrow', async () => {
+      const postEntrySpy = jest.spyOn(JournalService, 'postEntry').mockResolvedValue({} as any);
+
+      (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) => {
+        const tx = {
+          customer: {
+            findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', fullName: 'Tariq Mehmood' }),
+          },
+          deal: {
+            create: jest.fn().mockResolvedValue({
+              id: 'deal-brok-1',
+              dealType: 'BROKERAGE',
+              totalValue: new Decimal(10200000),
+              commissionAmount: new Decimal(200000),
+              invoices: [
+                { id: 'inv-1', amount: new Decimal(10200000), dueDate: new Date('2026-10-01') },
+              ],
+            }),
+          },
+          account: {
+            findUnique: jest.fn().mockImplementation(({ where }) => {
+              if (where.accountCode === '1100') return { id: 'acc-1100' };
+              if (where.accountCode === '4000') return { id: 'acc-4000' };
+              if (where.accountCode === '2200') return { id: 'acc-2200' };
+              return null;
+            }),
+          },
+        };
+        return callback(tx);
+      });
+
+      const result = await DealService.initializeContract({
+        customerId: 'cust-1',
+        dealType: 'BROKERAGE',
+        totalValue: 10200000,
+        commissionAmount: 200000,
+        invoices: [{ description: 'Lump Sum Settlement', amount: 10200000, dueDate: '2026-10-01' }],
+      });
+
+      expect(result.id).toBe('deal-brok-1');
+      expect(postEntrySpy).toHaveBeenCalled();
+      const entryPayload = postEntrySpy.mock.calls[0][0];
+      expect(entryPayload.description).toContain('Revenue: Rs. 200000, Escrow: Rs. 10000000');
+      expect(entryPayload.lines).toHaveLength(3);
+      expect(entryPayload.lines[0].accountId).toBe('acc-1100');
+      expect(entryPayload.lines[0].debitAmount.toString()).toBe('10200000');
+      expect(entryPayload.lines[0].creditAmount.toString()).toBe('0');
+      expect(entryPayload.lines[1].accountId).toBe('acc-4000');
+      expect(entryPayload.lines[1].creditAmount.toString()).toBe('200000');
+      expect(entryPayload.lines[1].debitAmount.toString()).toBe('0');
+      expect(entryPayload.lines[2].accountId).toBe('acc-2200');
+      expect(entryPayload.lines[2].creditAmount.toString()).toBe('10000000');
+      expect(entryPayload.lines[2].debitAmount.toString()).toBe('0');
+
+      postEntrySpy.mockRestore();
+    });
   });
 });
