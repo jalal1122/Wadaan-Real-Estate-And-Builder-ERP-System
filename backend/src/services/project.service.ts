@@ -355,6 +355,7 @@ export class ProjectService {
     });
 
     bustCache('projects');
+    bustCache('reports');
     return updated;
   }
 
