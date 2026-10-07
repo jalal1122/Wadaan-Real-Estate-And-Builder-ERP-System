@@ -46,6 +46,8 @@ export const useCreateCustomer = () => {
     mutationFn: (payload: CreateCustomerPayload) => createCustomer(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['parties'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
@@ -67,6 +69,7 @@ export const useUpdateCustomer = () => {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customers', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['parties'] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
@@ -92,10 +95,12 @@ export const useApplyCustomerWallet = () => {
       queryClient.invalidateQueries({ queryKey: ['customers', variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
-      queryClient.invalidateQueries({ queryKey: ['ar-aging'] });
+      queryClient.invalidateQueries({ queryKey: ['trial-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['account-ledger'] });
       queryClient.invalidateQueries({ queryKey: ['journals'] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 };

@@ -41,6 +41,7 @@ export const useCreateAsset = () => {
     mutationFn: (payload: CreateAssetPayload) => createAsset(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -57,6 +58,7 @@ export const useUpdateAsset = () => {
       updateAsset(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -72,6 +74,7 @@ export const useDeleteAsset = () => {
     mutationFn: (id: string) => deleteAsset(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -88,6 +91,7 @@ export const useReacquireAsset = () => {
       reacquireAsset(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });

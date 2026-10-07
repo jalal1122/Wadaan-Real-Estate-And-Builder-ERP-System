@@ -32,6 +32,8 @@ export const useCreateAccount = () => {
     mutationFn: (payload: CreateAccountPayload) => createAccount(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['trial-balance'] });
     },
   });
 };
@@ -47,6 +49,9 @@ export const useUpdateAccount = () => {
     mutationFn: ({ id, payload }) => updateAccount(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['trial-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['account-ledger'] });
     },
   });
 };
@@ -62,6 +67,8 @@ export const useDeleteAccount = () => {
     mutationFn: (id: string) => deleteAccount(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['trial-balance'] });
     },
   });
 };

@@ -70,6 +70,7 @@ export const useCreateProject = () => {
     mutationFn: (payload: CreateProjectPayload) => createProject(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
@@ -82,8 +83,11 @@ export const useUpdateProjectStatus = () => {
 
   return useMutation<ProjectItem, Error, { id: string; status: ProjectStatus }>({
     mutationFn: ({ id, status }) => updateProjectStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['projects', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['projects', variables.id, 'report'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };

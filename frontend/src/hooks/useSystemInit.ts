@@ -32,8 +32,7 @@ export function useSystemInit() {
   });
 
   const completeInitialization = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['system', 'status'] });
-    await queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    await queryClient.invalidateQueries();
   };
 
   return {

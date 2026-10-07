@@ -24,6 +24,8 @@ export const useCreateVendor = () => {
     mutationFn: (payload: CreateVendorPayload) => createVendor(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['parties'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
@@ -38,6 +40,7 @@ export const useUpdateVendor = () => {
     mutationFn: ({ id, payload }) => updateVendor(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['parties'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });

@@ -138,6 +138,8 @@ describe('useAccounting Hooks', () => {
       });
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['accounts'] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['reports'] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['trial-balance'] });
     });
   });
 });

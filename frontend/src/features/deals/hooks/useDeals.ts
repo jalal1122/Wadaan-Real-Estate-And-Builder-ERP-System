@@ -53,10 +53,13 @@ export const useCreateDeal = () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
-      queryClient.invalidateQueries({ queryKey: ['ar-aging'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['trial-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['account-ledger'] });
       queryClient.invalidateQueries({ queryKey: ['journals'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 };
@@ -79,9 +82,12 @@ export const useTransferFile = () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] }); // Bust project card clientInfo & PDF report after transfer
-      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['trial-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['account-ledger'] });
       queryClient.invalidateQueries({ queryKey: ['journals'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 };
@@ -117,6 +123,7 @@ export const useAddCoClient = () => {
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
   });
 };
@@ -142,6 +149,7 @@ export const useUpdateCoClientLabel = () => {
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
   });
 };
@@ -165,6 +173,7 @@ export const useRemoveCoClient = () => {
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', variables.dealId, 'clients'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
   });
 };
