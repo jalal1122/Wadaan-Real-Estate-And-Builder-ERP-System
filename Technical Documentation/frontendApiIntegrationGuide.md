@@ -132,6 +132,50 @@ if (errorCode === 'DUPLICATE_RECORD' || (axios.isAxiosError(err) && err.response
 - **Field-Level Mapping**: `DUPLICATE_RECORD` (409) maps directly to the specific form field (e.g. Account Code) with inline red styling.
 - **Client-Side Pre-Validation**: Forms should validate uniqueness against in-memory query data (`existingCodes`) before submitting to avoid unnecessary network round-trips.
 
+### 1.4 Canonical React Query Cache Key & Reactive State Invalidation Standards (v3.3.0)
+
+Global React Query `staleTime` is configured to `2 minutes (120,000ms)` in `frontend/src/lib/queryClient.ts` to prevent redundant network round-trips. Therefore, every write mutation (`useMutation`) MUST accurately invalidate its downstream dependency tree on `onSuccess`.
+
+#### 1.4.1 Canonical Query Key Directory
+
+| Canonical Key | Hook | Scope & Entity |
+|---|---|---|
+| `['accounts']` | `useChartOfAccounts` | Chart of Accounts, live account balances (`fy=true/false`) |
+| `['journals']` | `useJournalEntries` | Paginated General Journal vouchers |
+| `['parties']` | `useParties` | Customer and Vendor dropdown options for manual journal forms |
+| `['projects']` | `useProjects`, `useProjectById` | Active construction projects, BOQ burn, project cards |
+| `['bills']` | `useBills`, `useBillById` | Capitalized WIP & operational overhead bills |
+| `['vendor-unpaid']` | `useVendorUnpaidBills` | FIFO unpaid bill queue for Thursday payment run |
+| `['payments']` | `usePayments` | Vendor payment history records |
+| `['deals']` | `useDeals`, `useDeal` | Booking contracts, installment schedules, co-clients |
+| `['assets']` | `useAssets`, `useAsset` | Real estate assets, inventory, acquisition costs |
+| `['customers']` | `useCustomers`, `useCustomer` | Customer accounts, advance wallets, Khaata portfolio |
+| `['receipts']` | `useWaitingRoom` | Waiting room cheques, uncleared receipts |
+| `['reports']` | `useReports` | Executive snapshot, deal margins, aging radar, net income, project ledgers |
+| `['trial-balance']` | `useTrialBalance` | Trial balance statement with cumulative and period balances |
+| `['account-ledger']`| `useAccountLedger` | Chronological account ledger drill-down statement |
+| `['documents']` | `useDocumentArchive` | Archived vouchers, receipts, and contract deeds |
+
+> [!NOTE]
+> **Eliminated Phantom Keys**: Fictional keys (`['financial-snapshot']`, `['ar-aging']`, `['ledger']`) that did not correspond to any `useQuery` call have been replaced with the canonical keys above (`['reports']`, `['trial-balance']`, `['account-ledger']`).
+
+#### 1.4.2 Mutation Downstream Invalidation Matrix
+
+| Mutation Hook | Action | Required Query Key Invalidations |
+|---|---|---|
+| `useCreateDeal` | Contract Booking | `deals`, `assets`, `customers`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `accounts`, `documents` |
+| `useTransferFile` | File Transfer | `deals`, `customers`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `accounts`, `documents` |
+| `useLogReceipt` | Record Receipt | `receipts`, `accounts`, `customers`, `deals`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `documents` |
+| `useClearCheque` | Clear Bank Cheque | `receipts`, `accounts`, `customers`, `deals`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `documents` |
+| `useBounceCheque` | Bounce Cheque | `receipts`, `accounts`, `customers`, `deals`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `documents` |
+| `useApplyWallet` | Apply Wallet to Invoice | `customers`, `deals`, `accounts`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `documents` |
+| `useCreateBill` | Post Expense Bill | `projects`, `vendors`, `vendor-unpaid`, `accounts`, `bills`, `reports`, `trial-balance`, `account-ledger`, `journals`, `documents` |
+| `useExecutePaymentRun` | Pay Vendor FIFO | `vendors`, `vendor-unpaid`, `accounts`, `bills`, `projects`, `reports`, `trial-balance`, `account-ledger`, `journals`, `payments`, `documents` |
+| `useCreateJournal` | Post Manual JV | `journals`, `accounts`, `reports`, `trial-balance`, `account-ledger`, `projects`, `vendors`, `customers`, `documents` |
+| `useCreateVendor` / `useUpdateVendor` | Vendor Management | `vendors`, `parties`, `reports` |
+| `useCreateCustomer` / `useUpdateCustomer` | Client Management | `customers`, `parties`, `reports` |
+| `useCompleteInitialization` | System Go-Live | `await queryClient.invalidateQueries()` (Universal invalidation) |
+
 ---
 
 ## 2. Standardized API Response Contracts

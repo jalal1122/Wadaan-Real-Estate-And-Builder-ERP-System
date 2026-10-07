@@ -425,6 +425,39 @@ Navigate to `/reports` via the sidebar navigation link **"Executive Reports"**.
 
 ---
 
+### Test Scenario M: Reactive State & Real-Time Cache Invalidation Verification
+
+This scenario validates that mutations instantly trigger multi-layer cache invalidation, ensuring dependent screens display updated state with **zero manual page refreshes**:
+
+#### Test M.1: Deal Creation Reactively Updates Project Card
+1. Navigate to `/deals` and book a new contract for an active project (e.g. `OPF Villa`).
+2. Without refreshing the page, immediately click **"Projects & WIP"** (`/projects`) in the sidebar.
+3. *Expected Result*: The `OPF Villa` card immediately displays the assigned client and contract details instead of showing stale "No Deal" status.
+
+#### Test M.2: Expense Bill Posting Reactively Updates Payment Run FIFO Queue
+1. Navigate to `/payables` (Tab 1: **Record Bill**) and record a new bill for `Ali Hardware`.
+2. Without refreshing, switch to Tab 2 (**Execute Payment Run**).
+3. Select `Ali Hardware` in the vendor selector.
+4. *Expected Result*: The newly posted bill immediately appears in the FIFO unpaid bill allocation list with accurate balance.
+
+#### Test M.3: Cheque Clearance Reactively Updates Bank Liquidity Snapshot
+1. Navigate to `/receipts` (Tab 2: **Cheque Room / Waiting Room**) and click **"Clear Cheque"** into `HBL Operations`.
+2. Navigate directly to `/reports` (Tab 1: **Executive Snapshot**).
+3. *Expected Result*: `Total Liquid Cash` and bank balances reflect the cleared funds immediately.
+
+#### Test M.4: New Vendor/Customer Creation Reactively Updates Journal Party Dropdown
+1. Navigate to `/payables` and click **"Add New Vendor"** (e.g. `Diamond Paints`).
+2. Navigate to `/journals` and open the **"Post Journal Entry"** form.
+3. Select an Accounts Payable line (`2000`) and open the **Linked Party** dropdown.
+4. *Expected Result*: `Diamond Paints` immediately appears in the vendor party dropdown without waiting 5 minutes for cache expiry.
+
+#### Test M.5: Manual Journal Entry Reactively Updates Trial Balance
+1. Post a manual Journal Entry in `/journals` (e.g., Dr `1010-01` / Cr `3000`).
+2. Navigate to `/trial-balance`.
+3. *Expected Result*: The Trial Balance table and debit/credit columns immediately reflect the new voucher figures without stale caching.
+
+---
+
 ## ⚡ 5. Terminal Automated Test Commands
 
 To re-verify all tests across backend and frontend:
